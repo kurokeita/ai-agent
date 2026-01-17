@@ -1,33 +1,45 @@
 {
-	"name": "ai_agents",
-	"version": "1.0.0",
-	"description": "",
-	"type": "module",
-	"main": "bin/skills.ts",
-	"scripts": {
-		"dev": "tsx bin/skills.ts",
-		"build": "tsc",
-		"lint": "pnpm run lint:ts && pnpm run lint:md",
-		"lint:ts": "biome check .",
-		"lint:md": "markdownlint '**/*.md' --ignore node_modules",
-		"format": "biome check --write ."
-	},
-	"keywords": [],
-	"author": "",
-	"license": "ISC",
-	"packageManager": "pnpm@10.28.0",
-	"dependencies": {
-		"@clack/prompts": "^0.11.0",
-		"commander": "^14.0.2",
-		"fs-extra": "^11.3.3",
-		"picocolors": "^1.1.1"
-	},
-	"devDependencies": {
-		"@biomejs/biome": "^2.3.11",
-		"@types/fs-extra": "^11.0.4",
-		"@types/node": "^25.0.9",
-		"markdownlint-cli": "^0.47.0",
-		"tsx": "^4.21.0",
-		"typescript": "^5.9.3"
-	}
+  "name": "@kurokeita/add-skill",
+  "version": "0.0.1",
+  "description": "CLI to install AI agent skills to various platforms",
+  "type": "module",
+  "bin": {
+    "add-skill": "./dist/bin/skills.js"
+  },
+  "main": "dist/bin/skills.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx bin/skills.ts",
+    "build": "tsc && tsx scripts/copy-assets.ts",
+    "prepublishOnly": "pnpm run build",
+    "lint": "pnpm run lint:ts && pnpm run lint:md",
+    "lint:ts": "biome check .",
+    "lint:md": "markdownlint '**/*.md' --ignore node_modules",
+    "format": "biome check --write ."
+  },
+  "keywords": [
+    "ai",
+    "skills",
+    "agent",
+    "cli"
+  ],
+  "author": "Kuro Keita",
+  "license": "MIT",
+  "packageManager": "pnpm@10.28.0",
+  "dependencies": {
+    "@clack/prompts": "^0.11.0",
+    "commander": "^14.0.2",
+    "fs-extra": "^11.3.3",
+    "picocolors": "^1.1.1"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.3.11",
+    "@types/fs-extra": "^11.0.4",
+    "@types/node": "^25.0.9",
+    "markdownlint-cli": "^0.47.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
 }
