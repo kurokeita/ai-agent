@@ -30,7 +30,7 @@ const PLATFORM_PATHS: Record<Platform, string> = {
 	gemini: path.join(os.homedir(), ".gemini/skills"),
 };
 
-const PLATFORM_OPTIONS = [
+export const PLATFORM_OPTIONS = [
 	{
 		label: "Antigravity",
 		value: "antigravity",
