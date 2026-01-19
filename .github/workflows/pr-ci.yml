@@ -80,8 +80,6 @@ jobs:
           git config --global user.email "${{ github.actor }}@users.noreply.github.com"
 
       - name: Publish to NPM
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           echo "Publishing version: ${{ steps.version.outputs.version }}"
           pnpm publish --no-git-checks --tag pr-${{ github.event.number }}

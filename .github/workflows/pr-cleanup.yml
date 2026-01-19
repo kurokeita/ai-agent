@@ -22,7 +22,6 @@ jobs:
       - name: Cleanup Tags and Versions
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
           # Use same sanitization logic as version script
