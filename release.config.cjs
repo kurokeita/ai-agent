@@ -5,18 +5,8 @@ module.exports = {
 	branches: ["main"],
 	repositoryUrl: "https://github.com/kurokeita/ai-agent.git",
 	plugins: [
-		[
-			"@semantic-release/commit-analyzer",
-			{
-				preset: "conventionalcommits",
-			},
-		],
-		[
-			"@semantic-release/release-notes-generator",
-			{
-				preset: "conventionalcommits",
-			},
-		],
+		"@semantic-release/commit-analyzer",
+		"@semantic-release/release-notes-generator",
 		"@semantic-release/github",
 		"@semantic-release/npm",
 		[
