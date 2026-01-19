@@ -55,8 +55,22 @@ jobs:
             # Extract version from tag (remove 'v' prefix)
             VERSION=${TAG#v}
             
-            # Unpublish from NPM
-            # Note: This might fail if the version is too old or if unpublish is restricted
-            echo "Attempting to unpublish $VERSION from NPM..."
-            npm unpublish "@kurokeita/add-skill@$VERSION" --force || echo "Failed to unpublish $VERSION (might adhere to 72h policy)"
+            # Delete from GitHub Packages
+            echo "Attempting to delete version $VERSION from GitHub Packages..."
+            
+            # Find version ID
+            # Assumes package name "add-skill" (from package.json @kurokeita/add-skill)
+            # Adjust package name if needed based on repository settings, usually matches repo or package.json name without scope for user endpoint? 
+            # Actually, for user packages: GET /user/packages/npm/{package_name}/versions
+            # Package name in GH Packages is usually the name part: "add-skill"
+            
+            VERSION_ID=$(gh api "/user/packages/npm/add-skill/versions" --jq ".[] | select(.name == \"$VERSION\") | .id")
+            
+            if [ -n "$VERSION_ID" ]; then
+              echo "Found version ID: $VERSION_ID. Deleting..."
+              gh api --method DELETE "/user/packages/npm/add-skill/versions/$VERSION_ID"
+              echo "Deleted package version $VERSION"
+            else
+              echo "Package version $VERSION not found in GitHub Packages (or could not be retrieved)."
+            fi
           done
