@@ -17,7 +17,8 @@
     "lint": "pnpm run lint:ts && pnpm run lint:md",
     "lint:ts": "biome check .",
     "lint:md": "markdownlint '**/*.md' --ignore node_modules",
-    "format": "biome check --write ."
+    "format": "biome check --write .",
+    "release": "semantic-release"
   },
   "keywords": [
     "ai",
@@ -39,7 +40,11 @@
     "@types/fs-extra": "^11.0.4",
     "@types/node": "^25.0.9",
     "markdownlint-cli": "^0.47.0",
+    "semantic-release": "^25.0.2",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }
