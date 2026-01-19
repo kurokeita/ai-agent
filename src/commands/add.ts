@@ -3,6 +3,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
 	cancel,
+	confirm,
 	intro,
 	isCancel,
 	multiselect,
@@ -29,24 +30,25 @@ const PLATFORM_PATHS: Record<Platform, string> = {
 };
 
 const PLATFORM_OPTIONS = [
-	{ label: "GitHub Copilot", value: "copilot", hint: "~/.copilot/skills" },
-	{
-		label: "Windsurf",
-		value: "windsurf",
-		hint: "~/.codeium/windsurf/skills",
-	},
 	{
 		label: "Antigravity",
 		value: "antigravity",
 		hint: "~/.gemini/antigravity/global_skills",
 	},
 	{ label: "Gemini CLI", value: "gemini", hint: "~/.gemini/skills" },
+	{ label: "GitHub Copilot", value: "copilot", hint: "~/.copilot/skills" },
+	{
+		label: "Windsurf",
+		value: "windsurf",
+		hint: "~/.codeium/windsurf/skills",
+	},
 ];
 
 async function installSkill(
 	skillName: string,
 	platform: Platform,
-): Promise<void> {
+	overwrite: boolean,
+): Promise<boolean> {
 	const sourcePath = path.join(SKILLS_DIR, skillName);
 	const targetBaseDir = PLATFORM_PATHS[platform];
 	const targetPath = path.join(targetBaseDir, skillName);
@@ -55,8 +57,13 @@ async function installSkill(
 		throw new Error(`Skill '${skillName}' not found`);
 	}
 
+	if (!overwrite && (await fs.pathExists(targetPath))) {
+		return false;
+	}
+
 	await fs.ensureDir(targetBaseDir);
-	await fs.copy(sourcePath, targetPath, { overwrite: true });
+	await fs.copy(sourcePath, targetPath, { overwrite });
+	return true;
 }
 
 export async function addSkill() {
@@ -108,24 +115,70 @@ export async function addSkill() {
 		const selectedPlatforms = platforms as Platform[];
 		const selectedSkills = skills as string[];
 
-		// 4. Confirmation Note
+		// 4. Check for existing skills
+		const existingSkills: { skill: string; platform: Platform }[] = [];
+		for (const platform of selectedPlatforms) {
+			for (const skill of selectedSkills) {
+				const targetPath = path.join(PLATFORM_PATHS[platform], skill);
+				if (await fs.pathExists(targetPath)) {
+					existingSkills.push({ skill, platform });
+				}
+			}
+		}
+
+		let overwrite = true;
+		if (existingSkills.length > 0) {
+			const limit = 5;
+			const displayList = existingSkills
+				.slice(0, limit)
+				.map((e) => `${pc.bold(e.skill)} (${e.platform})`)
+				.join(", ");
+			const remainder = existingSkills.length - limit;
+			const message =
+				remainder > 0
+					? `The following skills already exist: ${displayList}, and ${remainder} others.`
+					: `The following skills already exist: ${displayList}.`;
+
+			note(message, "Attention");
+
+			const shouldOverwrite = await confirm({
+				message: "Do you want to overwrite existing skills?",
+				initialValue: false,
+			});
+
+			if (isCancel(shouldOverwrite)) {
+				cancel("Operation cancelled.");
+				process.exit(0);
+			}
+
+			overwrite = shouldOverwrite as boolean;
+		}
+
+		// 5. Confirmation Note
 		note(
 			`Installing ${selectedSkills.length} skills to ${selectedPlatforms.length} platforms...`,
 			"Summary",
 		);
 
-		// 5. Installation Loop with Spinner
+		// 6. Installation Loop with Spinner
 		const s = spinner();
 		s.start("Installing skills...");
 
 		const errors: string[] = [];
+		let installedCount = 0;
+		let skippedCount = 0;
 
 		for (const platform of selectedPlatforms) {
 			for (const skill of selectedSkills) {
 				const message = `Installing ${pc.bold(skill)} to ${pc.cyan(platform)}...`;
 				s.message(message);
 				try {
-					await installSkill(skill, platform);
+					const installed = await installSkill(skill, platform, overwrite);
+					if (installed) {
+						installedCount++;
+					} else {
+						skippedCount++;
+					}
 				} catch (err: unknown) {
 					const errorMessage = err instanceof Error ? err.message : String(err);
 					errors.push(`${skill} -> ${platform}: ${errorMessage}`);
@@ -134,13 +187,21 @@ export async function addSkill() {
 		}
 
 		if (errors.length > 0) {
-			s.stop(pc.yellow("Completed with errors."));
+			s.stop(
+				pc.yellow(
+					`Completed with errors. Installed: ${installedCount}, Skipped: ${skippedCount}, Errors: ${errors.length}`,
+				),
+			);
 			console.error(pc.red("\nErrors encountered:"));
 			for (const e of errors) {
 				console.error(pc.red(`- ${e}`));
 			}
 		} else {
-			s.stop(pc.green("All installations completed successfully!"));
+			s.stop(
+				pc.green(
+					`Successfully installed ${installedCount} skills. (${skippedCount} skipped)`,
+				),
+			);
 		}
 
 		outro("You're all set!");
