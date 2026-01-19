@@ -1,0 +1,32 @@
+/**
+ * @type {import('semantic-release').GlobalConfig}
+ */
+module.exports = {
+	branches: ["main"],
+	repositoryUrl: "https://github.com/kurokeita/ai-agent.git",
+	plugins: [
+		[
+			"@semantic-release/commit-analyzer",
+			{
+				preset: "conventionalcommits",
+			},
+		],
+		[
+			"@semantic-release/release-notes-generator",
+			{
+				preset: "conventionalcommits",
+			},
+		],
+		"@semantic-release/github",
+		"@semantic-release/npm",
+		[
+			"@semantic-release/git",
+			{
+				assets: ["package.json"],
+				message:
+					// biome-ignore lint/suspicious/noTemplateCurlyInString: this is intended for semantic-release to bump the package.json version with a proper commit message
+					"chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}",
+			},
+		],
+	],
+};
