@@ -31,8 +31,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Lint checking
+        run: pnpm lint
+
       - name: Build
-        run: pnpm run build
+        run: pnpm build
 
       - name: Audit Signature
         run: pnpm audit signature

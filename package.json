@@ -18,7 +18,8 @@
     "lint:ts": "biome check .",
     "lint:md": "markdownlint '**/*.md' --ignore node_modules",
     "format": "biome check --write .",
-    "release": "semantic-release"
+    "release": "semantic-release",
+    "calculate-pr-version": "tsx scripts/calculate-pr-version.ts"
   },
   "keywords": [
     "ai",
