@@ -1,0 +1,31 @@
+{
+	"prettier.enable": false,
+	"editor.formatOnSave": true,
+	"javascript.format.semicolons": "remove",
+	"typescript.format.semicolons": "remove",
+	"files.eol": "\n",
+	"files.insertFinalNewline": true,
+	"editor.codeActionsOnSave": {
+		"source.action.useSortedAttributes.biome": "explicit",
+		"source.organizeImports.biome": "explicit",
+		"source.fixAll.biome": "explicit"
+	},
+	"[javascript]": {
+		"editor.formatOnSave": true,
+		"editor.tabSize": 2,
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[typescript]": {
+		"editor.formatOnSave": true,
+		"editor.tabSize": 2,
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"[json]": {
+		"editor.formatOnSave": true,
+		"editor.tabSize": 2,
+		"editor.defaultFormatter": "biomejs.biome"
+	},
+	"files.exclude": {
+		"**/.git": true
+	}
+}

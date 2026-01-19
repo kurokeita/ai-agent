@@ -1,15 +1,17 @@
-name: Publish
+name: PR CI
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened]
     branches: [main]
 
+permissions:
+  contents: write
+  pull-requests: read
+
 jobs:
-  publish:
+  lint-and-build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -22,15 +24,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: "https://registry.npmjs.org"
+          node-version: 24.11.1
           cache: "pnpm"
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Build
-        run: pnpm run build
+      - name: Lint
+        run: pnpm lint
 
-      - name: Publish to npm
-        run: pnpm publish --access public --no-git-checks
+      - name: Build
+        run: pnpm build

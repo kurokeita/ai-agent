@@ -11,22 +11,22 @@ const DIST_DIR = path.join(PROJECT_ROOT, "dist");
 const DIST_SKILLS_DIR = path.join(DIST_DIR, "skills");
 
 async function copyAssets() {
-  try {
-    console.log(pc.blue("Copying assets..."));
+	try {
+		console.log(pc.blue("Copying assets..."));
 
-    if (!(await fs.pathExists(SKILLS_DIR))) {
-      console.error(pc.red("Skills directory not found!"));
-      process.exit(1);
-    }
+		if (!(await fs.pathExists(SKILLS_DIR))) {
+			console.error(pc.red("Skills directory not found!"));
+			process.exit(1);
+		}
 
-    await fs.ensureDir(DIST_DIR);
-    await fs.copy(SKILLS_DIR, DIST_SKILLS_DIR, { overwrite: true });
+		await fs.ensureDir(DIST_DIR);
+		await fs.copy(SKILLS_DIR, DIST_SKILLS_DIR, { overwrite: true });
 
-    console.log(pc.green("✓ Assets copied to dist/skills"));
-  } catch (error) {
-    console.error(pc.red("Error copying assets:"), error);
-    process.exit(1);
-  }
+		console.log(pc.green("✓ Assets copied to dist/skills"));
+	} catch (error) {
+		console.error(pc.red("Error copying assets:"), error);
+		process.exit(1);
+	}
 }
 
 copyAssets();
