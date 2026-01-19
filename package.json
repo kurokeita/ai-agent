@@ -12,6 +12,7 @@
 	],
 	"scripts": {
 		"dev": "tsx bin/skills.ts",
+		"update:readme": "tsx scripts/update-readme.ts",
 		"build": "tsc && tsx scripts/copy-assets.ts",
 		"prepublishOnly": "pnpm run build",
 		"lint": "pnpm run lint:ts && pnpm run lint:md",

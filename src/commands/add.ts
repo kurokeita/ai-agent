@@ -13,6 +13,7 @@ import {
 } from "@clack/prompts";
 import fs from "fs-extra";
 import pc from "picocolors";
+import { fetchSkillFromGitHub } from "../utils/github.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,7 +30,7 @@ const PLATFORM_PATHS: Record<Platform, string> = {
 	gemini: path.join(os.homedir(), ".gemini/skills"),
 };
 
-const PLATFORM_OPTIONS = [
+export const PLATFORM_OPTIONS = [
 	{
 		label: "Antigravity",
 		value: "antigravity",
@@ -48,13 +49,13 @@ async function installSkill(
 	skillName: string,
 	platform: Platform,
 	overwrite: boolean,
+	sourcePath: string = path.join(SKILLS_DIR, skillName),
 ): Promise<boolean> {
-	const sourcePath = path.join(SKILLS_DIR, skillName);
 	const targetBaseDir = PLATFORM_PATHS[platform];
 	const targetPath = path.join(targetBaseDir, skillName);
 
 	if (!(await fs.pathExists(sourcePath))) {
-		throw new Error(`Skill '${skillName}' not found`);
+		throw new Error(`Skill '${skillName}' not found at ${sourcePath}`);
 	}
 
 	if (!overwrite && (await fs.pathExists(targetPath))) {
@@ -66,26 +67,57 @@ async function installSkill(
 	return true;
 }
 
-export async function addSkill() {
+export async function addSkill(url?: string) {
 	console.clear();
 	intro(pc.bgCyan(pc.black(" AI Skills Manager ")));
 
+	let tempDir: string | null = null;
+	let selectedSkills: string[] = [];
+
 	try {
-		// 1. Check Skills Directory
-		if (!(await fs.pathExists(SKILLS_DIR))) {
-			cancel(pc.red("Skills directory not found!"));
-			process.exit(1);
-		}
+		// 1. Determine Source (Local vs GitHub)
+		if (url) {
+			const s = spinner();
+			s.start("Fetching skill from GitHub...");
+			try {
+				const result = await fetchSkillFromGitHub(url);
+				tempDir = result.tempDir;
+				selectedSkills = [result.skillName];
+				s.stop(pc.green(`Fetched skill: ${result.skillName}`));
+			} catch (e) {
+				s.stop(pc.red("Failed to fetch skill"));
+				throw e;
+			}
+		} else {
+			// Local Selection Logic
+			if (!(await fs.pathExists(SKILLS_DIR))) {
+				cancel(pc.red("Skills directory not found!"));
+				process.exit(1);
+			}
 
-		const entries = await fs.readdir(SKILLS_DIR, { withFileTypes: true });
-		const availableSkills = entries
-			.filter((entry) => entry.isDirectory())
-			.map((entry) => ({ label: entry.name, value: entry.name }))
-			.sort((a, b) => a.label.localeCompare(b.label));
+			const entries = await fs.readdir(SKILLS_DIR, { withFileTypes: true });
+			const availableSkills = entries
+				.filter((entry) => entry.isDirectory())
+				.map((entry) => ({ label: entry.name, value: entry.name }))
+				.sort((a, b) => a.label.localeCompare(b.label));
 
-		if (availableSkills.length === 0) {
-			cancel("No skills found in the skills directory.");
-			process.exit(0);
+			if (availableSkills.length === 0) {
+				cancel("No skills found in the skills directory.");
+				process.exit(0);
+			}
+
+			// Select Skills
+			const skills = await multiselect({
+				message: "Select skills to install:",
+				options: availableSkills,
+				required: true,
+			});
+
+			if (isCancel(skills)) {
+				cancel("Operation cancelled.");
+				process.exit(0);
+			}
+			selectedSkills = skills as string[];
 		}
 
 		// 2. Select Platforms
@@ -96,26 +128,15 @@ export async function addSkill() {
 		});
 
 		if (isCancel(platforms)) {
-			cancel("Operation cancelled.");
-			process.exit(0);
-		}
-
-		// 3. Select Skills
-		const skills = await multiselect({
-			message: "Select skills to install:",
-			options: availableSkills,
-			required: true,
-		});
-
-		if (isCancel(skills)) {
+			console.log("Cleaning up...");
+			if (tempDir) await fs.remove(tempDir);
 			cancel("Operation cancelled.");
 			process.exit(0);
 		}
 
 		const selectedPlatforms = platforms as Platform[];
-		const selectedSkills = skills as string[];
 
-		// 4. Check for existing skills
+		// 3. Check for existing skills
 		const existingSkills: { skill: string; platform: Platform }[] = [];
 		for (const platform of selectedPlatforms) {
 			for (const skill of selectedSkills) {
@@ -147,6 +168,7 @@ export async function addSkill() {
 			});
 
 			if (isCancel(shouldOverwrite)) {
+				if (tempDir) await fs.remove(tempDir);
 				cancel("Operation cancelled.");
 				process.exit(0);
 			}
@@ -154,13 +176,13 @@ export async function addSkill() {
 			overwrite = shouldOverwrite as boolean;
 		}
 
-		// 5. Confirmation Note
+		// 4. Confirmation Note
 		note(
 			`Installing ${selectedSkills.length} skills to ${selectedPlatforms.length} platforms...`,
 			"Summary",
 		);
 
-		// 6. Installation Loop with Spinner
+		// 5. Installation Loop with Spinner
 		const s = spinner();
 		s.start("Installing skills...");
 
@@ -173,7 +195,21 @@ export async function addSkill() {
 				const message = `Installing ${pc.bold(skill)} to ${pc.cyan(platform)}...`;
 				s.message(message);
 				try {
-					const installed = await installSkill(skill, platform, overwrite);
+					// Use specific source path for each skill
+					// If tempDir is set, it means we have a single skill fetched from GitHub
+					// The sourceDir was set to the parent of tempDir, so joining sourceDir + skillName works
+					// However, for local skills, sourceDir is SKILLS_DIR
+					const currentSourcePath =
+						url && tempDir
+							? tempDir // Special handling for single downloaded skill
+							: path.join(SKILLS_DIR, skill);
+
+					const installed = await installSkill(
+						skill,
+						platform,
+						overwrite,
+						currentSourcePath,
+					);
 					if (installed) {
 						installedCount++;
 					} else {
@@ -184,6 +220,11 @@ export async function addSkill() {
 					errors.push(`${skill} -> ${platform}: ${errorMessage}`);
 				}
 			}
+		}
+
+		// Cleanup
+		if (tempDir) {
+			await fs.remove(tempDir);
 		}
 
 		if (errors.length > 0) {
@@ -206,6 +247,7 @@ export async function addSkill() {
 
 		outro("You're all set!");
 	} catch (error) {
+		if (tempDir) await fs.remove(tempDir);
 		cancel(`An error occurred: ${error}`);
 		process.exit(1);
 	}
