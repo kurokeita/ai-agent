@@ -67,7 +67,8 @@ jobs:
         env:
           BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          VERSION=$(pnpm calculate-pr-version)
+          # Use --silent to suppress pnpm headers, but also tail -n 1 to be safe
+          VERSION=$(pnpm run --silent calculate-pr-version | tail -n 1)
           echo "Calculated version: $VERSION"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
