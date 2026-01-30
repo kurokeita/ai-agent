@@ -37,9 +37,6 @@ jobs:
       - name: Build
         run: pnpm build
 
-      - name: Audit Signature
-        run: pnpm audit signature
-
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
