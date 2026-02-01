@@ -4,14 +4,14 @@
 	"description": "CLI to install AI agent skills to various platforms",
 	"type": "module",
 	"bin": {
-		"add-skill": "./dist/bin/skills.js"
+		"ai-agent": "./dist/bin/cli.js"
 	},
-	"main": "dist/bin/skills.js",
+	"main": "dist/bin/cli.js",
 	"files": [
 		"dist"
 	],
 	"scripts": {
-		"dev": "tsx bin/skills.ts",
+		"dev": "tsx bin/cli.ts",
 		"update:readme": "tsx scripts/update-readme.ts",
 		"build": "tsc && tsx scripts/copy-assets.ts",
 		"prepublishOnly": "pnpm run build",

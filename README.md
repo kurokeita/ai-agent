@@ -1,11 +1,14 @@
-# @kurokeita/add-skill
+# @kurokeita/add-skill (AI Manager)
 
-CLI to install AI agent skills to various platforms.
+CLI to manage and install AI agent skills, agents, and workflows to various platforms.
 
 ## Features
 
-- **List Skills**: View a list of available AI skills.
-- **Add Skills**: Interactively add skills to your supported platforms.
+- **List Items**: View a list of available AI skills, agents, and workflows.
+- **Local status**: Check which items are installed locally.
+- **Add Items**: Interactively add skills, agents, and workflows to your supported platforms.
+- **Remove Items**: Remove locally installed items from specific platforms.
+- **Import**: Import items directly from GitHub URLs.
 
 ## Usage
 
@@ -13,47 +16,80 @@ CLI to install AI agent skills to various platforms.
 pnpx @kurokeita/add-skill --help
 ```
 
-### List Available Skills
+### List Items
+
+List available items in the repository:
 
 ```bash
+# List skills (default)
 pnpx @kurokeita/add-skill list
+
+# List agents
+pnpx @kurokeita/add-skill list agent
+
+# List workflows
+pnpx @kurokeita/add-skill list workflow
 ```
 
-### Add Skills
-
-Starts an interactive session to select and install skills.
+List locally installed items:
 
 ```bash
-pnpx @kurokeita/add-skill add
+pnpx @kurokeita/add-skill list --local
+pnpx @kurokeita/add-skill list agent --local
 ```
 
-### Add Skill from GitHub
+### Add Items
 
-Install a skill directly from a GitHub URL.
+Starts an interactive session to select and install items.
+
+```bash
+# Add skills
+pnpx @kurokeita/add-skill add
+
+# Add agents
+pnpx @kurokeita/add-skill add agent
+
+# Add workflows
+pnpx @kurokeita/add-skill add workflow
+```
+
+### Remove Items
+
+Interactively select items and platforms to remove them from.
+
+```bash
+# Remove skills
+pnpx @kurokeita/add-skill remove skill
+
+# Remove agents
+pnpx @kurokeita/add-skill remove agent
+```
+
+### Add Item from GitHub
+
+Install an item directly from a GitHub URL.
 
 ```bash
 pnpx @kurokeita/add-skill add https://github.com/owner/repo/tree/main/skills/skill-name
 ```
 
-### Add new Skill to this repository (For Maintainers)
+### Import to Repository (For Maintainers)
 
-- Either use the import tool to import a skill from GitHub into the repository's `skills` directory or adding a skill yourself in the `skills` directory.
+Import a skill, agent, or workflow from GitHub into this repository.
 
 ```bash
 pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 ```
 
-- Create a PR to merge the skill into the repository.
-
-## Supported Agents
+## Supported Platforms
 
 <!-- SUPPORTED_AGENTS_START -->
-| Agent | Global Path |
-| :--- | :--- |
-| Antigravity | `~/.gemini/antigravity/global_skills` |
-| Gemini CLI | `~/.gemini/skills` |
-| GitHub Copilot | `~/.copilot/skills` |
-| Windsurf | `~/.codeium/windsurf/skills` |
+| Platform | Agents Path | Skills Path | Workflows Path |
+| :--- | :--- | :--- | :--- |
+| Antigravity | `~/.gemini/antigravity/global_agents` | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/workflows` |
+| Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/workflows` |
+| GitHub Copilot | `~/.copilot/agents` | `~/.copilot/skills` | `~/.copilot/prompts` |
+| Windsurf | `~/.codeium/windsurf/agents` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/workflows` |
 <!-- SUPPORTED_AGENTS_END -->
 
 ## Development
