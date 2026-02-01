@@ -9,6 +9,13 @@ export const PROJECT_ROOT = path.resolve(__dirname, "../..");
 
 export type Platform = "copilot" | "windsurf" | "antigravity" | "gemini";
 
+export const PLATFORM_LABELS: Record<Platform, string> = {
+	antigravity: "Antigravity",
+	gemini: "Gemini CLI",
+	copilot: "GitHub Copilot",
+	windsurf: "Windsurf",
+};
+
 export const PLATFORM_PATHS_SKILLS: Record<Platform, string> = {
 	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_skills"),
 	copilot: path.join(os.homedir(), ".copilot/skills"),

@@ -15,14 +15,12 @@ import fs from "fs-extra";
 import pc from "picocolors";
 import { fetchSkillFromGitHub } from "../utils/github.js";
 
-import { getTargetPaths, type Platform, TYPE_DIRS } from "../utils/paths.js";
-
-const PLATFORM_LABELS: Record<Platform, string> = {
-	antigravity: "Antigravity",
-	gemini: "Gemini CLI",
-	copilot: "GitHub Copilot",
-	windsurf: "Windsurf",
-};
+import {
+	getTargetPaths,
+	PLATFORM_LABELS,
+	type Platform,
+	TYPE_DIRS,
+} from "../utils/paths.js";
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type);

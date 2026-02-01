@@ -10,15 +10,11 @@ import {
 } from "@clack/prompts";
 import fs from "fs-extra";
 import pc from "picocolors";
-import { getTargetPaths, type Platform } from "../utils/paths.js";
-
-// Helper to get platform label
-const PLATFORM_LABELS: Record<Platform, string> = {
-	antigravity: "Antigravity",
-	gemini: "Gemini CLI",
-	copilot: "GitHub Copilot",
-	windsurf: "Windsurf",
-};
+import {
+	getTargetPaths,
+	PLATFORM_LABELS,
+	type Platform,
+} from "../utils/paths.js";
 
 export async function remove(type: string) {
 	intro(pc.bgCyan(pc.black(` AI Manager : Remove ${type} `)));

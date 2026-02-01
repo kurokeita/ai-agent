@@ -1,7 +1,14 @@
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import fs from "fs-extra";
-import { PLATFORM_OPTIONS } from "../src/commands/add.js";
+import {
+	PLATFORM_LABELS,
+	PLATFORM_PATHS_AGENTS,
+	PLATFORM_PATHS_SKILLS,
+	PLATFORM_PATHS_WORKFLOWS,
+	type Platform,
+} from "../src/utils/paths.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -9,11 +16,27 @@ const PROJECT_ROOT = path.resolve(__dirname, "..");
 const README_PATH = path.join(PROJECT_ROOT, "README.md");
 
 function generateSupportedAgentsTable() {
-	let table = `| Agent | Global Path |\n`;
-	table += `| :--- | :--- |\n`;
+	let table = `| Platform | Agents Path | Skills Path | Workflows Path |\n`;
+	table += `| :--- | :--- | :--- | :--- |\n`;
 
-	for (const option of PLATFORM_OPTIONS) {
-		table += `| ${option.label} | \`${option.hint}\` |\n`;
+	const platforms = Object.keys(PLATFORM_LABELS) as Platform[];
+
+	for (const platform of platforms) {
+		const label = PLATFORM_LABELS[platform];
+		const skillPath = PLATFORM_PATHS_SKILLS[platform]?.replace(
+			os.homedir(),
+			"~",
+		);
+		const agentPath = PLATFORM_PATHS_AGENTS[platform]?.replace(
+			os.homedir(),
+			"~",
+		);
+		const workflowPath = PLATFORM_PATHS_WORKFLOWS[platform]?.replace(
+			os.homedir(),
+			"~",
+		);
+
+		table += `| ${label} | \`${agentPath || "-"}\` | \`${skillPath || "-"}\` | \`${workflowPath || "-"}\` |\n`;
 	}
 
 	return table;
