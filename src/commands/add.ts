@@ -248,8 +248,13 @@ export async function add(type: string, url?: string) {
 						}
 					}
 
+					let targetItemName = item;
+					if (platform === "windsurf" && normalizedType === "agent") {
+						targetItemName = path.join(path.parse(item).name, "AGENTS.md");
+					}
+
 					const installed = await installItem(
-						item,
+						targetItemName,
 						overwrite,
 						currentSourcePath,
 						targetBase,

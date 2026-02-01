@@ -31,10 +31,10 @@ export const PLATFORM_PATHS_AGENTS: Partial<Record<Platform, string>> = {
 };
 
 export const PLATFORM_PATHS_WORKFLOWS: Partial<Record<Platform, string>> = {
-	antigravity: path.join(os.homedir(), ".gemini/antigravity/workflows"),
+	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_workflows"),
 	copilot: path.join(os.homedir(), ".copilot/prompts"),
 	gemini: path.join(os.homedir(), ".gemini/workflows"),
-	windsurf: path.join(os.homedir(), ".codeium/windsurf/workflows"),
+	windsurf: path.join(os.homedir(), ".codeium/windsurf/global_workflows"),
 };
 
 export const TYPE_DIRS: Record<string, string> = {
