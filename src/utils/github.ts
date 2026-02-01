@@ -22,26 +22,27 @@ export interface GitHubFile {
 export async function fetchSkillFromGitHub(url: string): Promise<{
 	tempDir: string;
 	skillName: string;
+	isFile: boolean;
 }> {
-	const regex = /github\.com\/([^/]+)\/([^/]+)\/tree\/([^/]+)\/(.+)/;
+	const regex = /github\.com\/([^/]+)\/([^/]+)\/(?:tree|blob)\/([^/]+)\/(.+)/;
 	const match = url.match(regex);
 
 	if (!match) {
 		throw new Error(
-			"Invalid GitHub URL. Format: https://github.com/owner/repo/tree/branch/path/to/skill",
+			"Invalid GitHub URL. Format: https://github.com/owner/repo/tree/branch/path/to/skill or blob/branch/path/to/file",
 		);
 	}
 
 	const [, owner, repo, ref, skillPath] = match;
 	const skillName = path.basename(skillPath);
-	// Initial API URL for the root of the skill
 	const initialApiUrl = `https://api.github.com/repos/${owner}/${repo}/contents/${skillPath}?ref=${ref}`;
 
 	const tempDir = path.join(os.tmpdir(), "ai-agents-install", skillName);
 	await fs.ensureDir(tempDir);
 	await fs.emptyDir(tempDir);
 
-	// Recursive function to download directory contents
+	let isFile = false;
+
 	async function downloadDirectory(apiUrl: string, localDir: string) {
 		const response = await fetch(apiUrl, {
 			headers: {
@@ -56,16 +57,34 @@ export async function fetchSkillFromGitHub(url: string): Promise<{
 			);
 		}
 
-		const data = (await response.json()) as GitHubFile[];
+		const data = await response.json();
+
+		// Handle single file response
+		if (!Array.isArray(data) && (data as GitHubFile).type === "file") {
+			isFile = true;
+			const item = data as GitHubFile;
+			if (item.download_url) {
+				const fileContentResponse = await fetch(item.download_url);
+				if (!fileContentResponse.ok) {
+					throw new Error(
+						`Failed to download ${item.name}: ${fileContentResponse.statusText}`,
+					);
+				}
+				const content = await fileContentResponse.text();
+				await fs.writeFile(path.join(localDir, item.name), content);
+			}
+			return;
+		}
+
 		if (!Array.isArray(data)) {
-			// If it's not an array, it might be a single file if the URL pointed to a file,
-			// but we expect a directory here per the Contents API usage for directories.
 			throw new Error(
-				"Invalid response from GitHub API. Expected directory listing.",
+				"Invalid response from GitHub API. Expected directory listing or file object.",
 			);
 		}
 
-		for (const item of data) {
+		const files = data as GitHubFile[];
+
+		for (const item of files) {
 			if (item.type === "file" && item.download_url) {
 				const fileContentResponse = await fetch(item.download_url);
 				if (!fileContentResponse.ok) {
@@ -79,7 +98,6 @@ export async function fetchSkillFromGitHub(url: string): Promise<{
 			} else if (item.type === "dir") {
 				const newLocalDir = path.join(localDir, item.name);
 				await fs.ensureDir(newLocalDir);
-				// Recursively download subdirectory using its API URL
 				await downloadDirectory(item.url, newLocalDir);
 			}
 		}
@@ -87,5 +105,5 @@ export async function fetchSkillFromGitHub(url: string): Promise<{
 
 	await downloadDirectory(initialApiUrl, tempDir);
 
-	return { tempDir, skillName };
+	return { tempDir, skillName, isFile };
 }

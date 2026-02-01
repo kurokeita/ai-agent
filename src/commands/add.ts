@@ -1,6 +1,6 @@
 import os from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
 import {
 	cancel,
 	confirm,
@@ -15,47 +15,34 @@ import fs from "fs-extra";
 import pc from "picocolors";
 import { fetchSkillFromGitHub } from "../utils/github.js";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+import { getTargetPaths, type Platform, TYPE_DIRS } from "../utils/paths.js";
 
-const PROJECT_ROOT = path.resolve(__dirname, "../..");
-const SKILLS_DIR = path.join(PROJECT_ROOT, "skills");
-
-type Platform = "copilot" | "windsurf" | "antigravity" | "gemini";
-
-const PLATFORM_PATHS: Record<Platform, string> = {
-	copilot: path.join(os.homedir(), ".copilot/skills"),
-	windsurf: path.join(os.homedir(), ".codeium/windsurf/skills"),
-	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_skills"),
-	gemini: path.join(os.homedir(), ".gemini/skills"),
+const PLATFORM_LABELS: Record<Platform, string> = {
+	antigravity: "Antigravity",
+	gemini: "Gemini CLI",
+	copilot: "GitHub Copilot",
+	windsurf: "Windsurf",
 };
 
-export const PLATFORM_OPTIONS = [
-	{
-		label: "Antigravity",
-		value: "antigravity",
-		hint: "~/.gemini/antigravity/global_skills",
-	},
-	{ label: "Gemini CLI", value: "gemini", hint: "~/.gemini/skills" },
-	{ label: "GitHub Copilot", value: "copilot", hint: "~/.copilot/skills" },
-	{
-		label: "Windsurf",
-		value: "windsurf",
-		hint: "~/.codeium/windsurf/skills",
-	},
-];
+function getPlatformOptions(type: string) {
+	const paths = getTargetPaths(type);
+	return Object.entries(paths).map(([platform, pathStr]) => ({
+		label: PLATFORM_LABELS[platform as Platform],
+		value: platform,
+		hint: pathStr.replace(os.homedir(), "~"),
+	}));
+}
 
-async function installSkill(
-	skillName: string,
-	platform: Platform,
+async function installItem(
+	itemName: string,
 	overwrite: boolean,
-	sourcePath: string = path.join(SKILLS_DIR, skillName),
+	sourcePath: string,
+	targetBaseDir: string,
 ): Promise<boolean> {
-	const targetBaseDir = PLATFORM_PATHS[platform];
-	const targetPath = path.join(targetBaseDir, skillName);
+	const targetPath = path.join(targetBaseDir, itemName);
 
 	if (!(await fs.pathExists(sourcePath))) {
-		throw new Error(`Skill '${skillName}' not found at ${sourcePath}`);
+		throw new Error(`Item '${itemName}' not found at ${sourcePath}`);
 	}
 
 	if (!overwrite && (await fs.pathExists(targetPath))) {
@@ -67,63 +54,87 @@ async function installSkill(
 	return true;
 }
 
-export async function addSkill(url?: string) {
-	console.clear();
-	intro(pc.bgCyan(pc.black(" AI Skills Manager ")));
+export async function add(type: string, url?: string) {
+	intro(pc.bgCyan(pc.black(` AI Manager : Add ${type} `)));
+
+	// Normalize type
+	const normalizedType = type.toLowerCase().endsWith("s")
+		? type.slice(0, -1)
+		: type;
+	if (!TYPE_DIRS[normalizedType]) {
+		cancel(`Unknown type: ${type}. Supported: skill, agent, workflow`);
+		process.exit(1);
+	}
 
 	let tempDir: string | null = null;
-	let selectedSkills: string[] = [];
+	let selectedItems: string[] = [];
 
 	try {
 		// 1. Determine Source (Local vs GitHub)
 		if (url) {
 			const s = spinner();
-			s.start("Fetching skill from GitHub...");
+			s.start(`Fetching ${normalizedType} from GitHub...`);
 			try {
 				const result = await fetchSkillFromGitHub(url);
 				tempDir = result.tempDir;
-				selectedSkills = [result.skillName];
-				s.stop(pc.green(`Fetched skill: ${result.skillName}`));
+				selectedItems = [result.skillName];
+				s.stop(pc.green(`Fetched ${normalizedType}: ${result.skillName}`));
 			} catch (e) {
-				s.stop(pc.red("Failed to fetch skill"));
+				s.stop(pc.red("Failed to fetch"));
 				throw e;
 			}
 		} else {
 			// Local Selection Logic
-			if (!(await fs.pathExists(SKILLS_DIR))) {
-				cancel(pc.red("Skills directory not found!"));
+			const sourceDir = TYPE_DIRS[normalizedType];
+			if (!(await fs.pathExists(sourceDir))) {
+				cancel(`${normalizedType} directory not found!`);
 				process.exit(1);
 			}
 
-			const entries = await fs.readdir(SKILLS_DIR, { withFileTypes: true });
-			const availableSkills = entries
-				.filter((entry) => entry.isDirectory())
+			const entries = await fs.readdir(sourceDir, { withFileTypes: true });
+			const availableItems = entries
+				.filter(
+					(entry) =>
+						entry.isDirectory() ||
+						((normalizedType === "workflow" || normalizedType === "agent") &&
+							entry.isFile() &&
+							entry.name.endsWith(".md")),
+				)
 				.map((entry) => ({ label: entry.name, value: entry.name }))
 				.sort((a, b) => a.label.localeCompare(b.label));
 
-			if (availableSkills.length === 0) {
-				cancel("No skills found in the skills directory.");
+			if (availableItems.length === 0) {
+				cancel(`No ${normalizedType}s found in directory.`);
 				process.exit(0);
 			}
 
-			// Select Skills
-			const skills = await multiselect({
-				message: "Select skills to install:",
-				options: availableSkills,
+			// Select Items
+			const items = await multiselect({
+				message: `Select ${normalizedType}s to install:`,
+				options: availableItems,
 				required: true,
 			});
 
-			if (isCancel(skills)) {
+			if (isCancel(items)) {
 				cancel("Operation cancelled.");
 				process.exit(0);
 			}
-			selectedSkills = skills as string[];
+			selectedItems = items as string[];
 		}
 
 		// 2. Select Platforms
+		// Filter platform options based on support for the type
+		const supportedPaths = getTargetPaths(normalizedType);
+		const currentPlatformOptions = getPlatformOptions(normalizedType);
+
+		if (currentPlatformOptions.length === 0) {
+			cancel(`No supported platforms found for type '${normalizedType}'.`);
+			process.exit(1);
+		}
+
 		const platforms = await multiselect({
 			message: "Select target platforms:",
-			options: PLATFORM_OPTIONS,
+			options: currentPlatformOptions,
 			required: true,
 		});
 
@@ -136,34 +147,37 @@ export async function addSkill(url?: string) {
 
 		const selectedPlatforms = platforms as Platform[];
 
-		// 3. Check for existing skills
-		const existingSkills: { skill: string; platform: Platform }[] = [];
+		// 3. Check for existing items
+		const existingItems: { item: string; platform: Platform }[] = [];
 		for (const platform of selectedPlatforms) {
-			for (const skill of selectedSkills) {
-				const targetPath = path.join(PLATFORM_PATHS[platform], skill);
+			const targetBase = supportedPaths[platform];
+			if (!targetBase) continue;
+
+			for (const item of selectedItems) {
+				const targetPath = path.join(targetBase, item);
 				if (await fs.pathExists(targetPath)) {
-					existingSkills.push({ skill, platform });
+					existingItems.push({ item, platform });
 				}
 			}
 		}
 
 		let overwrite = true;
-		if (existingSkills.length > 0) {
+		if (existingItems.length > 0) {
 			const limit = 5;
-			const displayList = existingSkills
+			const displayList = existingItems
 				.slice(0, limit)
-				.map((e) => `${pc.bold(e.skill)} (${e.platform})`)
+				.map((e) => `${pc.bold(e.item)} (${e.platform})`)
 				.join(", ");
-			const remainder = existingSkills.length - limit;
+			const remainder = existingItems.length - limit;
 			const message =
 				remainder > 0
-					? `The following skills already exist: ${displayList}, and ${remainder} others.`
-					: `The following skills already exist: ${displayList}.`;
+					? `The following items already exist: ${displayList}, and ${remainder} others.`
+					: `The following items already exist: ${displayList}.`;
 
 			note(message, "Attention");
 
 			const shouldOverwrite = await confirm({
-				message: "Do you want to overwrite existing skills?",
+				message: "Do you want to overwrite existing items?",
 				initialValue: false,
 			});
 
@@ -178,37 +192,69 @@ export async function addSkill(url?: string) {
 
 		// 4. Confirmation Note
 		note(
-			`Installing ${selectedSkills.length} skills to ${selectedPlatforms.length} platforms...`,
+			`Installing ${selectedItems.length} ${normalizedType}s to ${selectedPlatforms.length} platforms...`,
 			"Summary",
 		);
 
 		// 5. Installation Loop with Spinner
 		const s = spinner();
-		s.start("Installing skills...");
+		s.start("Installing...");
 
 		const errors: string[] = [];
 		let installedCount = 0;
 		let skippedCount = 0;
 
 		for (const platform of selectedPlatforms) {
-			for (const skill of selectedSkills) {
-				const message = `Installing ${pc.bold(skill)} to ${pc.cyan(platform)}...`;
-				s.message(message);
-				try {
-					// Use specific source path for each skill
-					// If tempDir is set, it means we have a single skill fetched from GitHub
-					// The sourceDir was set to the parent of tempDir, so joining sourceDir + skillName works
-					// However, for local skills, sourceDir is SKILLS_DIR
-					const currentSourcePath =
-						url && tempDir
-							? tempDir // Special handling for single downloaded skill
-							: path.join(SKILLS_DIR, skill);
+			const targetBase = supportedPaths[platform];
+			if (!targetBase) continue;
 
-					const installed = await installSkill(
-						skill,
-						platform,
+			for (const item of selectedItems) {
+				const message = `Installing ${pc.bold(item)} to ${pc.cyan(platform)}...`;
+				s.message(message);
+
+				try {
+					if (url && tempDir) {
+						// We already fetched it, check if it was a file
+						// Wait, fetchSkillFromGitHub returned isFile, but add command logic separated fetch from install loop.
+						// We need to store isFile state from fetch if using URL.
+						// However, selectedItems only stores strings.
+						// Let's assume if it is a URL, we re-verify or change logic slightly.
+						// Better: modify fetch logic above to store isFile.
+					}
+
+					// Re-implementing logic to be consistent with import.ts
+					// But wait, add command handles multiple items if LOCAL.
+					// If URL, it is single item `selectedItems = [result.skillName]`.
+
+					let currentSourcePath: string;
+
+					if (url && tempDir) {
+						// For URL fetch, we need to know if it was a file.
+						// We can check if tempDir/item exists as file.
+						const potentialFile = path.join(tempDir, item);
+						if (
+							(await fs.pathExists(potentialFile)) &&
+							(await fs.stat(potentialFile)).isFile()
+						) {
+							currentSourcePath = potentialFile;
+						} else {
+							currentSourcePath = tempDir;
+						}
+					} else {
+						// Local source
+						const src = path.join(TYPE_DIRS[normalizedType], item);
+						if ((await fs.stat(src)).isFile()) {
+							currentSourcePath = src;
+						} else {
+							currentSourcePath = src; // direct path to dir
+						}
+					}
+
+					const installed = await installItem(
+						item,
 						overwrite,
 						currentSourcePath,
+						targetBase,
 					);
 					if (installed) {
 						installedCount++;
@@ -217,7 +263,7 @@ export async function addSkill(url?: string) {
 					}
 				} catch (err: unknown) {
 					const errorMessage = err instanceof Error ? err.message : String(err);
-					errors.push(`${skill} -> ${platform}: ${errorMessage}`);
+					errors.push(`${item} -> ${platform}: ${errorMessage}`);
 				}
 			}
 		}
@@ -240,7 +286,7 @@ export async function addSkill(url?: string) {
 		} else {
 			s.stop(
 				pc.green(
-					`Successfully installed ${installedCount} skills. (${skippedCount} skipped)`,
+					`Successfully installed ${installedCount} ${normalizedType}s. (${skippedCount} skipped)`,
 				),
 			);
 		}
