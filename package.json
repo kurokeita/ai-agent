@@ -1,6 +1,6 @@
 {
 	"name": "@kurokeita/add-skill",
-	"version": "1.4.0",
+	"version": "1.5.0",
 	"description": "CLI to install AI agent skills to various platforms",
 	"type": "module",
 	"bin": {
