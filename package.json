@@ -47,11 +47,13 @@
 		"@semantic-release/git": "^10.0.1",
 		"@types/fs-extra": "^11.0.4",
 		"@types/node": "^25.0.9",
+		"@vitest/coverage-v8": "^4.0.18",
 		"esbuild": "^0.25.0",
 		"markdownlint-cli": "^0.47.0",
 		"semantic-release": "^25.0.2",
 		"tsx": "^4.21.0",
-		"typescript": "^5.9.3"
+		"typescript": "^5.9.3",
+		"vitest": "^4.0.18"
 	},
 	"publishConfig": {
 		"access": "public"

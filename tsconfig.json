@@ -10,7 +10,7 @@
 		"skipLibCheck": true,
 		"forceConsistentCasingInFileNames": true,
 		"rewriteRelativeImportExtensions": true,
-		"resolveJsonModule": true
+		"resolveJsonModule": true,
 	},
 	"include": ["src/**/*", "bin/**/*"],
 	"exclude": ["node_modules", "dist", "scripts"]

@@ -1,38 +1,38 @@
 #!/usr/bin/env node
-import { Command } from "commander";
-import { add } from "../src/commands/add";
-import { importItem } from "../src/commands/import";
-import { list } from "../src/commands/list";
-import { remove } from "../src/commands/remove";
+import { Command } from "commander"
+import { add } from "../src/commands/add"
+import { importItem } from "../src/commands/import"
+import { list } from "../src/commands/list"
+import { remove } from "../src/commands/remove"
 
-const program = new Command();
+const program = new Command()
 
 program
 	.name("ai-agent")
 	.description("CLI to manage AI agents, skills, and workflows")
-	.version("1.4.0");
+	.version("1.4.0")
 
 program
 	.command("list [type]")
 	.description("List available items (skills, agents, workflows)")
 	.option("-l, --local", "List installed items locally")
-	.action(list);
+	.action(list)
 
 program
 	.command("add <type> [url]")
 	.description(
 		"Add an item (skill, agent, workflow) to platforms (Interactive or from GitHub URL)",
 	)
-	.action(add);
+	.action(add)
 
 program
 	.command("import <type> <url>")
 	.description("Import an item from GitHub to the repo")
-	.action(importItem);
+	.action(importItem)
 
 program
 	.command("remove <type>")
 	.description("Remove locally installed items (skills, agents, workflows)")
-	.action(remove);
+	.action(remove)
 
-program.parse();
+program.parse()

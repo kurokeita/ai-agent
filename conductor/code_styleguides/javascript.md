@@ -18,7 +18,7 @@ This document summarizes key rules and best practices from the Google JavaScript
 
 - **Braces:** Required for all control structures (`if`, `for`, `while`, etc.), even single-line blocks. Use K&R style ("Egyptian brackets").
 - **Indentation:** +2 spaces for each new block.
-- **Semicolons:** Every statement must be terminated with a semicolon.
+- **Semicolons:** No semicolons (as needed).
 - **Column Limit:** 80 characters.
 - **Line-wrapping:** Indent continuation lines at least +4 spaces.
 - **Whitespace:** Use single blank lines between methods. No trailing whitespace.
