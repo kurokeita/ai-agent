@@ -13,9 +13,9 @@ This plan outlines the steps to implement a comprehensive unit testing suite usi
 
 ## Phase 2: Core Logic Testing (`src/`)
 
-- [ ] Task: Implement unit tests for `src/utils/toml.ts`
-  - [ ] Write failing tests for TOML parsing and serialization.
-  - [ ] Ensure 100% coverage for this utility.
+- [x] Task: Implement unit tests for `src/utils/toml.ts` f841736
+  - [x] Write failing tests for TOML parsing and serialization.
+  - [x] Ensure 100% coverage for this utility.
 - [ ] Task: Implement unit tests for `src/utils/paths.ts`
   - [ ] Write failing tests for path resolution and management.
   - [ ] Ensure 100% coverage for this utility.
