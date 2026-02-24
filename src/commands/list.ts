@@ -1,29 +1,29 @@
-import fs from "fs-extra";
-import pc from "picocolors";
-import { getTargetPaths, TYPE_DIRS } from "../utils/paths.js";
+import fs from "fs-extra"
+import pc from "picocolors"
+import { getTargetPaths, TYPE_DIRS } from "@/utils/paths"
 
 export async function list(type?: string, options?: { local: boolean }) {
 	try {
 		const typesToList = type
 			? [type.toLowerCase()]
-			: ["skill", "agent", "workflow"];
+			: ["skill", "agent", "workflow"]
 
 		for (const t of typesToList) {
 			// Handle plural/singular input for convenience
-			const normalizedType = t.endsWith("s") ? t.slice(0, -1) : t;
+			const normalizedType = t.endsWith("s") ? t.slice(0, -1) : t
 
 			if (options?.local) {
 				// List installed items locally
-				console.log(pc.bold(pc.blue(`Installed ${normalizedType}s (Local):`)));
-				const targetPaths = getTargetPaths(normalizedType);
-				let foundAny = false;
+				console.log(pc.bold(pc.blue(`Installed ${normalizedType}s (Local):`)))
+				const targetPaths = getTargetPaths(normalizedType)
+				let foundAny = false
 
 				for (const [platform, pathStr] of Object.entries(targetPaths)) {
-					const fullPath = pathStr as string;
+					const fullPath = pathStr as string
 					if (await fs.pathExists(fullPath)) {
 						const entries = await fs.readdir(fullPath, {
 							withFileTypes: true,
-						});
+						})
 						const items = entries
 							.filter(
 								(entry) =>
@@ -42,22 +42,22 @@ export async function list(type?: string, options?: { local: boolean }) {
 									(entry.isFile() && entry.name.endsWith(".md")),
 							)
 							.map((entry) => entry.name)
-							.sort();
+							.sort()
 
 						if (items.length > 0) {
-							foundAny = true;
-							console.log(pc.cyan(`  ${platform}:`));
+							foundAny = true
+							console.log(pc.cyan(`  ${platform}:`))
 							for (const item of items) {
-								console.log(`    - ${item}`);
+								console.log(`    - ${item}`)
 							}
 						}
 					}
 				}
 
 				if (!foundAny) {
-					console.log(pc.dim(`  No installed ${normalizedType}s found.`));
+					console.log(pc.dim(`  No installed ${normalizedType}s found.`))
 				}
-				console.log(""); // Newline for separation
+				console.log("") // Newline for separation
 			} else {
 				// List available items in repo (existing logic)
 				if (!TYPE_DIRS[normalizedType]) {
@@ -66,21 +66,21 @@ export async function list(type?: string, options?: { local: boolean }) {
 							pc.red(
 								`Unknown type: ${type}. Supported types: skill, agent, workflow`,
 							),
-						);
+						)
 					}
-					continue;
+					continue
 				}
 
-				const dirPath = TYPE_DIRS[normalizedType];
+				const dirPath = TYPE_DIRS[normalizedType]
 
 				if (!(await fs.pathExists(dirPath))) {
 					if (type) {
-						console.log(pc.yellow(`No ${t} directory found at: ${dirPath}`));
+						console.log(pc.yellow(`No ${t} directory found at: ${dirPath}`))
 					}
-					continue;
+					continue
 				}
 
-				const entries = await fs.readdir(dirPath, { withFileTypes: true });
+				const entries = await fs.readdir(dirPath, { withFileTypes: true })
 				const items = entries
 					.filter(
 						(entry) =>
@@ -90,20 +90,20 @@ export async function list(type?: string, options?: { local: boolean }) {
 								entry.name.endsWith(".md")),
 					)
 					.map((entry) => entry.name)
-					.sort();
+					.sort()
 
 				if (items.length > 0) {
-					console.log(pc.bold(pc.blue(`Available ${normalizedType}s:`)));
+					console.log(pc.bold(pc.blue(`Available ${normalizedType}s:`)))
 					for (const item of items) {
-						console.log(`- ${item}`);
+						console.log(`- ${item}`)
 					}
-					console.log(pc.dim(`Total: ${items.length} ${normalizedType}s\n`));
+					console.log(pc.dim(`Total: ${items.length} ${normalizedType}s\n`))
 				} else if (type) {
-					console.log(pc.dim(`No ${normalizedType}s found.`));
+					console.log(pc.dim(`No ${normalizedType}s found.`))
 				}
 			}
 		}
 	} catch (error) {
-		console.error(pc.red("Error listing items:"), error);
+		console.error(pc.red("Error listing items:"), error)
 	}
 }

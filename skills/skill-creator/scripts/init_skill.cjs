@@ -12,8 +12,8 @@
  *     node init_skill.cjs my-new-skill --path skills/public
  */
 
-const fs = require("node:fs");
-const path = require("node:path");
+const fs = require("node:fs")
+const path = require("node:path")
 
 const SKILL_TEMPLATE = `---
 name: {skill_name}
@@ -100,7 +100,7 @@ Files not intended to be loaded into context, but rather used within the output 
 ---
 
 **Any unneeded directories can be deleted.** Not every skill requires all three types of resources.
-`;
+`
 
 const EXAMPLE_SCRIPT = `#!/usr/bin/env node
 
@@ -135,7 +135,7 @@ async function main() {
 }
 
 main();
-`;
+`
 
 const EXAMPLE_REFERENCE = `# Reference Documentation for {skill_title}
 
@@ -154,24 +154,24 @@ Replace with actual reference content or delete if not needed.
 - Prerequisites
 - Step-by-step instructions
 - Best practices
-`;
+`
 
 function titleCase(name) {
 	return name
 		.split("-")
 		.map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-		.join(" ");
+		.join(" ")
 }
 
 async function main() {
-	const args = process.argv.slice(2);
+	const args = process.argv.slice(2)
 	if (args.length < 3 || args[1] !== "--path") {
-		console.log("Usage: node init_skill.cjs <skill-name> --path <path>");
-		process.exit(1);
+		console.log("Usage: node init_skill.cjs <skill-name> --path <path>")
+		process.exit(1)
 	}
 
-	const skillName = args[0];
-	const basePath = path.resolve(args[2]);
+	const skillName = args[0]
+	const basePath = path.resolve(args[2])
 
 	// Prevent path traversal
 	if (
@@ -179,30 +179,30 @@ async function main() {
 		skillName.includes("/") ||
 		skillName.includes("\\")
 	) {
-		console.error("❌ Error: Skill name cannot contain path separators.");
-		process.exit(1);
+		console.error("❌ Error: Skill name cannot contain path separators.")
+		process.exit(1)
 	}
 
-	const skillDir = path.join(basePath, skillName);
+	const skillDir = path.join(basePath, skillName)
 
 	// Additional check to ensure the resolved skillDir is actually inside basePath
 	if (!skillDir.startsWith(basePath)) {
-		console.error("❌ Error: Invalid skill name or path.");
-		process.exit(1);
+		console.error("❌ Error: Invalid skill name or path.")
+		process.exit(1)
 	}
 
 	if (fs.existsSync(skillDir)) {
-		console.error(`❌ Error: Skill directory already exists: ${skillDir}`);
-		process.exit(1);
+		console.error(`❌ Error: Skill directory already exists: ${skillDir}`)
+		process.exit(1)
 	}
 
-	const skillTitle = titleCase(skillName);
+	const skillTitle = titleCase(skillName)
 
 	try {
-		fs.mkdirSync(skillDir, { recursive: true });
-		fs.mkdirSync(path.join(skillDir, "scripts"));
-		fs.mkdirSync(path.join(skillDir, "references"));
-		fs.mkdirSync(path.join(skillDir, "assets"));
+		fs.mkdirSync(skillDir, { recursive: true })
+		fs.mkdirSync(path.join(skillDir, "scripts"))
+		fs.mkdirSync(path.join(skillDir, "references"))
+		fs.mkdirSync(path.join(skillDir, "assets"))
 
 		fs.writeFileSync(
 			path.join(skillDir, "SKILL.md"),
@@ -210,26 +210,26 @@ async function main() {
 				/{skill_title}/g,
 				skillTitle,
 			),
-		);
+		)
 		fs.writeFileSync(
 			path.join(skillDir, "scripts/example_script.cjs"),
 			EXAMPLE_SCRIPT.replace(/{skill_name}/g, skillName),
 			{ mode: 0o755 },
-		);
+		)
 		fs.writeFileSync(
 			path.join(skillDir, "references/example_reference.md"),
 			EXAMPLE_REFERENCE.replace(/{skill_title}/g, skillTitle),
-		);
+		)
 		fs.writeFileSync(
 			path.join(skillDir, "assets/example_asset.txt"),
 			"Placeholder for assets.",
-		);
+		)
 
-		console.log(`✅ Skill '${skillName}' initialized at ${skillDir}`);
+		console.log(`✅ Skill '${skillName}' initialized at ${skillDir}`)
 	} catch (err) {
-		console.error(`❌ Error: ${err.message}`);
-		process.exit(1);
+		console.error(`❌ Error: ${err.message}`)
+		process.exit(1)
 	}
 }
 
-main();
+main()
