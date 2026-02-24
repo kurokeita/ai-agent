@@ -9,5 +9,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: for Gemini CLI, the workflow files must be renamed from .md to .toml and it placed in .gemini/commands**
+- [x] **Track: for Gemini CLI, the workflow files must be renamed from .md to .toml and it placed in .gemini/commands**
   *Link: [./tracks/gemini_workflow_migration_20260224/](./tracks/gemini_workflow_migration_20260224/)*
