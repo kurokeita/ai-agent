@@ -34,10 +34,8 @@ describe("src/commands/import.ts", () => {
 			stop: vi.fn(),
 			message: vi.fn(),
 		});
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(false);
-		// @ts-expect-error
-		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as fs.Stats);
+		vi.mocked(fs.pathExists).mockResolvedValue(false as never);
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as never);
 
 		vi.mocked(TYPE_DIRS).skill = "/mock/skills";
 		vi.mocked(TYPE_DIRS).agent = "/mock/agents";
@@ -94,8 +92,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(true);
 
 		await importItem("skill", "url");
@@ -110,8 +107,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 
 		await importItem("skill", "url");
@@ -126,7 +122,6 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue(["file1.md"] as never);
 
 		await importItem("agent", "url");
@@ -144,7 +139,6 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue([
 			"f1",
 			"f2",
@@ -153,8 +147,7 @@ describe("src/commands/import.ts", () => {
 			"f5",
 			"f6",
 		] as never);
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(true);
 
 		await importItem("agent", "url");
@@ -173,10 +166,8 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never);
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 		vi.mocked(prompts.isCancel).mockReturnValue(false);
 
@@ -192,10 +183,8 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never);
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
 		vi.mocked(prompts.isCancel).mockReturnValue(true);
 
@@ -211,8 +200,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 		vi.mocked(prompts.isCancel).mockReturnValue(false);
 
@@ -228,8 +216,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
 		vi.mocked(prompts.isCancel).mockReturnValue(true);
 

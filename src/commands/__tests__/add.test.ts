@@ -13,6 +13,7 @@ import { fetchSkillFromGitHub } from "../../utils/github.js";
 import {
 	getTargetPaths,
 	PLATFORM_LABELS,
+	type Platform,
 	TYPE_DIRS,
 } from "../../utils/paths.js";
 import { add } from "../add.js";

@@ -22,10 +22,8 @@ describe("src/commands/list.ts", () => {
 		mockConsoleLog = vi.spyOn(console, "log").mockImplementation(() => {});
 		mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true);
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never);
+		vi.mocked(fs.readdir).mockResolvedValue([] as never);
 
 		vi.mocked(TYPE_DIRS).skill = "/mock/skills";
 		vi.mocked(TYPE_DIRS).agent = "/mock/agents";
@@ -37,30 +35,27 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should list available items for all types by default", async () => {
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "skill1",
 				isDirectory: () => true,
 				isFile: () => false,
 			} as fs.Dirent,
-		]);
-		// @ts-expect-error
+		] as never);
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "agent1",
 				isDirectory: () => true,
 				isFile: () => false,
 			} as fs.Dirent,
-		]);
-		// @ts-expect-error
+		] as never);
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "workflow1",
 				isDirectory: () => true,
 				isFile: () => false,
 			} as fs.Dirent,
-		]);
+		] as never);
 
 		await list();
 
@@ -76,14 +71,13 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should list specific type and handle plural", async () => {
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "item1",
 				isDirectory: () => true,
 				isFile: () => false,
 			} as fs.Dirent,
-		]);
+		] as never);
 		await list("skills");
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("Available skills"),
@@ -105,8 +99,7 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should handle missing directory", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(false);
+		vi.mocked(fs.pathExists).mockResolvedValue(false as never);
 		await list("skill");
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("No skill directory found"),
@@ -121,7 +114,6 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should list locally installed items", async () => {
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "installed-item",
@@ -133,7 +125,7 @@ describe("src/commands/list.ts", () => {
 				isDirectory: () => false,
 				isFile: () => true,
 			} as fs.Dirent,
-		]);
+		] as never);
 
 		await list("skill", { local: true });
 
@@ -152,8 +144,7 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should handle no installed items found", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([]);
+		vi.mocked(fs.readdir).mockResolvedValue([] as never);
 		await list("skill", { local: true });
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("No installed skills found"),
@@ -161,7 +152,6 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should skip local platforms that do not exist", async () => {
-		// @ts-expect-error
 		vi.mocked(fs.pathExists).mockImplementation((p) =>
 			Promise.resolve(p !== "/mock/install/gemini"),
 		);
@@ -172,8 +162,7 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should skip missing directories silently if no type provided", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(false);
+		vi.mocked(fs.pathExists).mockResolvedValue(false as never);
 		await list();
 		expect(mockConsoleLog).not.toHaveBeenCalledWith(
 			expect.stringContaining("directory found"),
@@ -187,8 +176,7 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should handle empty item list silently if no type provided", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([]);
+		vi.mocked(fs.readdir).mockResolvedValue([] as never);
 		await list();
 		// Should not log "No X found"
 		expect(mockConsoleLog).not.toHaveBeenCalledWith(
@@ -197,7 +185,6 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should filter items correctly for different types", async () => {
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "dir",
@@ -214,7 +201,7 @@ describe("src/commands/list.ts", () => {
 				isDirectory: () => false,
 				isFile: () => false,
 			} as fs.Dirent,
-		]);
+		] as never);
 
 		await list("skill");
 		expect(mockConsoleLog).toHaveBeenCalledWith(
@@ -235,7 +222,6 @@ describe("src/commands/list.ts", () => {
 	});
 
 	it("should handle error during listing", async () => {
-		// @ts-expect-error
 		vi.mocked(fs.readdir).mockRejectedValue(new Error("Disk failure") as never);
 		await list("skill");
 		expect(mockConsoleError).toHaveBeenCalledWith(
