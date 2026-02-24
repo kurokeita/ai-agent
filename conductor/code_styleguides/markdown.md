@@ -9,17 +9,22 @@
 ## Commands
 
 ### Linting a Markdown File
+
 To lint a specific markdown file, use the following command:
+
 ```bash
 pnpm lint:md <file_path>
 ```
 
 ### Auto-Correction
+
 If linting issues are found, you can use the following command to automatically fix them where possible:
+
 ```bash
 pnpm markdownlint <file_path> --fix
 ```
 
 ## Enforcement
+
 - This style guide is enforced as part of the implementation workflow.
 - Every task that modifies or adds a markdown file must verify its compliance using the commands above.
