@@ -9,8 +9,8 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import { fetchSkillFromGitHub } from "../utils/github"
-import { TYPE_DIRS } from "../utils/paths"
+import { fetchSkillFromGitHub } from "@/utils/github"
+import { TYPE_DIRS } from "@/utils/paths"
 
 export async function importItem(type: string, url: string) {
 	intro(pc.bgCyan(pc.black(` AI Manager : Import ${type} `)))

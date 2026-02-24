@@ -10,7 +10,7 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import { getTargetPaths, PLATFORM_LABELS, type Platform } from "../utils/paths"
+import { getTargetPaths, PLATFORM_LABELS, type Platform } from "@/utils/paths"
 
 export async function remove(type: string) {
 	intro(pc.bgCyan(pc.black(` AI Manager : Remove ${type} `)))

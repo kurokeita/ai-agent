@@ -8,7 +8,7 @@ import {
 	PLATFORM_PATHS_SKILLS,
 	PLATFORM_PATHS_WORKFLOWS,
 	type Platform,
-} from "../src/utils/paths.js"
+} from "@/utils/paths"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)

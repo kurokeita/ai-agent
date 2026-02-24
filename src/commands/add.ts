@@ -13,14 +13,14 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import { fetchSkillFromGitHub } from "../utils/github"
+import { fetchSkillFromGitHub } from "@/utils/github"
 import {
 	getTargetPaths,
 	PLATFORM_LABELS,
 	type Platform,
 	TYPE_DIRS,
-} from "../utils/paths"
-import { convertToGeminiCommandTOML } from "../utils/toml"
+} from "@/utils/paths"
+import { convertToGeminiCommandTOML } from "@/utils/toml"
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type)

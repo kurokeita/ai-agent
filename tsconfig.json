@@ -11,7 +11,11 @@
 		"forceConsistentCasingInFileNames": true,
 		"rewriteRelativeImportExtensions": true,
 		"resolveJsonModule": true,
+		"baseUrl": ".",
+		"paths": {
+			"@/*": ["src/*"]
+		}
 	},
-	"include": ["src/**/*", "bin/**/*"],
-	"exclude": ["node_modules", "dist", "scripts"]
+	"include": ["src/**/*", "bin/**/*", "scripts/**/*"],
+	"exclude": ["node_modules", "dist"]
 }
