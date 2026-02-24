@@ -12,8 +12,8 @@ describe("bin/cli.ts", () => {
 		// Mock process.argv
 		process.argv = ["node", "cli.js"];
 		vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
-        // Clear module cache to re-run the script
-        vi.resetModules();
+		// Clear module cache to re-run the script
+		vi.resetModules();
 	});
 
 	it("should call list command", async () => {
