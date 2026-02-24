@@ -14,7 +14,7 @@ import {
 	getTargetPaths,
 	PLATFORM_LABELS,
 	type Platform,
-} from "../utils/paths.js";
+} from "../utils/paths";
 
 export async function remove(type: string) {
 	intro(pc.bgCyan(pc.black(` AI Manager : Remove ${type} `)));

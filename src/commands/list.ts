@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import pc from "picocolors";
-import { getTargetPaths, TYPE_DIRS } from "../utils/paths.js";
+import { getTargetPaths, TYPE_DIRS } from "../utils/paths";
 
 export async function list(type?: string, options?: { local: boolean }) {
 	try {
