@@ -25,9 +25,9 @@ This plan outlines the steps to implement a comprehensive unit testing suite usi
 - [x] Task: Implement unit tests for `src/commands/add.ts` 21edad1
   - [x] Write failing tests for the 'add' command logic.
   - [x] Ensure 100% coverage for this command.
-- [ ] Task: Implement unit tests for other files in `src/`
-  - [ ] Identify any remaining files in `src/` and write tests for them.
-  - [ ] Ensure 100% coverage for all files in `src/`.
+- [x] Task: Implement unit tests for other files in `src/` 0eb5a61
+  - [x] Identify any remaining files in `src/` and write tests for them.
+  - [x] Ensure 100% coverage for all files in `src/`.
 - [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Testing' (Protocol in workflow.md)
 
 ## Phase 3: CLI and Script Testing (`bin/` and `scripts/`)
