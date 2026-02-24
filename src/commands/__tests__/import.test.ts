@@ -1,9 +1,16 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import fs from "fs-extra";
 import * as prompts from "@clack/prompts";
-import { importItem } from "../import.ts";
+import fs from "fs-extra";
+import {
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type MockInstance,
+	vi,
+} from "vitest";
 import { fetchSkillFromGitHub } from "../../utils/github.js";
 import { TYPE_DIRS } from "../../utils/paths.js";
+import { importItem } from "../import.ts";
 
 vi.mock("fs-extra");
 vi.mock("@clack/prompts");
@@ -11,34 +18,37 @@ vi.mock("../../utils/github.js");
 vi.mock("../../utils/paths.js");
 
 describe("src/commands/import.ts", () => {
-	let mockExit: any;
-	let mockConsoleError: any;
+	let mockExit: MockInstance;
 
 	beforeEach(() => {
 		vi.resetAllMocks();
-		mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+		mockExit = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never);
 		vi.spyOn(console, "log").mockImplementation(() => {});
-		mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+		vi.spyOn(console, "error").mockImplementation(() => {});
 
-		(prompts.isCancel as any).mockReturnValue(false);
-		(prompts.spinner as any).mockReturnValue({
+		vi.mocked(prompts.isCancel).mockReturnValue(false);
+		vi.mocked(prompts.spinner).mockReturnValue({
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
 		});
-		(fs.pathExists as any).mockResolvedValue(false);
-		(fs.stat as any).mockResolvedValue({ isFile: () => false });
+		vi.mocked(fs.pathExists).mockResolvedValue(false);
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as fs.Stats);
 
-		(TYPE_DIRS as any).skill = "/mock/skills";
-		(TYPE_DIRS as any).agent = "/mock/agents";
-		(TYPE_DIRS as any).workflow = "/mock/workflows";
+		vi.mocked(TYPE_DIRS).skill = "/mock/skills";
+		vi.mocked(TYPE_DIRS).agent = "/mock/agents";
+		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows";
 
-		(prompts.confirm as any).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(true);
 	});
 
 	it("should cancel if type is unknown", async () => {
 		await importItem("unknown", "url");
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("Unknown type"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("Unknown type"),
+		);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
@@ -49,14 +59,18 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should handle GitHub fetch failure", async () => {
-		(fetchSkillFromGitHub as any).mockRejectedValue(new Error("Fetch failed"));
+		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(
+			new Error("Fetch failed"),
+		);
 		await importItem("skill", "url");
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("Fetch failed"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("Fetch failed"),
+		);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
 	it("should import skill correctly (no conflicts)", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
@@ -64,18 +78,22 @@ describe("src/commands/import.ts", () => {
 
 		await importItem("skill", "url");
 
-		expect(fs.copy).toHaveBeenCalledWith("/tmp/item", expect.stringContaining("item"), expect.anything());
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/tmp/item",
+			expect.stringContaining("item"),
+			expect.anything(),
+		);
 		expect(prompts.outro).toHaveBeenCalled();
 	});
 
 	it("should import skill correctly (with overwrite confirmation)", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(true);
 
 		await importItem("skill", "url");
 
@@ -84,13 +102,13 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should cancel skill import if overwrite is declined", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(false);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(false);
 
 		await importItem("skill", "url");
 
@@ -99,46 +117,59 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should flatten agent/workflow import", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.readdir as any).mockResolvedValue(["file1.md"]);
+		vi.mocked(fs.readdir).mockResolvedValue(["file1.md"] as never);
 
 		await importItem("agent", "url");
 
-		expect(fs.copy).toHaveBeenCalledWith("/tmp/item", "/mock/agents", expect.anything());
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/tmp/item",
+			"/mock/agents",
+			expect.anything(),
+		);
 	});
 
 	it("should handle conflicts when flattening", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.readdir as any).mockResolvedValue(["f1", "f2", "f3", "f4", "f5", "f6"]);
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			"f1",
+			"f2",
+			"f3",
+			"f4",
+			"f5",
+			"f6",
+		] as never);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(true);
 
 		await importItem("agent", "url");
 
-		expect(prompts.confirm).toHaveBeenCalledWith(expect.objectContaining({
-			message: expect.stringContaining("and 1 others"),
-		}));
+		expect(prompts.confirm).toHaveBeenCalledWith(
+			expect.objectContaining({
+				message: expect.stringContaining("and 1 others"),
+			}),
+		);
 		expect(fs.copy).toHaveBeenCalled();
 	});
 
 	it("should cancel flatten import if user says No", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.readdir as any).mockResolvedValue(["f1"]);
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(false);
-		(prompts.isCancel as any).mockReturnValue(false);
+		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(false);
+		vi.mocked(prompts.isCancel).mockReturnValue(false);
 
 		await importItem("agent", "url");
 
@@ -147,15 +178,15 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should handle cancel during flatten overwrite confirmation", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.readdir as any).mockResolvedValue(["f1"]);
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockReturnValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockReturnValue(true);
 
 		await importItem("agent", "url");
 
@@ -164,14 +195,14 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should cancel direct import if user says No", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(false);
-		(prompts.isCancel as any).mockReturnValue(false);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(false);
+		vi.mocked(prompts.isCancel).mockReturnValue(false);
 
 		await importItem("skill", "url");
 
@@ -180,14 +211,14 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should handle cancel during direct overwrite confirmation", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.pathExists as any).mockResolvedValue(true);
-		(prompts.confirm as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockReturnValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockReturnValue(true);
 
 		await importItem("skill", "url");
 
@@ -196,7 +227,7 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should handle single file import", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item.md",
 			isFile: true,
@@ -204,40 +235,50 @@ describe("src/commands/import.ts", () => {
 
 		await importItem("workflow", "url");
 
-		expect(fs.copy).toHaveBeenCalledWith("/tmp/item/item.md", expect.stringContaining("item.md"), expect.anything());
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/tmp/item/item.md",
+			expect.stringContaining("item.md"),
+			expect.anything(),
+		);
 	});
 
 	it("should cleanup tempDir on error", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
-		(fs.ensureDir as any).mockRejectedValue(new Error("Disk error"));
+		vi.mocked(fs.ensureDir).mockRejectedValue(new Error("Disk error") as never);
 
 		await importItem("skill", "url");
 
 		expect(fs.remove).toHaveBeenCalledWith("/tmp/item");
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("Disk error"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("Disk error"),
+		);
 	});
 
 	it("should normalize plural type", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		});
 		await importItem("skills", "url");
-		expect(prompts.intro).toHaveBeenCalledWith(expect.stringContaining("Import skills"));
+		expect(prompts.intro).toHaveBeenCalledWith(
+			expect.stringContaining("Import skills"),
+		);
 	});
 
 	it("should throw error if tempDir is missing", async () => {
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "",
 			skillName: "item",
 			isFile: false,
 		});
 		await importItem("skill", "url");
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("Failed to create temp directory"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("Failed to create temp directory"),
+		);
 	});
 });

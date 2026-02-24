@@ -1,9 +1,21 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import fs from "fs-extra";
 import * as prompts from "@clack/prompts";
-import { add } from "../add.ts";
+import fs from "fs-extra";
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type MockInstance,
+	vi,
+} from "vitest";
 import { fetchSkillFromGitHub } from "../../utils/github.js";
-import { getTargetPaths, PLATFORM_LABELS, TYPE_DIRS } from "../../utils/paths.js";
+import {
+	getTargetPaths,
+	PLATFORM_LABELS,
+	TYPE_DIRS,
+} from "../../utils/paths.js";
+import { add } from "../add.ts";
 
 vi.mock("fs-extra");
 vi.mock("@clack/prompts");
@@ -11,35 +23,37 @@ vi.mock("../../utils/github.js");
 vi.mock("../../utils/paths.js");
 
 describe("src/commands/add.ts", () => {
-	let mockExit: any;
-	let mockConsoleError: any;
+	let mockExit: MockInstance;
+	let mockConsoleError: MockInstance;
 
 	beforeEach(() => {
 		vi.resetAllMocks();
-		mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+		mockExit = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never);
 		vi.spyOn(console, "log").mockImplementation(() => {});
 		mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-        (prompts.isCancel as any).mockReturnValue(false);
-        (prompts.spinner as any).mockReturnValue({
-            start: vi.fn(),
-            stop: vi.fn(),
-            message: vi.fn(),
-        });
-        (fs.pathExists as any).mockResolvedValue(true);
-        (fs.stat as any).mockResolvedValue({ isFile: () => false });
+		vi.mocked(prompts.isCancel).mockReturnValue(false);
+		vi.mocked(prompts.spinner).mockReturnValue({
+			start: vi.fn(),
+			stop: vi.fn(),
+			message: vi.fn(),
+		});
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as fs.Stats);
 
-        (getTargetPaths as any).mockReturnValue({
-            gemini: "/mock/gemini/path",
-            copilot: "/mock/copilot/path"
-        });
-        (PLATFORM_LABELS as any).gemini = "Gemini CLI";
-        (PLATFORM_LABELS as any).copilot = "GitHub Copilot";
-        (TYPE_DIRS as any).skill = "/mock/skills";
-        (TYPE_DIRS as any).agent = "/mock/agents";
-        (TYPE_DIRS as any).workflow = "/mock/workflows";
+		vi.mocked(getTargetPaths).mockReturnValue({
+			gemini: "/mock/gemini/path",
+			copilot: "/mock/copilot/path",
+		});
+		vi.mocked(PLATFORM_LABELS).gemini = "Gemini CLI";
+		vi.mocked(PLATFORM_LABELS).copilot = "GitHub Copilot";
+		vi.mocked(TYPE_DIRS).skill = "/mock/skills";
+		vi.mocked(TYPE_DIRS).agent = "/mock/agents";
+		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows";
 
-        (prompts.confirm as any).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(true);
 	});
 
 	afterEach(() => {
@@ -48,16 +62,22 @@ describe("src/commands/add.ts", () => {
 
 	it("should cancel if type is unknown", async () => {
 		await add("unknown");
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("Unknown type"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("Unknown type"),
+		);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
 	it("should handle local selection and installation", async () => {
-		(fs.readdir as any).mockResolvedValue([
-			{ name: "test-skill", isDirectory: () => true, isFile: () => false },
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "test-skill",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
 		]);
 
-		(prompts.multiselect as any)
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["test-skill"]) // Select item
 			.mockResolvedValueOnce(["gemini", "unsupported"]); // Select platforms
 
@@ -70,13 +90,13 @@ describe("src/commands/add.ts", () => {
 
 	it("should handle GitHub fetch and installation", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill";
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
 			skillName: "skill",
 			isFile: false,
 		});
 
-		(prompts.multiselect as any).mockResolvedValue(["gemini"]);
+		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"]);
 
 		await add("skill", mockUrl);
 
@@ -86,63 +106,91 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle existing items and prompt for overwrite", async () => {
-		(fs.readdir as any).mockResolvedValue([
-			{ name: "test-skill", isDirectory: () => true, isFile: () => false },
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "test-skill",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
 		]);
 
-		(prompts.multiselect as any)
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["test-skill"])
 			.mockResolvedValueOnce(["gemini"]);
-		
-		(prompts.confirm as any).mockResolvedValue(true); // Overwrite = true
+
+		vi.mocked(prompts.confirm).mockResolvedValue(true); // Overwrite = true
 
 		await add("skill");
 
-		expect(prompts.note).toHaveBeenCalledWith(expect.stringContaining("already exist"), "Attention");
-		expect(fs.copy).toHaveBeenCalledWith(expect.anything(), expect.anything(), expect.objectContaining({ overwrite: true }));
+		expect(prompts.note).toHaveBeenCalledWith(
+			expect.stringContaining("already exist"),
+			"Attention",
+		);
+		expect(fs.copy).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.anything(),
+			expect.objectContaining({ overwrite: true }),
+		);
 	});
 
 	it("should handle cancel during multiselect", async () => {
-		(fs.readdir as any).mockResolvedValue([
-			{ name: "item", isDirectory: () => true, isFile: () => false },
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
 		]);
 
-		(prompts.multiselect as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockReturnValue(true);
+		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockReturnValue(true);
 
 		await add("skill");
 
 		expect(prompts.cancel).toHaveBeenCalledWith("Operation cancelled.");
 	});
 
-    it("should handle Gemini workflow conversion", async () => {
-		(fs.readdir as any).mockResolvedValue([
-			{ name: "workflow.md", isDirectory: () => false, isFile: () => true },
+	it("should handle Gemini workflow conversion", async () => {
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "workflow.md",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
 		]);
-		(fs.stat as any).mockResolvedValue({ isFile: () => true });
-        (fs.readFile as any).mockResolvedValue("# Title\nPrompt content");
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		vi.mocked(fs.readFile).mockResolvedValue(
+			"# Title\nPrompt content" as never,
+		);
 
-		(prompts.multiselect as any)
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["workflow.md"])
 			.mockResolvedValueOnce(["gemini"]);
 
-        await add("workflow");
+		await add("workflow");
 
-        expect(fs.writeFile).toHaveBeenCalledWith(expect.stringContaining(".toml"), expect.stringContaining("description = \"Title\""));
-    });
+		expect(fs.writeFile).toHaveBeenCalledWith(
+			expect.stringContaining(".toml"),
+			expect.stringContaining('description = "Title"'),
+		);
+	});
 
 	it("should handle GitHub fetch failure", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill";
-		(fetchSkillFromGitHub as any).mockRejectedValue(new Error("Network error"));
+		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(
+			new Error("Network error"),
+		);
 
 		await add("skill", mockUrl);
 
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("Network error"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("Network error"),
+		);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
 	it("should cancel if source directory not found", async () => {
-		(fs.pathExists as any).mockResolvedValue(false);
+		vi.mocked(fs.pathExists).mockResolvedValue(false);
 
 		await add("skill");
 
@@ -151,33 +199,53 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should cancel if no items found in directory", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([]);
 
 		await add("skill");
 
-		expect(prompts.cancel).toHaveBeenCalledWith("No skills found in directory.");
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			"No skills found in directory.",
+		);
 		expect(mockExit).toHaveBeenCalledWith(0);
 	});
 
 	it("should cancel if no supported platforms found", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]);
-		(getTargetPaths as any).mockReturnValue({});
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["item"]);
+		vi.mocked(getTargetPaths).mockReturnValue({});
 
 		await add("skill");
 
-		expect(prompts.cancel).toHaveBeenCalledWith("No supported platforms found for type 'skill'.");
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			"No supported platforms found for type 'skill'.",
+		);
 		expect(mockExit).toHaveBeenCalledWith(1);
 	});
 
 	it("should handle cancel during overwrite confirmation", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
-		(prompts.confirm as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockImplementation((val) => typeof val === "symbol");
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockImplementation(
+			(val) => typeof val === "symbol",
+		);
 
 		await add("skill");
 
@@ -187,14 +255,14 @@ describe("src/commands/add.ts", () => {
 
 	it("should handle single file from GitHub", async () => {
 		const mockUrl = "https://github.com/owner/repo/blob/main/skill.md";
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
 			skillName: "skill.md",
 			isFile: true,
 		});
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.stat as any).mockResolvedValue({ isFile: () => true });
-		(prompts.multiselect as any).mockResolvedValue(["gemini"]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"]);
 
 		await add("skill", mockUrl);
 
@@ -202,33 +270,63 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle Windsurf Agent special naming", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([{ name: "my-agent.md", isDirectory: () => false, isFile: () => true }]);
-		(fs.stat as any).mockResolvedValue({ isFile: () => true });
-		(getTargetPaths as any).mockReturnValue({ windsurf: "/mock/windsurf" });
-		(prompts.multiselect as any).mockResolvedValueOnce(["my-agent.md"]).mockResolvedValueOnce(["windsurf"]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "my-agent.md",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
+		]);
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		vi.mocked(getTargetPaths).mockReturnValue({ windsurf: "/mock/windsurf" });
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["my-agent.md"])
+			.mockResolvedValueOnce(["windsurf"]);
 
 		await add("agent");
 
-		expect(fs.copy).toHaveBeenCalledWith(expect.anything(), expect.stringContaining("my-agent/AGENTS.md"), expect.anything());
+		expect(fs.copy).toHaveBeenCalledWith(
+			expect.anything(),
+			expect.stringContaining("my-agent/AGENTS.md"),
+			expect.anything(),
+		);
 	});
 
 	it("should handle installation errors and display summary", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
-		(fs.copy as any).mockRejectedValue(new Error("Copy failed"));
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.copy).mockRejectedValue(new Error("Copy failed") as never);
 
 		await add("skill");
 
-		expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining("Errors encountered"));
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Errors encountered"),
+		);
 	});
 
 	it("should handle skip if overwrite is false and item exists", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
-		(prompts.confirm as any).mockResolvedValue(false);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.confirm).mockResolvedValue(false);
 
 		await add("skill");
 
@@ -236,14 +334,26 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should skip Gemini workflow if already exists and overwrite is false", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "wf.md", isDirectory: () => false, isFile: () => true }]);
-		(fs.stat as any).mockResolvedValue({ isFile: () => true });
-		(prompts.multiselect as any).mockResolvedValueOnce(["wf.md"]).mockResolvedValueOnce(["gemini"]);
-		(prompts.confirm as any).mockResolvedValue(false);
-		
-		// Target path for existing check (line 161) will be wf.md
-		// Target path for loop check (line 272) will be wf.toml
-		(fs.pathExists as any).mockImplementation((p) => p.includes("wf.md") || p.includes("wf.toml"));
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "wf.md",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
+		]);
+		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["wf.md"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.confirm).mockResolvedValue(false);
+
+		vi.mocked(fs.pathExists).mockImplementation((p) => {
+			// Line 161: check if item exists
+			if (p.includes("wf.md")) return Promise.resolve(true);
+			// Line 272: check if converted .toml exists
+			if (p.includes("wf.toml")) return Promise.resolve(true);
+			return Promise.resolve(false);
+		});
 
 		await add("workflow");
 
@@ -251,56 +361,88 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should sort available items", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([
-			{ name: "b-item", isDirectory: () => true, isFile: () => false },
-			{ name: "a-item", isDirectory: () => true, isFile: () => false },
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "b-item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+			{
+				name: "a-item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
 		]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["a-item"]).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["a-item"])
+			.mockResolvedValueOnce(["gemini"]);
 
 		await add("skill");
 
-		expect(prompts.multiselect).toHaveBeenCalledWith(expect.objectContaining({
-			options: [
-				{ label: "a-item", value: "a-item" },
-				{ label: "b-item", value: "b-item" },
-			]
-		}));
+		expect(prompts.multiselect).toHaveBeenCalledWith(
+			expect.objectContaining({
+				options: [
+					{ label: "a-item", value: "a-item" },
+					{ label: "b-item", value: "b-item" },
+				],
+			}),
+		);
 	});
 
 	it("should handle missing source path in installItem", async () => {
-		(fs.pathExists as any).mockImplementation((p) => {
+		vi.mocked(fs.pathExists).mockImplementation((p) => {
 			if (p === "/mock/skills") return Promise.resolve(true); // sourceDir exists
 			if (p.includes("item")) return Promise.resolve(false); // item doesn't exist at source
 			return Promise.resolve(true);
 		});
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
 
 		await add("skill");
 
-		expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining("Item 'item' not found"));
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Item 'item' not found"),
+		);
 	});
 
 	it("should normalize plural type", async () => {
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
 
 		await add("skills");
 
-		expect(prompts.intro).toHaveBeenCalledWith(expect.stringContaining("Add skills"));
+		expect(prompts.intro).toHaveBeenCalledWith(
+			expect.stringContaining("Add skills"),
+		);
 	});
 
 	it("should cleanup tempDir if cancelled after GitHub fetch", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill";
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
 			skillName: "skill",
 			isFile: false,
 		});
-		(prompts.multiselect as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockReturnValue(true);
+		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockReturnValue(true);
 
 		await add("skill", mockUrl);
 
@@ -309,15 +451,17 @@ describe("src/commands/add.ts", () => {
 
 	it("should cleanup tempDir if cancelled during overwrite after GitHub fetch", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill";
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
 			skillName: "skill",
 			isFile: false,
 		});
-		(prompts.multiselect as any).mockResolvedValueOnce(["gemini"]);
-		(fs.pathExists as any).mockResolvedValue(true); // Item exists
-		(prompts.confirm as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockImplementation((val) => typeof val === "symbol");
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true); // Item exists
+		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockImplementation(
+			(val) => typeof val === "symbol",
+		);
 
 		await add("skill", mockUrl);
 
@@ -325,46 +469,72 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should display remainder message if many items already exist", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		
-		(getTargetPaths as any).mockReturnValue({
-			p1: "/p1", p2: "/p2", p3: "/p3", p4: "/p4", p5: "/p5", p6: "/p6"
-		});
-		(PLATFORM_LABELS as any).p1 = "P1";
-		(PLATFORM_LABELS as any).p2 = "P2";
-		(PLATFORM_LABELS as any).p3 = "P3";
-		(PLATFORM_LABELS as any).p4 = "P4";
-		(PLATFORM_LABELS as any).p5 = "P5";
-		(PLATFORM_LABELS as any).p6 = "P6";
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
 
-		(prompts.multiselect as any)
+		vi.mocked(getTargetPaths).mockReturnValue({
+			p1: "/p1",
+			p2: "/p2",
+			p3: "/p3",
+			p4: "/p4",
+			p5: "/p5",
+			p6: "/p6",
+		});
+		vi.mocked(PLATFORM_LABELS).p1 = "P1";
+		vi.mocked(PLATFORM_LABELS).p2 = "P2";
+		vi.mocked(PLATFORM_LABELS).p3 = "P3";
+		vi.mocked(PLATFORM_LABELS).p4 = "P4";
+		vi.mocked(PLATFORM_LABELS).p5 = "P5";
+		vi.mocked(PLATFORM_LABELS).p6 = "P6";
+
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["p1", "p2", "p3", "p4", "p5", "p6"]);
-		(fs.pathExists as any).mockResolvedValue(true);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
 
 		await add("skill");
 
-		expect(prompts.note).toHaveBeenCalledWith(expect.stringContaining("and 1 others"), "Attention");
+		expect(prompts.note).toHaveBeenCalledWith(
+			expect.stringContaining("and 1 others"),
+			"Attention",
+		);
 	});
 
 	it("should handle non-Error throws in loop", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
-		(fs.copy as any).mockRejectedValue("String error");
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.copy).mockRejectedValue("String error" as never);
 
 		await add("skill");
 
-		expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining("item -> gemini: String error"));
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("item -> gemini: String error"),
+		);
 	});
 
 	it("should cleanup tempDir on outer error after GitHub fetch", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill";
-		(fetchSkillFromGitHub as any).mockResolvedValue({
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
 			skillName: "skill",
 			isFile: false,
 		});
-		(prompts.multiselect as any).mockImplementation(() => { throw new Error("Unexpected error"); });
+		vi.mocked(prompts.multiselect).mockImplementation(() => {
+			throw new Error("Unexpected error");
+		});
 
 		await add("skill", mockUrl);
 

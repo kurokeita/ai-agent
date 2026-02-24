@@ -1,8 +1,6 @@
-import os from "node:os";
-import path from "node:path";
-import { describe, it, expect, vi, beforeEach } from "vitest";
 import fs from "fs-extra";
-import { fetchSkillFromGitHub } from "./github.ts";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fetchSkillFromGitHub } from "../github.ts";
 
 vi.mock("fs-extra");
 
@@ -45,23 +43,23 @@ describe("src/utils/github.ts", () => {
 			},
 		];
 
-		(global.fetch as any)
+		vi.mocked(global.fetch)
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockFiles,
-			})
+			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
 				text: async () => "content1",
-			})
+			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockSubDirFiles,
-			})
+			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
 				text: async () => "content2",
-			});
+			} as Response);
 
 		const result = await fetchSkillFromGitHub(mockUrl);
 
@@ -85,15 +83,15 @@ describe("src/utils/github.ts", () => {
 			download_url: "https://download.file.ts",
 		};
 
-		(global.fetch as any)
+		vi.mocked(global.fetch)
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockFile,
-			})
+			} as Response)
 			.mockResolvedValueOnce({
 				ok: true,
 				text: async () => "file content",
-			});
+			} as Response);
 
 		const result = await fetchSkillFromGitHub(mockUrl);
 
@@ -105,11 +103,11 @@ describe("src/utils/github.ts", () => {
 	});
 
 	it("should throw error if initial API fetch fails", async () => {
-		(global.fetch as any).mockResolvedValueOnce({
+		vi.mocked(global.fetch).mockResolvedValueOnce({
 			ok: false,
 			status: 404,
 			statusText: "Not Found",
-		});
+		} as Response);
 
 		await expect(fetchSkillFromGitHub(mockUrl)).rejects.toThrow(
 			"Failed to fetch from GitHub (404): Not Found",
@@ -117,10 +115,10 @@ describe("src/utils/github.ts", () => {
 	});
 
 	it("should throw error for invalid response format", async () => {
-		(global.fetch as any).mockResolvedValueOnce({
+		vi.mocked(global.fetch).mockResolvedValueOnce({
 			ok: true,
 			json: async () => ({ invalid: "data" }),
-		});
+		} as Response);
 
 		await expect(fetchSkillFromGitHub(mockUrl)).rejects.toThrow(
 			"Invalid response from GitHub API",
@@ -134,15 +132,15 @@ describe("src/utils/github.ts", () => {
 			download_url: "https://download.file.ts",
 		};
 
-		(global.fetch as any)
+		vi.mocked(global.fetch)
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockFile,
-			})
+			} as Response)
 			.mockResolvedValueOnce({
 				ok: false,
 				statusText: "Error downloading file",
-			});
+			} as Response);
 
 		await expect(fetchSkillFromGitHub(mockUrl)).rejects.toThrow(
 			"Failed to download file.ts: Error downloading file",
@@ -159,15 +157,15 @@ describe("src/utils/github.ts", () => {
 			},
 		];
 
-		(global.fetch as any)
+		vi.mocked(global.fetch)
 			.mockResolvedValueOnce({
 				ok: true,
 				json: async () => mockFiles,
-			})
+			} as Response)
 			.mockResolvedValueOnce({
 				ok: false,
 				statusText: "Download failed",
-			});
+			} as Response);
 
 		await fetchSkillFromGitHub(mockUrl);
 
@@ -184,10 +182,10 @@ describe("src/utils/github.ts", () => {
 			download_url: null,
 		};
 
-		(global.fetch as any).mockResolvedValueOnce({
+		vi.mocked(global.fetch).mockResolvedValueOnce({
 			ok: true,
 			json: async () => mockFile,
-		});
+		} as Response);
 
 		const result = await fetchSkillFromGitHub(mockUrl);
 
@@ -204,10 +202,10 @@ describe("src/utils/github.ts", () => {
 			},
 		];
 
-		(global.fetch as any).mockResolvedValueOnce({
+		vi.mocked(global.fetch).mockResolvedValueOnce({
 			ok: true,
 			json: async () => mockFiles,
-		});
+		} as Response);
 
 		await fetchSkillFromGitHub(mockUrl);
 

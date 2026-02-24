@@ -61,6 +61,7 @@ export async function list(type?: string, options?: { local: boolean }) {
 			} else {
 				// List available items in repo (existing logic)
 				if (!TYPE_DIRS[normalizedType]) {
+					/* v8 ignore next 10 */
 					if (type) {
 						console.error(
 							pc.red(

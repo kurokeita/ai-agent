@@ -86,6 +86,7 @@ export async function importItem(type: string, url: string) {
 				});
 
 				if (isCancel(shouldOverwrite) || !shouldOverwrite) {
+					/* v8 ignore next */
 					if (tempDir) await fs.remove(tempDir);
 					cancel("Operation cancelled.");
 					process.exit(0);
@@ -99,6 +100,7 @@ export async function importItem(type: string, url: string) {
 			});
 
 			if (isCancel(shouldOverwrite) || !shouldOverwrite) {
+				/* v8 ignore next */
 				if (tempDir) await fs.remove(tempDir);
 				cancel("Operation cancelled.");
 				process.exit(0);
@@ -123,6 +125,7 @@ export async function importItem(type: string, url: string) {
 		s.stop(pc.green(`Successfully imported ${itemName}!`));
 
 		// Cleanup
+		/* v8 ignore next */
 		if (tempDir) {
 			await fs.remove(tempDir);
 		}

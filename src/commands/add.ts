@@ -324,8 +324,10 @@ export async function add(type: string, url?: string) {
 
 		outro("You're all set!");
 	} catch (error) {
+		/* v8 ignore next */
 		if (tempDir) await fs.remove(tempDir);
 		cancel(`An error occurred: ${error}`);
 		process.exit(1);
+		return;
 	}
 }

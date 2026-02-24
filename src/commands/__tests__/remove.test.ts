@@ -1,52 +1,69 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import fs from "fs-extra";
 import * as prompts from "@clack/prompts";
-import { remove } from "../remove.ts";
+import fs from "fs-extra";
+import {
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type MockInstance,
+	vi,
+} from "vitest";
 import { getTargetPaths, PLATFORM_LABELS } from "../../utils/paths.js";
+import { remove } from "../remove.ts";
 
 vi.mock("fs-extra");
 vi.mock("@clack/prompts");
 vi.mock("../../utils/paths.js");
 
 describe("src/commands/remove.ts", () => {
-	let mockExit: any;
-	let mockConsoleError: any;
+	let mockExit: MockInstance;
+	let mockConsoleError: MockInstance;
 
 	beforeEach(() => {
 		vi.resetAllMocks();
-		mockExit = vi.spyOn(process, "exit").mockImplementation(() => undefined as never);
+		mockExit = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never);
 		vi.spyOn(console, "log").mockImplementation(() => {});
 		mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {});
 
-		(prompts.isCancel as any).mockReturnValue(false);
-		(prompts.spinner as any).mockReturnValue({
+		vi.mocked(prompts.isCancel).mockReturnValue(false);
+		vi.mocked(prompts.spinner).mockReturnValue({
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
 		});
-		(fs.pathExists as any).mockResolvedValue(true);
-		(fs.readdir as any).mockResolvedValue([]);
+		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([]);
 
-		(getTargetPaths as any).mockReturnValue({
+		vi.mocked(getTargetPaths).mockReturnValue({
 			gemini: "/mock/install/gemini",
 			copilot: "/mock/install/copilot",
 		});
-		(PLATFORM_LABELS as any).gemini = "Gemini CLI";
-		(PLATFORM_LABELS as any).copilot = "GitHub Copilot";
+		vi.mocked(PLATFORM_LABELS).gemini = "Gemini CLI";
+		vi.mocked(PLATFORM_LABELS).copilot = "GitHub Copilot";
 
-		(prompts.confirm as any).mockResolvedValue(true);
+		vi.mocked(prompts.confirm).mockResolvedValue(true);
 	});
 
 	it("should cancel if no items are found", async () => {
-		(fs.readdir as any).mockResolvedValue([]);
+		vi.mocked(fs.readdir).mockResolvedValue([]);
 		await remove("skill");
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("No installed skills found"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("No installed skills found"),
+		);
 		expect(mockExit).toHaveBeenCalledWith(0);
 	});
 
 	it("should handle item selection and removal", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any)
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["skill1"]) // Items
 			.mockResolvedValueOnce(["gemini"]); // Platforms
 
@@ -57,9 +74,15 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle cancel during item selection", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockReturnValue(true);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockReturnValue(true);
 
 		await remove("skill");
 
@@ -68,11 +91,17 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle cancel during platform selection", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any)
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["skill1"])
 			.mockResolvedValueOnce(Symbol("cancel"));
-		(prompts.isCancel as any)
+		vi.mocked(prompts.isCancel)
 			.mockReturnValueOnce(false) // item selection
 			.mockReturnValueOnce(true); // platform selection
 
@@ -83,9 +112,17 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle user saying No during confirmation", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["skill1"]).mockResolvedValueOnce(["gemini"]);
-		(prompts.confirm as any).mockResolvedValue(false);
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["skill1"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.confirm).mockResolvedValue(false);
 
 		await remove("skill");
 
@@ -94,10 +131,20 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle cancel during confirmation", async () => {
-		(fs.readdir as any).mockResolvedValue([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["skill1"]).mockResolvedValueOnce(["gemini"]);
-		(prompts.confirm as any).mockResolvedValue(Symbol("cancel"));
-		(prompts.isCancel as any).mockImplementation((v) => typeof v === "symbol");
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["skill1"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
+		vi.mocked(prompts.isCancel).mockImplementation(
+			(v) => typeof v === "symbol",
+		);
 
 		await remove("skill");
 
@@ -106,11 +153,21 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle items not found on specific platforms", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["skill1"]).mockResolvedValueOnce(["gemini", "copilot"]);
-		
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["skill1"])
+			.mockResolvedValueOnce(["gemini", "copilot"]);
+
 		// Only exists on gemini
-		(fs.pathExists as any).mockImplementation((p) => p.includes("gemini"));
+		vi.mocked(fs.pathExists).mockImplementation((p) =>
+			Promise.resolve(p.includes("gemini")),
+		);
 
 		await remove("skill");
 
@@ -119,32 +176,68 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle removal errors", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["skill1"]).mockResolvedValueOnce(["gemini"]);
-		(fs.remove as any).mockRejectedValue(new Error("Permission denied"));
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["skill1"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.remove).mockRejectedValue(
+			new Error("Permission denied") as never,
+		);
 
 		await remove("skill");
 
-		expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining("Errors encountered"));
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Errors encountered"),
+		);
 	});
 
 	it("should handle non-Error throws in loop", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "skill1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["skill1"]).mockResolvedValueOnce(["gemini"]);
-		(fs.remove as any).mockRejectedValue("String error");
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "skill1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["skill1"])
+			.mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.remove).mockRejectedValue("String error" as never);
 
 		await remove("skill");
 
-		expect(mockConsoleError).toHaveBeenCalledWith(expect.stringContaining("skill1 (gemini): String error"));
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("skill1 (gemini): String error"),
+		);
 	});
 
 	it("should filter items correctly for agents/workflows", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([
-			{ name: "dir", isDirectory: () => true, isFile: () => false },
-			{ name: "wf.md", isDirectory: () => false, isFile: () => true },
-			{ name: "other.txt", isDirectory: () => false, isFile: () => true },
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "dir",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+			{
+				name: "wf.md",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
+			{
+				name: "other.txt",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
 		]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["dir", "wf.md"]).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["dir", "wf.md"])
+			.mockResolvedValueOnce(["gemini"]);
 
 		await remove("workflow");
 
@@ -153,36 +246,64 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle plural normalization", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "item", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item"]).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "item",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item"])
+			.mockResolvedValueOnce(["gemini"]);
 
 		await remove("skills");
 
-		expect(prompts.intro).toHaveBeenCalledWith(expect.stringContaining("Remove skills"));
+		expect(prompts.intro).toHaveBeenCalledWith(
+			expect.stringContaining("Remove skills"),
+		);
 	});
 
 	it("should skip platforms that do not exist during scan", async () => {
-		(getTargetPaths as any).mockReturnValue({
+		vi.mocked(getTargetPaths).mockReturnValue({
 			p1: "/non-existent",
-			gemini: "/mock/install/gemini"
+			gemini: "/mock/install/gemini",
 		});
-		(fs.pathExists as any).mockImplementation((p) => p === "/mock/install/gemini");
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "item1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any).mockResolvedValueOnce(["item1"]).mockResolvedValueOnce(["gemini"]);
+		vi.mocked(fs.pathExists).mockImplementation((p) =>
+			Promise.resolve(p === "/mock/install/gemini"),
+		);
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "item1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["item1"])
+			.mockResolvedValueOnce(["gemini"]);
 
 		await remove("skill");
 
-		expect(prompts.spinner().stop).toHaveBeenCalledWith(expect.stringContaining("Found 1 unique"));
+		expect(prompts.spinner().stop).toHaveBeenCalledWith(
+			expect.stringContaining("Found 1 unique"),
+		);
 	});
 
 	it("should skip unsupported platforms during removal", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([{ name: "item1", isDirectory: () => true, isFile: () => false }]);
-		(prompts.multiselect as any)
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "item1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		]);
+		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item1"])
 			.mockResolvedValueOnce(["gemini", "unsupported"]);
-		
-		(getTargetPaths as any).mockReturnValue({
-			gemini: "/mock/install/gemini"
+
+		vi.mocked(getTargetPaths).mockReturnValue({
+			gemini: "/mock/install/gemini",
 			// 'unsupported' is missing here
 		});
 
@@ -192,12 +313,18 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should filter out non-agent/workflow files", async () => {
-		(fs.readdir as any).mockResolvedValueOnce([
-			{ name: "file.txt", isDirectory: () => false, isFile: () => true }
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "file.txt",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
 		]);
-		
+
 		await remove("agent");
 
-		expect(prompts.cancel).toHaveBeenCalledWith(expect.stringContaining("No installed agents found"));
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("No installed agents found"),
+		);
 	});
 });
