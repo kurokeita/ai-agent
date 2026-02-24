@@ -14,13 +14,13 @@ import {
 import fs from "fs-extra";
 import pc from "picocolors";
 import { fetchSkillFromGitHub } from "../utils/github.js";
-
 import {
 	getTargetPaths,
 	PLATFORM_LABELS,
 	type Platform,
 	TYPE_DIRS,
 } from "../utils/paths.js";
+import { convertToGeminiCommandTOML } from "../utils/toml.js";
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type);
@@ -251,6 +251,28 @@ export async function add(type: string, url?: string) {
 					let targetItemName = item;
 					if (platform === "windsurf" && normalizedType === "agent") {
 						targetItemName = path.join(path.parse(item).name, "AGENTS.md");
+					}
+
+					// Gemini Workflow Conversion
+					if (
+						platform === "gemini" &&
+						normalizedType === "workflow" &&
+						currentSourcePath.endsWith(".md")
+					) {
+						const targetPath = path.join(
+							targetBase,
+							item.replace(/\.md$/, ".toml"),
+						);
+						if (!overwrite && (await fs.pathExists(targetPath))) {
+							skippedCount++;
+						} else {
+							const content = await fs.readFile(currentSourcePath, "utf-8");
+							const tomlContent = convertToGeminiCommandTOML(content);
+							await fs.ensureDir(targetBase);
+							await fs.writeFile(targetPath, tomlContent);
+							installedCount++;
+						}
+						continue;
 					}
 
 					const installed = await installItem(

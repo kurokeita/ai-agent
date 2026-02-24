@@ -86,10 +86,10 @@ pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 <!-- SUPPORTED_AGENTS_START -->
 | Platform | Agents Path | Skills Path | Workflows Path |
 | :--- | :--- | :--- | :--- |
-| Antigravity | `~/.gemini/antigravity/global_agents` | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/workflows` |
-| Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/workflows` |
+| Antigravity | `~/.gemini/antigravity/global_agents` | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/global_workflows` |
+| Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/commands` |
 | GitHub Copilot | `~/.copilot/agents` | `~/.copilot/skills` | `~/.copilot/prompts` |
-| Windsurf | `~/.codeium/windsurf/agents` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/workflows` |
+| Windsurf | `~/.codeium/windsurf/agents` | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/global_workflows` |
 <!-- SUPPORTED_AGENTS_END -->
 
 ## Development
