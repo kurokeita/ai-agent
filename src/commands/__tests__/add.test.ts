@@ -240,7 +240,10 @@ describe("src/commands/add.ts", () => {
 		(fs.stat as any).mockResolvedValue({ isFile: () => true });
 		(prompts.multiselect as any).mockResolvedValueOnce(["wf.md"]).mockResolvedValueOnce(["gemini"]);
 		(prompts.confirm as any).mockResolvedValue(false);
-		(fs.pathExists as any).mockImplementation((p) => p.endsWith(".md") || p.endsWith(".toml"));
+		
+		// Target path for existing check (line 161) will be wf.md
+		// Target path for loop check (line 272) will be wf.toml
+		(fs.pathExists as any).mockImplementation((p) => p.includes("wf.md") || p.includes("wf.toml"));
 
 		await add("workflow");
 
