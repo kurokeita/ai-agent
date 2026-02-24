@@ -28,20 +28,20 @@ This plan outlines the steps to implement a comprehensive unit testing suite usi
 - [x] Task: Implement unit tests for other files in `src/` 0eb5a61
   - [x] Identify any remaining files in `src/` and write tests for them.
   - [x] Ensure 100% coverage for all files in `src/`.
-- [ ] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Testing' (Protocol in workflow.md)
+- [x] Task: Conductor - User Manual Verification 'Phase 2: Core Logic Testing' (Protocol in workflow.md) 0eb5a61
 
-## Phase 3: CLI and Script Testing (`bin/` and `scripts/`)
+## Phase 3: CLI and Script Testing (`bin/` and `scripts/`) [checkpoint: 585d2f9]
 
-- [ ] Task: Implement unit tests for `bin/cli.ts`
-  - [ ] Write failing tests for the CLI entry point (mocking command execution).
-  - [ ] Ensure 100% coverage for the CLI entry point.
-- [ ] Task: Implement unit tests for `scripts/copy-assets.ts`
-  - [ ] Write failing tests for asset copying logic.
-  - [ ] Ensure 100% coverage for this script.
-- [ ] Task: Implement unit tests for `scripts/update-readme.ts`
-  - [ ] Write failing tests for README update logic.
-  - [ ] Ensure 100% coverage for this script.
-- [ ] Task: Conductor - User Manual Verification 'Phase 3: CLI and Script Testing' (Protocol in workflow.md)
+- [x] Task: Implement unit tests for `bin/cli.ts` c530c45
+  - [x] Write failing tests for the CLI entry point (mocking command execution).
+  - [x] Ensure 100% coverage for the CLI entry point.
+- [x] Task: Implement unit tests for `scripts/copy-assets.ts` 2183ea0
+  - [x] Write failing tests for asset copying logic.
+  - [x] Ensure 100% coverage for this script.
+- [x] Task: Implement unit tests for `scripts/update-readme.ts` 585d2f9
+  - [x] Write failing tests for README update logic.
+  - [x] Ensure 100% coverage for this script.
+- [~] Task: Conductor - User Manual Verification 'Phase 3: CLI and Script Testing' (Protocol in workflow.md)
 
 ## Phase 4: CI/CD Integration and Finalization
 
