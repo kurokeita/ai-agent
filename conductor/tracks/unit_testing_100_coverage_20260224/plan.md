@@ -19,9 +19,9 @@ This plan outlines the steps to implement a comprehensive unit testing suite usi
 - [x] Task: Implement unit tests for `src/utils/paths.ts` 044c255
   - [x] Write failing tests for path resolution and management.
   - [x] Ensure 100% coverage for this utility.
-- [ ] Task: Implement unit tests for `src/utils/github.ts`
-  - [ ] Write failing tests for GitHub API interactions (mocking as needed).
-  - [ ] Ensure 100% coverage for this utility.
+- [x] Task: Implement unit tests for `src/utils/github.ts` a920e6e
+  - [x] Write failing tests for GitHub API interactions (mocking as needed).
+  - [x] Ensure 100% coverage for this utility.
 - [ ] Task: Implement unit tests for `src/commands/add.ts`
   - [ ] Write failing tests for the 'add' command logic.
   - [ ] Ensure 100% coverage for this command.
