@@ -5,19 +5,21 @@
  * @returns A string in TOML format with description and prompt fields.
  */
 export function convertToGeminiCommandTOML(markdownContent: string): string {
-	// Extract description: find the first line starting with #, or the first non-empty line
+	// Extract description: find the first line that isn't empty, a horizontal rule, or just whitespace
 	const lines = markdownContent.split("\n");
 	let description = "";
+	let descriptionLineIndex = -1;
 
-	for (const line of lines) {
-		const trimmedLine = line.trim();
-		if (trimmedLine) {
-			// If it's a heading, strip the # and use it
+	for (let i = 0; i < lines.length; i++) {
+		const trimmedLine = lines[i].trim();
+		// Skip empty lines, separators, and common non-description markers
+		if (trimmedLine && trimmedLine !== "---" && !trimmedLine.startsWith("<!--")) {
 			if (trimmedLine.startsWith("#")) {
 				description = trimmedLine.replace(/^#+\s*/, "");
 			} else {
 				description = trimmedLine;
 			}
+			descriptionLineIndex = i;
 			break;
 		}
 	}
@@ -28,7 +30,6 @@ export function convertToGeminiCommandTOML(markdownContent: string): string {
 	}
 
 	// Escape triple quotes in the content if any (replace """ with \"\"\" )
-	// TOML multi-line strings end at the first unescaped """
 	const escapedContent = markdownContent.replace(/"""/g, '\\"\\"\\"');
 
 	return `description = ${JSON.stringify(description)}
