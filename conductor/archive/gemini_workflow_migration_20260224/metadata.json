@@ -1,0 +1,8 @@
+{
+	"track_id": "gemini_workflow_migration_20260224",
+	"type": "feature",
+	"status": "new",
+	"created_at": "2026-02-24T16:15:00Z",
+	"updated_at": "2026-02-24T16:15:00Z",
+	"description": "for Gemini CLI, the workflow files must be renamed from .md to .toml and it placed in .gemini/commands"
+}

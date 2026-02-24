@@ -9,6 +9,7 @@
 ## CLI Framework
 
 - **CLI Driver**: [Commander.js](https://github.com/tj/commander.js) (Standard for CLI command definition and options)
+- **Command Formats**: Supports Markdown (.md) for most agents and TOML (.toml) specifically for Gemini CLI.
 - **Interactive Prompts**: [@clack/prompts](https://github.com/natemoo-re/clack) (Modern and interactive CLI experience)
 
 ## Utilities
