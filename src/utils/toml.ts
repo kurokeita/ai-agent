@@ -38,3 +38,31 @@ ${escapedContent.trim()}
 """
 `;
 }
+
+/**
+ * Performs a basic validation of a Gemini Command TOML string.
+ *
+ * @param tomlContent The TOML content to validate.
+ * @returns An object with valid boolean and optional error message.
+ */
+export function validateGeminiCommandTOML(tomlContent: string): {
+	valid: boolean;
+	error?: string;
+} {
+	// 1. Basic syntax check for prompt field
+	if (!tomlContent.includes('prompt = """')) {
+		return {
+			valid: false,
+			error: 'Missing required "prompt" field with """ wrapping.',
+		};
+	}
+
+	// 2. Check for closing triple quotes
+	const promptStart = tomlContent.indexOf('prompt = """');
+	const rest = tomlContent.substring(promptStart + 'prompt = """'.length);
+	if (!rest.includes('"""')) {
+		return { valid: false, error: 'Unterminated "prompt" multi-line string.' };
+	}
+
+	return { valid: true };
+}
