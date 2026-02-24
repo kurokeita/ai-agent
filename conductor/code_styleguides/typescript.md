@@ -20,7 +20,7 @@ This document summarizes key rules and best practices from the Google TypeScript
 
 - **`any` Type:** **Avoid `any`**. Prefer `unknown` or a more specific type.
 - **Wrapper Objects:** Do not instantiate `String`, `Boolean`, or `Number` wrapper classes.
-- **Automatic Semicolon Insertion (ASI):** Do not rely on it. **Explicitly end all statements with a semicolon.**
+- **Semicolons:** No semicolons (as needed). Do not use trailing semicolons.
 - **`const enum`:** Do not use `const enum`. Use plain `enum` instead.
 - **`eval()` and `Function(...string)`:** Forbidden.
 

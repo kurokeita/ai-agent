@@ -1,6 +1,6 @@
 {
 	"name": "@kurokeita/add-skill",
-	"version": "1.7.0",
+	"version": "1.8.0",
 	"description": "CLI to install AI agent skills to various platforms",
 	"type": "module",
 	"bin": {
@@ -13,7 +13,7 @@
 	"scripts": {
 		"dev": "tsx bin/cli.ts",
 		"update:readme": "tsx scripts/update-readme.ts",
-		"build": "tsc && tsx scripts/copy-assets.ts",
+		"build": "tsc --noEmit && esbuild bin/cli.ts --bundle --platform=node --format=esm --outfile=dist/bin/cli.js --packages=external && tsx scripts/copy-assets.ts",
 		"prepublishOnly": "pnpm run build",
 		"test": "vitest run",
 		"test:coverage": "vitest run --coverage",
@@ -48,6 +48,7 @@
 		"@types/fs-extra": "^11.0.4",
 		"@types/node": "^25.0.9",
 		"@vitest/coverage-v8": "^4.0.18",
+		"esbuild": "^0.25.0",
 		"markdownlint-cli": "^0.47.0",
 		"semantic-release": "^25.0.2",
 		"tsx": "^4.21.0",
