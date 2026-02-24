@@ -366,15 +366,20 @@ A task is complete when:
 These protocols apply to the AI agent when performing project management tasks (e.g., creating tracks, updating documentation).
 
 ### Markdown Generation Quality
+
 - Whenever the agent generates or modifies markdown files (e.g., `spec.md`, `plan.md`, `tracks.md`), it MUST ensure they adhere to project standards.
 - After writing a markdown file, the agent MUST execute:
+
   ```bash
   pnpm lint:md <file_path>
   ```
+
 - If linting issues are found, the agent MUST automatically attempt to fix them:
+
   ```bash
   pnpm markdownlint <file_path> --fix
   ```
+
 - This ensures that all management artifacts are high-quality and consistent with the codebase.
 
 ## Continuous Improvement
