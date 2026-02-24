@@ -8,18 +8,20 @@ export function convertToGeminiCommandTOML(markdownContent: string): string {
 	// Extract description: find the first line that isn't empty, a horizontal rule, or just whitespace
 	const lines = markdownContent.split("\n");
 	let description = "";
-	let descriptionLineIndex = -1;
 
 	for (let i = 0; i < lines.length; i++) {
 		const trimmedLine = lines[i].trim();
 		// Skip empty lines, separators, and common non-description markers
-		if (trimmedLine && trimmedLine !== "---" && !trimmedLine.startsWith("<!--")) {
+		if (
+			trimmedLine &&
+			trimmedLine !== "---" &&
+			!trimmedLine.startsWith("<!--")
+		) {
 			if (trimmedLine.startsWith("#")) {
 				description = trimmedLine.replace(/^#+\s*/, "");
 			} else {
 				description = trimmedLine;
 			}
-			descriptionLineIndex = i;
 			break;
 		}
 	}

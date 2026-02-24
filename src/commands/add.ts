@@ -14,14 +14,13 @@ import {
 import fs from "fs-extra";
 import pc from "picocolors";
 import { fetchSkillFromGitHub } from "../utils/github.js";
-import { convertToGeminiCommandTOML } from "../utils/toml.js";
-
 import {
 	getTargetPaths,
 	PLATFORM_LABELS,
 	type Platform,
 	TYPE_DIRS,
 } from "../utils/paths.js";
+import { convertToGeminiCommandTOML } from "../utils/toml.js";
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type);
