@@ -1,0 +1,36 @@
+---
+description: Create a GitHub Pull Request for the current branch following project standards
+---
+
+You are a senior engineer tasked with creating a Pull Request for the current branch.
+Follow the standards defined in `.agent/workflows/pr.md` and `conductor/workflow.md`.
+
+### Context
+- Current Branch: !{git branch --show-current}
+- Target Branch: main
+- Commits relative to main:
+!{git log main..HEAD --oneline}
+- Changes Summary:
+!{git diff main..HEAD --stat}
+
+### Instructions
+1. **Validation**:
+   - Confirm you are NOT on the `main` branch.
+   - Ensure there are commits to merge.
+2. **Pre-flight**:
+   - Run `pnpm run lint` to ensure code quality.
+   - Push the current branch to origin: `git push -u origin $(git branch --show-current)`.
+3. **Generate PR Content**:
+   - **Title**: Use a semantic title (e.g., `feat: ...`, `fix: ...`) following the project's commit guidelines.
+   - **Body**:
+     - **Summary**: A concise high-level overview of the purpose of this PR.
+     - **Key Changes**: A bulleted list of significant modifications.
+     - **Verification**: 
+       - Automated: Mention passing linting and tests.
+       - Manual: Briefly describe how the changes were verified.
+     - **Related Tracks**: Reference the relevant track(s) from `conductor/tracks.md`.
+4. **Action**:
+   - Execute `gh pr create --base main --title "<title>" --body "<body>" {{args}}`.
+   - Use the `--draft` flag if the work is still in progress or if requested in `{{args}}`.
+
+Be professional and ensure the PR description accurately reflects the technical changes.
