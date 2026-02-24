@@ -1,0 +1,8 @@
+{
+  "track_id": "unit_testing_100_coverage_20260224",
+  "type": "chore",
+  "status": "new",
+  "created_at": "2026-02-24T10:00:00Z",
+  "updated_at": "2026-02-24T10:00:00Z",
+  "description": "generate unit tests for the whole project, it must cover 100% of the code base"
+}
