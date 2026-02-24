@@ -10,7 +10,7 @@ import {
 } from "vitest";
 
 vi.mock("fs-extra");
-vi.mock("../src/utils/paths.js", () => ({
+vi.mock("@/utils/paths.js", () => ({
 	PLATFORM_LABELS: { p1: "Platform 1", p2: "Platform 2" },
 	PLATFORM_PATHS_SKILLS: { p1: "/home/user/skills" }, // p2 missing
 	PLATFORM_PATHS_AGENTS: { p1: "/home/user/agents" }, // p2 missing
@@ -38,7 +38,7 @@ describe("scripts/update-readme.ts", () => {
 			"<!-- SUPPORTED_AGENTS_START --><!-- SUPPORTED_AGENTS_END -->",
 		);
 
-		await import("../update-readme.ts?test=success");
+		await import("../update-readme.js?test=success");
 
 		expect(fs.writeFile).toHaveBeenCalledWith(
 			expect.stringContaining("README.md"),
@@ -52,7 +52,7 @@ describe("scripts/update-readme.ts", () => {
 	it("should exit if README.md is missing", async () => {
 		vi.mocked(fs.pathExists).mockResolvedValue(false);
 
-		await import("../update-readme.ts?test=missing");
+		await import("../update-readme.js?test=missing");
 
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("README.md not found"),
@@ -64,7 +64,7 @@ describe("scripts/update-readme.ts", () => {
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(fs.readFile).mockResolvedValue("No markers here");
 
-		await import("../update-readme.ts?test=markers");
+		await import("../update-readme.js?test=markers");
 
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("Markers not found"),

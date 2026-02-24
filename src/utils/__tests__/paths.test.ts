@@ -9,7 +9,7 @@ import {
 	PLATFORM_PATHS_WORKFLOWS,
 	PROJECT_ROOT,
 	TYPE_DIRS,
-} from "../paths.ts";
+} from "../paths.js";
 
 describe("src/utils/paths.ts", () => {
 	it("should have a PROJECT_ROOT", () => {

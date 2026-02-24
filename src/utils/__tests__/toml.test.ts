@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
 	convertToGeminiCommandTOML,
 	validateGeminiCommandTOML,
-} from "../toml.ts";
+} from "../toml.js";
 
 describe("src/utils/toml.ts", () => {
 	describe("convertToGeminiCommandTOML", () => {

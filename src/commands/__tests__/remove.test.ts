@@ -9,7 +9,7 @@ import {
 	vi,
 } from "vitest";
 import { getTargetPaths, PLATFORM_LABELS } from "../../utils/paths.js";
-import { remove } from "../remove.ts";
+import { remove } from "../remove.js";
 
 vi.mock("fs-extra");
 vi.mock("@clack/prompts");
@@ -33,7 +33,9 @@ describe("src/commands/remove.ts", () => {
 			stop: vi.fn(),
 			message: vi.fn(),
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([]);
 
 		vi.mocked(getTargetPaths).mockReturnValue({
@@ -47,6 +49,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should cancel if no items are found", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([]);
 		await remove("skill");
 		expect(prompts.cancel).toHaveBeenCalledWith(
@@ -56,6 +59,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle item selection and removal", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "skill1",
@@ -74,6 +78,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle cancel during item selection", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "skill1",
@@ -91,6 +96,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle cancel during platform selection", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "skill1",
@@ -112,6 +118,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle user saying No during confirmation", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "skill1",
@@ -131,6 +138,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle cancel during confirmation", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "skill1",
@@ -153,6 +161,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle items not found on specific platforms", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "skill1",
@@ -165,6 +174,7 @@ describe("src/commands/remove.ts", () => {
 			.mockResolvedValueOnce(["gemini", "copilot"]);
 
 		// Only exists on gemini
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockImplementation((p) =>
 			Promise.resolve(p.includes("gemini")),
 		);
@@ -176,6 +186,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle removal errors", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "skill1",
@@ -186,9 +197,8 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["skill1"])
 			.mockResolvedValueOnce(["gemini"]);
-		vi.mocked(fs.remove).mockRejectedValue(
-			new Error("Permission denied") as never,
-		);
+		// @ts-ignore
+		vi.mocked(fs.remove).mockRejectedValue(new Error("Permission denied") as never);
 
 		await remove("skill");
 
@@ -198,6 +208,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle non-Error throws in loop", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "skill1",
@@ -208,6 +219,7 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["skill1"])
 			.mockResolvedValueOnce(["gemini"]);
+		// @ts-ignore
 		vi.mocked(fs.remove).mockRejectedValue("String error" as never);
 
 		await remove("skill");
@@ -218,17 +230,10 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should filter items correctly for agents/workflows", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{
-				name: "dir",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-			{
-				name: "wf.md",
-				isDirectory: () => false,
-				isFile: () => true,
-			} as fs.Dirent,
+			{ name: "dir", isDirectory: () => true, isFile: () => false } as fs.Dirent,
+			{ name: "wf.md", isDirectory: () => false, isFile: () => true } as fs.Dirent,
 			{
 				name: "other.txt",
 				isDirectory: () => false,
@@ -246,12 +251,9 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should handle plural normalization", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
@@ -268,10 +270,12 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(getTargetPaths).mockReturnValue({
 			p1: "/non-existent",
 			gemini: "/mock/install/gemini",
-		});
+		} as any);
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockImplementation((p) =>
 			Promise.resolve(p === "/mock/install/gemini"),
 		);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "item1",
@@ -291,6 +295,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should skip unsupported platforms during removal", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "item1",
@@ -305,7 +310,7 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(getTargetPaths).mockReturnValue({
 			gemini: "/mock/install/gemini",
 			// 'unsupported' is missing here
-		});
+		} as any);
 
 		await remove("skill");
 
@@ -313,6 +318,7 @@ describe("src/commands/remove.ts", () => {
 	});
 
 	it("should filter out non-agent/workflow files", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{
 				name: "file.txt",

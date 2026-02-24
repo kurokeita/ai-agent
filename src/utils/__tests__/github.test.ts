@@ -1,6 +1,6 @@
 import fs from "fs-extra";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { fetchSkillFromGitHub } from "../github.ts";
+import { fetchSkillFromGitHub } from "../github.js";
 
 vi.mock("fs-extra");
 

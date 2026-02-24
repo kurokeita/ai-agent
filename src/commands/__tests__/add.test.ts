@@ -1,21 +1,13 @@
 import * as prompts from "@clack/prompts";
 import fs from "fs-extra";
-import {
-	afterEach,
-	beforeEach,
-	describe,
-	expect,
-	it,
-	type MockInstance,
-	vi,
-} from "vitest";
+import { type MockInstance, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchSkillFromGitHub } from "../../utils/github.js";
 import {
 	getTargetPaths,
 	PLATFORM_LABELS,
 	TYPE_DIRS,
 } from "../../utils/paths.js";
-import { add } from "../add.ts";
+import { add } from "../add.js";
 
 vi.mock("fs-extra");
 vi.mock("@clack/prompts");
@@ -40,8 +32,12 @@ describe("src/commands/add.ts", () => {
 			stop: vi.fn(),
 			message: vi.fn(),
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
-		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as fs.Stats);
+		// @ts-ignore
+		vi.mocked(fs.stat).mockResolvedValue({
+			isFile: () => false,
+		} as fs.Stats);
 
 		vi.mocked(getTargetPaths).mockReturnValue({
 			gemini: "/mock/gemini/path",
@@ -69,6 +65,7 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle local selection and installation", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "test-skill",
@@ -106,6 +103,7 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle existing items and prompt for overwrite", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "test-skill",
@@ -134,12 +132,9 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle cancel during multiselect", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 
 		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"));
@@ -151,6 +146,7 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle Gemini workflow conversion", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "workflow.md",
@@ -158,7 +154,11 @@ describe("src/commands/add.ts", () => {
 				isFile: () => true,
 			} as fs.Dirent,
 		]);
-		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		// @ts-ignore
+		vi.mocked(fs.stat).mockResolvedValue({
+			isFile: () => true,
+		} as fs.Stats);
+		// @ts-ignore
 		vi.mocked(fs.readFile).mockResolvedValue(
 			"# Title\nPrompt content" as never,
 		);
@@ -177,9 +177,7 @@ describe("src/commands/add.ts", () => {
 
 	it("should handle GitHub fetch failure", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill";
-		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(
-			new Error("Network error"),
-		);
+		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(new Error("Network error"));
 
 		await add("skill", mockUrl);
 
@@ -190,6 +188,7 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should cancel if source directory not found", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(false);
 
 		await add("skill");
@@ -199,7 +198,9 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should cancel if no items found in directory", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([]);
 
 		await add("skill");
@@ -211,7 +212,9 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should cancel if no supported platforms found", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "item",
@@ -231,13 +234,11 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle cancel during overwrite confirmation", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
@@ -260,8 +261,12 @@ describe("src/commands/add.ts", () => {
 			skillName: "skill.md",
 			isFile: true,
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
-		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		// @ts-ignore
+		vi.mocked(fs.stat).mockResolvedValue({
+			isFile: () => true,
+		} as fs.Stats);
 		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"]);
 
 		await add("skill", mockUrl);
@@ -270,7 +275,9 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle Windsurf Agent special naming", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "my-agent.md",
@@ -278,8 +285,13 @@ describe("src/commands/add.ts", () => {
 				isFile: () => true,
 			} as fs.Dirent,
 		]);
-		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
-		vi.mocked(getTargetPaths).mockReturnValue({ windsurf: "/mock/windsurf" });
+		// @ts-ignore
+		vi.mocked(fs.stat).mockResolvedValue({
+			isFile: () => true,
+		} as fs.Stats);
+		vi.mocked(getTargetPaths).mockReturnValue({
+			windsurf: "/mock/windsurf",
+		} as any);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["my-agent.md"])
 			.mockResolvedValueOnce(["windsurf"]);
@@ -294,17 +306,16 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle installation errors and display summary", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["gemini"]);
+		// @ts-ignore
 		vi.mocked(fs.copy).mockRejectedValue(new Error("Copy failed") as never);
 
 		await add("skill");
@@ -315,13 +326,11 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle skip if overwrite is false and item exists", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
@@ -334,20 +343,21 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should skip Gemini workflow if already exists and overwrite is false", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "wf.md",
-				isDirectory: () => false,
-				isFile: () => true,
-			} as fs.Dirent,
+			{ name: "wf.md", isDirectory: () => false, isFile: () => true } as fs.Dirent,
 		]);
-		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => true } as fs.Stats);
+		// @ts-ignore
+		vi.mocked(fs.stat).mockResolvedValue({
+			isFile: () => true,
+		} as fs.Stats);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["wf.md"])
 			.mockResolvedValueOnce(["gemini"]);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 
-		vi.mocked(fs.pathExists).mockImplementation((p) => {
+		// @ts-ignore
+		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
 			// Line 161: check if item exists
 			if (p.includes("wf.md")) return Promise.resolve(true);
 			// Line 272: check if converted .toml exists
@@ -361,18 +371,12 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should sort available items", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "b-item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-			{
-				name: "a-item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "b-item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
+			{ name: "a-item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["a-item"])
@@ -391,17 +395,15 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle missing source path in installItem", async () => {
-		vi.mocked(fs.pathExists).mockImplementation((p) => {
+		// @ts-ignore
+		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
 			if (p === "/mock/skills") return Promise.resolve(true); // sourceDir exists
 			if (p.includes("item")) return Promise.resolve(false); // item doesn't exist at source
 			return Promise.resolve(true);
 		});
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
@@ -415,13 +417,11 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should normalize plural type", async () => {
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
@@ -457,6 +457,7 @@ describe("src/commands/add.ts", () => {
 			isFile: false,
 		});
 		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"]);
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true); // Item exists
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
 		vi.mocked(prompts.isCancel).mockImplementation(
@@ -469,12 +470,9 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should display remainder message if many items already exist", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 
 		vi.mocked(getTargetPaths).mockReturnValue({
@@ -484,17 +482,18 @@ describe("src/commands/add.ts", () => {
 			p4: "/p4",
 			p5: "/p5",
 			p6: "/p6",
-		});
-		vi.mocked(PLATFORM_LABELS).p1 = "P1";
-		vi.mocked(PLATFORM_LABELS).p2 = "P2";
-		vi.mocked(PLATFORM_LABELS).p3 = "P3";
-		vi.mocked(PLATFORM_LABELS).p4 = "P4";
-		vi.mocked(PLATFORM_LABELS).p5 = "P5";
-		vi.mocked(PLATFORM_LABELS).p6 = "P6";
+		} as any);
+		(vi.mocked(PLATFORM_LABELS) as any).p1 = "P1";
+		(vi.mocked(PLATFORM_LABELS) as any).p2 = "P2";
+		(vi.mocked(PLATFORM_LABELS) as any).p3 = "P3";
+		(vi.mocked(PLATFORM_LABELS) as any).p4 = "P4";
+		(vi.mocked(PLATFORM_LABELS) as any).p5 = "P5";
+		(vi.mocked(PLATFORM_LABELS) as any).p6 = "P6";
 
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["p1", "p2", "p3", "p4", "p5", "p6"]);
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 
 		await add("skill");
@@ -506,16 +505,14 @@ describe("src/commands/add.ts", () => {
 	});
 
 	it("should handle non-Error throws in loop", async () => {
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item", isDirectory: () => true, isFile: () => false } as fs.Dirent,
 		]);
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["gemini"]);
+		// @ts-ignore
 		vi.mocked(fs.copy).mockRejectedValue("String error" as never);
 
 		await add("skill");

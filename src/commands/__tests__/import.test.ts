@@ -1,16 +1,9 @@
 import * as prompts from "@clack/prompts";
 import fs from "fs-extra";
-import {
-	beforeEach,
-	describe,
-	expect,
-	it,
-	type MockInstance,
-	vi,
-} from "vitest";
+import { type MockInstance, beforeEach, describe, expect, it, vi } from "vitest";
 import { fetchSkillFromGitHub } from "../../utils/github.js";
 import { TYPE_DIRS } from "../../utils/paths.js";
-import { importItem } from "../import.ts";
+import { importItem } from "../import.js";
 
 vi.mock("fs-extra");
 vi.mock("@clack/prompts");
@@ -34,7 +27,9 @@ describe("src/commands/import.ts", () => {
 			stop: vi.fn(),
 			message: vi.fn(),
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(false);
+		// @ts-ignore
 		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as fs.Stats);
 
 		vi.mocked(TYPE_DIRS).skill = "/mock/skills";
@@ -59,9 +54,7 @@ describe("src/commands/import.ts", () => {
 	});
 
 	it("should handle GitHub fetch failure", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(
-			new Error("Fetch failed"),
-		);
+		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(new Error("Fetch failed"));
 		await importItem("skill", "url");
 		expect(prompts.cancel).toHaveBeenCalledWith(
 			expect.stringContaining("Fetch failed"),
@@ -92,6 +85,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(true);
 
@@ -107,6 +101,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 
@@ -122,6 +117,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue(["file1.md"] as never);
 
 		await importItem("agent", "url");
@@ -139,6 +135,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue([
 			"f1",
 			"f2",
@@ -147,6 +144,7 @@ describe("src/commands/import.ts", () => {
 			"f5",
 			"f6",
 		] as never);
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(true);
 
@@ -166,7 +164,9 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never);
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 		vi.mocked(prompts.isCancel).mockReturnValue(false);
@@ -183,7 +183,9 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never);
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
 		vi.mocked(prompts.isCancel).mockReturnValue(true);
@@ -200,6 +202,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(false);
 		vi.mocked(prompts.isCancel).mockReturnValue(false);
@@ -216,6 +219,7 @@ describe("src/commands/import.ts", () => {
 			skillName: "item",
 			isFile: false,
 		});
+		// @ts-ignore
 		vi.mocked(fs.pathExists).mockResolvedValue(true);
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"));
 		vi.mocked(prompts.isCancel).mockReturnValue(true);

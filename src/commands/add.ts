@@ -27,7 +27,7 @@ function getPlatformOptions(type: string) {
 	return Object.entries(paths).map(([platform, pathStr]) => ({
 		label: PLATFORM_LABELS[platform as Platform],
 		value: platform,
-		hint: pathStr.replace(os.homedir(), "~"),
+		hint: (pathStr as string).replace(os.homedir(), "~"),
 	}));
 }
 
