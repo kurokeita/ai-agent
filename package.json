@@ -17,8 +17,8 @@
 		"prepublishOnly": "pnpm run build",
 		"lint": "pnpm run lint:ts && pnpm run lint:md '**/*.md'",
 		"lint:ts": "biome check .",
-		"lint:md": "markdownlint --ignore node_modules",
-		"format": "biome check --write . && pnpm run lint:md '**/*.md' --fix",
+		"lint:md": "markdownlint --ignore node_modules '**/*.md'",
+		"format": "biome check --write . && pnpm run lint:md --fix",
 		"release": "semantic-release"
 	},
 	"keywords": [
