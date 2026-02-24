@@ -1,0 +1,8 @@
+{
+  "track_id": "markdown_guideline_20260224",
+  "type": "feature",
+  "status": "new",
+  "created_at": "2026-02-24T15:15:00Z",
+  "updated_at": "2026-02-24T15:15:00Z",
+  "description": "add new guideline for working with markdown files, it must always follow the rule set in @.markdownlint.json , use `pnpm lint:md` to lint the newly generated markdown files (never lint the whole project)"
+}
