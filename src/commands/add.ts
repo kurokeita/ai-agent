@@ -62,6 +62,7 @@ export async function add(type: string, url?: string) {
 	if (!TYPE_DIRS[normalizedType]) {
 		cancel(`Unknown type: ${type}. Supported: skill, agent, workflow`)
 		process.exit(1)
+		return
 	}
 
 	let tempDir: string | null = null
@@ -87,6 +88,7 @@ export async function add(type: string, url?: string) {
 			if (!(await fs.pathExists(sourceDir))) {
 				cancel(`${normalizedType} directory not found!`)
 				process.exit(1)
+				return
 			}
 
 			const entries = await fs.readdir(sourceDir, { withFileTypes: true })
@@ -104,6 +106,7 @@ export async function add(type: string, url?: string) {
 			if (availableItems.length === 0) {
 				cancel(`No ${normalizedType}s found in directory.`)
 				process.exit(0)
+				return
 			}
 
 			// Select Items
@@ -116,6 +119,7 @@ export async function add(type: string, url?: string) {
 			if (isCancel(items)) {
 				cancel("Operation cancelled.")
 				process.exit(0)
+				return
 			}
 			selectedItems = items as string[]
 		}
@@ -142,6 +146,7 @@ export async function add(type: string, url?: string) {
 			if (tempDir) await fs.remove(tempDir)
 			cancel("Operation cancelled.")
 			process.exit(0)
+			return
 		}
 
 		const selectedPlatforms = platforms as Platform[]
@@ -184,6 +189,7 @@ export async function add(type: string, url?: string) {
 				if (tempDir) await fs.remove(tempDir)
 				cancel("Operation cancelled.")
 				process.exit(0)
+				return
 			}
 
 			overwrite = shouldOverwrite as boolean
@@ -322,5 +328,6 @@ export async function add(type: string, url?: string) {
 		if (tempDir) await fs.remove(tempDir)
 		cancel(`An error occurred: ${error}`)
 		process.exit(1)
+		return
 	}
 }

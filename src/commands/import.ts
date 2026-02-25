@@ -89,6 +89,7 @@ export async function importItem(type: string, url: string) {
 					if (tempDir) await fs.remove(tempDir)
 					cancel("Operation cancelled.")
 					process.exit(0)
+					return
 				}
 			}
 		} else if (await fs.pathExists(targetPath)) {
@@ -101,6 +102,7 @@ export async function importItem(type: string, url: string) {
 				if (tempDir) await fs.remove(tempDir)
 				cancel("Operation cancelled.")
 				process.exit(0)
+				return
 			}
 		}
 
@@ -131,5 +133,6 @@ export async function importItem(type: string, url: string) {
 		if (tempDir) await fs.remove(tempDir)
 		cancel(`An error occurred: ${error}`)
 		process.exit(1)
+		return
 	}
 }
