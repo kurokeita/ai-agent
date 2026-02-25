@@ -1,5 +1,13 @@
 import fs from "fs-extra"
-import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type MockInstance,
+	vi,
+} from "vitest"
 
 vi.mock("fs-extra")
 
@@ -9,7 +17,6 @@ describe("scripts/copy-assets.ts", () => {
 	let mockConsoleError: MockInstance
 
 	beforeEach(() => {
-		vi.resetAllMocks()
 		mockExit = vi
 			.spyOn(process, "exit")
 			.mockImplementation(() => undefined as never)
@@ -17,12 +24,15 @@ describe("scripts/copy-assets.ts", () => {
 		mockConsoleError = vi.spyOn(console, "error").mockImplementation(() => {})
 	})
 
-	it("should copy all assets correctly", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.pathExists) as any).mockResolvedValue(true)
+	afterEach(() => {
+		vi.resetAllMocks()
+		vi.resetModules()
+	})
 
-		// @ts-expect-error
-		await import("../copy-assets.js?test=success")
+	it("should copy all assets correctly", async () => {
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+
+		await import("../copy-assets.js")
 
 		expect(fs.ensureDir).toHaveBeenCalledWith(expect.stringContaining("dist"))
 		expect(fs.copy).toHaveBeenCalledTimes(3)
@@ -32,11 +42,9 @@ describe("scripts/copy-assets.ts", () => {
 	})
 
 	it("should exit if skills directory is missing", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.pathExists) as any).mockResolvedValue(false)
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(false)
 
-		// @ts-expect-error
-		await import("../copy-assets.js?test=missing")
+		await import("../copy-assets.js")
 
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("Skills directory not found"),
@@ -45,12 +53,10 @@ describe("scripts/copy-assets.ts", () => {
 	})
 
 	it("should handle error during copy", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.pathExists) as any).mockResolvedValue(true)
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.copy).mockRejectedValue(new Error("Copy failed") as never)
 
-		// @ts-expect-error
-		await import("../copy-assets.js?test=error")
+		await import("../copy-assets.js")
 
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("Error copying assets:"),

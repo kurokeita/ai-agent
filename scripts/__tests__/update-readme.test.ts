@@ -1,6 +1,14 @@
 import os from "node:os"
 import fs from "fs-extra"
-import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
+import {
+	afterEach,
+	beforeEach,
+	describe,
+	expect,
+	it,
+	type MockInstance,
+	vi,
+} from "vitest"
 
 vi.mock("fs-extra")
 vi.mock("@/utils/paths.js", () => ({
@@ -16,7 +24,6 @@ describe("scripts/update-readme.ts", () => {
 	let mockConsoleError: MockInstance
 
 	beforeEach(() => {
-		vi.resetAllMocks()
 		mockExit = vi
 			.spyOn(process, "exit")
 			.mockImplementation(() => undefined as never)
@@ -25,16 +32,20 @@ describe("scripts/update-readme.ts", () => {
 		vi.spyOn(os, "homedir").mockReturnValue("/home/user")
 	})
 
+	afterEach(() => {
+		vi.resetAllMocks()
+		vi.resetModules()
+	})
+
 	it("should update README with supported platforms table", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.pathExists) as any).mockResolvedValue(true)
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.readFile) as any).mockResolvedValue(
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readFile as unknown as () => Promise<string>,
+		).mockResolvedValue(
 			"<!-- SUPPORTED_AGENTS_START --><!-- SUPPORTED_AGENTS_END -->",
 		)
 
-		// @ts-expect-error
-		await import("../update-readme.js?test=success")
+		await import("../update-readme.js")
 
 		expect(fs.writeFile).toHaveBeenCalledWith(
 			expect.stringContaining("README.md"),
@@ -46,11 +57,9 @@ describe("scripts/update-readme.ts", () => {
 	})
 
 	it("should exit if README.md is missing", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.pathExists) as any).mockResolvedValue(false)
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(false)
 
-		// @ts-expect-error
-		await import("../update-readme.js?test=missing")
+		await import("../update-readme.js")
 
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("README.md not found"),
@@ -59,13 +68,12 @@ describe("scripts/update-readme.ts", () => {
 	})
 
 	it("should exit if markers are missing", async () => {
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.pathExists) as any).mockResolvedValue(true)
-		// biome-ignore lint/suspicious/noExplicitAny: mock
-		;(vi.mocked(fs.readFile) as any).mockResolvedValue("No markers here")
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readFile as unknown as () => Promise<string>,
+		).mockResolvedValue("No markers here")
 
-		// @ts-expect-error
-		await import("../update-readme.js?test=markers")
+		await import("../update-readme.js")
 
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("Markers not found"),

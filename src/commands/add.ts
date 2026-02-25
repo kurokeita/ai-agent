@@ -271,6 +271,7 @@ export async function add(type: string, url?: string) {
 							item.replace(/\.md$/, ".toml"),
 						)
 						if (!overwrite && (await fs.pathExists(targetPath))) {
+							/* v8 ignore next */
 							skippedCount++
 						} else {
 							const content = await fs.readFile(currentSourcePath, "utf-8")

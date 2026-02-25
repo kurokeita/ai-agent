@@ -28,7 +28,6 @@ describe("src/commands/add.ts", () => {
 	let mockConsoleError: MockInstance
 
 	beforeEach(() => {
-		vi.resetAllMocks()
 		mockExit = vi
 			.spyOn(process, "exit")
 			.mockImplementation(() => undefined as never)
@@ -41,10 +40,8 @@ describe("src/commands/add.ts", () => {
 			stop: vi.fn(),
 			message: vi.fn(),
 		})
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.stat).mockResolvedValue({
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => false,
 		} as fs.Stats)
 
@@ -63,6 +60,8 @@ describe("src/commands/add.ts", () => {
 
 	afterEach(() => {
 		mockExit.mockClear()
+		vi.resetAllMocks()
+		vi.resetModules()
 	})
 
 	it("should cancel if type is unknown", async () => {
@@ -74,8 +73,9 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle local selection and installation", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "test-skill",
 				isDirectory: () => true,
@@ -112,8 +112,9 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle existing items and prompt for overwrite", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "test-skill",
 				isDirectory: () => true,
@@ -141,8 +142,9 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle cancel during multiselect", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -159,16 +161,16 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle Gemini workflow conversion", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "workflow.md",
 				isDirectory: () => false,
 				isFile: () => true,
 			} as fs.Dirent,
 		])
-		// @ts-expect-error
-		vi.mocked(fs.stat).mockResolvedValue({
+		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
 		} as fs.Stats)
 		vi.mocked(fs.readFile).mockResolvedValue("# Title\nPrompt content" as never)
@@ -200,8 +202,7 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should cancel if source directory not found", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(false)
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(false)
 
 		await add("skill")
 
@@ -210,10 +211,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should cancel if no items found in directory", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([])
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([])
 
 		await add("skill")
 
@@ -222,10 +223,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should cancel if no supported platforms found", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -244,10 +245,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle cancel during overwrite confirmation", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -275,10 +276,8 @@ describe("src/commands/add.ts", () => {
 			skillName: "skill.md",
 			isFile: true,
 		})
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.stat).mockResolvedValue({
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
 		} as fs.Stats)
 		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
@@ -289,18 +288,17 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle Windsurf Agent special naming", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "my-agent.md",
 				isDirectory: () => false,
 				isFile: () => true,
 			} as fs.Dirent,
 		])
-		// @ts-expect-error
-		vi.mocked(fs.stat).mockResolvedValue({
+		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
 		} as fs.Stats)
 		vi.mocked(getTargetPaths).mockReturnValue({
@@ -320,10 +318,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle installation errors and display summary", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -343,10 +341,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle skip if overwrite is false and item exists", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -364,16 +362,16 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should skip Gemini workflow if already exists and overwrite is false", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "wf.md",
 				isDirectory: () => false,
 				isFile: () => true,
 			} as fs.Dirent,
 		])
-		// @ts-expect-error
-		vi.mocked(fs.stat).mockResolvedValue({
+		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
 		} as fs.Stats)
 		vi.mocked(prompts.multiselect)
@@ -395,10 +393,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should sort available items", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "b-item",
 				isDirectory: () => true,
@@ -432,8 +430,9 @@ describe("src/commands/add.ts", () => {
 			if (p.includes("item")) return Promise.resolve(false) // item doesn't exist at source
 			return Promise.resolve(true)
 		})
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -452,10 +451,10 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should normalize plural type", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -496,8 +495,7 @@ describe("src/commands/add.ts", () => {
 			isFile: false,
 		})
 		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true) // Item exists
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true) // Item exists
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
 		vi.mocked(prompts.isCancel).mockImplementation(
 			(val) => typeof val === "symbol",
@@ -509,8 +507,9 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should display remainder message if many items already exist", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
@@ -540,8 +539,7 @@ describe("src/commands/add.ts", () => {
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["p1", "p2", "p3", "p4", "p5", "p6"])
-		// @ts-expect-error
-		vi.mocked(fs.pathExists).mockResolvedValue(true)
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 
 		await add("skill")
 
@@ -552,8 +550,9 @@ describe("src/commands/add.ts", () => {
 	})
 
 	it("should handle non-Error throws in loop", async () => {
-		// @ts-expect-error
-		vi.mocked(fs.readdir).mockResolvedValue([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValue([
 			{
 				name: "item",
 				isDirectory: () => true,
