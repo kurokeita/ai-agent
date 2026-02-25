@@ -20,6 +20,6 @@
 
 - **Strict Linting & Formatting**: Adhere to the project's established Biome configuration for all code and documentation. Consistent formatting is mandatory.
 - **Markdown Quality**: All markdown files MUST adhere to the standards defined in `.markdownlint.json`. Use targeted linting (`pnpm lint:md <file>`) for every task that modifies markdown files.
-- **Test-Driven Development (TDD)**: Prioritize reliability by writing tests alongside feature implementation. Maintain high test coverage for all core functionalities.
+- **Test-Driven Development (TDD)**: Prioritize reliability by writing tests alongside feature implementation. Maintain high test coverage for all core functionalities. Test files are to be placed in a `__tests__` directory within the same directory as the source file and to be named `<filename>.test.ts`.
 - **Type Safety & Documentation**: Utilize TypeScript's type system to its full potential. Ensure all public APIs and complex logic are thoroughly documented with types and inline comments.
 - **Modular Architecture**: Maintain a clean separation of concerns by organizing logic into modular commands and reusable utility functions.

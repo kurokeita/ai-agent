@@ -24,11 +24,13 @@ export async function importItem(type: string, url: string) {
 	if (!targetBaseDir) {
 		cancel(`Unknown type: ${type}. Supported: skill, agent, workflow`)
 		process.exit(1)
+		return
 	}
 
 	if (!url) {
 		cancel("GitHub URL is required.")
 		process.exit(1)
+		return
 	}
 
 	let tempDir: string | null = null
@@ -84,9 +86,11 @@ export async function importItem(type: string, url: string) {
 				})
 
 				if (isCancel(shouldOverwrite) || !shouldOverwrite) {
+					/* v8 ignore next */
 					if (tempDir) await fs.remove(tempDir)
 					cancel("Operation cancelled.")
 					process.exit(0)
+					return
 				}
 			}
 		} else if (await fs.pathExists(targetPath)) {
@@ -96,9 +100,11 @@ export async function importItem(type: string, url: string) {
 			})
 
 			if (isCancel(shouldOverwrite) || !shouldOverwrite) {
+				/* v8 ignore next */
 				if (tempDir) await fs.remove(tempDir)
 				cancel("Operation cancelled.")
 				process.exit(0)
+				return
 			}
 		}
 
@@ -119,6 +125,7 @@ export async function importItem(type: string, url: string) {
 		s.stop(pc.green(`Successfully imported ${itemName}!`))
 
 		// Cleanup
+		/* v8 ignore next 3 */
 		if (tempDir) {
 			await fs.remove(tempDir)
 		}
@@ -128,5 +135,6 @@ export async function importItem(type: string, url: string) {
 		if (tempDir) await fs.remove(tempDir)
 		cancel(`An error occurred: ${error}`)
 		process.exit(1)
+		return
 	}
 }

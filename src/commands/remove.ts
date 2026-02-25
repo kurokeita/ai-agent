@@ -54,6 +54,7 @@ export async function remove(type: string) {
 	if (uniqueItems.size === 0) {
 		cancel(`No installed ${normalizedType}s found.`)
 		process.exit(0)
+		return
 	}
 
 	// Sort explicitly
@@ -69,6 +70,7 @@ export async function remove(type: string) {
 	if (isCancel(itemSelections)) {
 		cancel("Operation cancelled.")
 		process.exit(0)
+		return
 	}
 
 	const selectedItems = itemSelections as string[]
@@ -89,6 +91,7 @@ export async function remove(type: string) {
 	if (isCancel(platformSelections)) {
 		cancel("Operation cancelled.")
 		process.exit(0)
+		return
 	}
 
 	const selectedPlatforms = platformSelections as Platform[]
@@ -102,6 +105,7 @@ export async function remove(type: string) {
 	if (isCancel(confirmDelete) || !confirmDelete) {
 		cancel("Operation cancelled.")
 		process.exit(0)
+		return
 	}
 
 	// 5. Deletion Loop
