@@ -13,6 +13,7 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
+import { transformAgent } from "@/utils/agents"
 import { fetchSkillFromGitHub } from "@/utils/github"
 import {
 	getTargetPaths,
@@ -24,11 +25,18 @@ import { convertToGeminiCommandTOML } from "@/utils/toml"
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type)
-	return Object.entries(paths).map(([platform, pathStr]) => ({
-		label: PLATFORM_LABELS[platform as Platform],
-		value: platform,
-		hint: (pathStr as string).replace(os.homedir(), "~"),
-	}))
+	return Object.entries(paths)
+		.filter(([platform]) => {
+			if (type === "agent") {
+				return platform === "copilot" || platform === "gemini"
+			}
+			return true
+		})
+		.map(([platform, pathStr]) => ({
+			label: PLATFORM_LABELS[platform as Platform],
+			value: platform,
+			hint: (pathStr as string).replace(os.homedir(), "~"),
+		}))
 }
 
 async function installItem(
@@ -256,28 +264,43 @@ export async function add(type: string, url?: string) {
 					}
 
 					let targetItemName = item
-					if (platform === "windsurf" && normalizedType === "agent") {
+					if (platform === "copilot" && normalizedType === "agent") {
+						targetItemName = item.replace(/\.md$/, ".agent.md")
+					} else if (platform === "windsurf" && normalizedType === "agent") {
 						targetItemName = path.join(path.parse(item).name, "AGENTS.md")
 					}
 
-					// Gemini Workflow Conversion
+					// Platform-specific Agent/Workflow Transformations
 					if (
-						platform === "gemini" &&
-						normalizedType === "workflow" &&
+						(normalizedType === "agent" || normalizedType === "workflow") &&
 						currentSourcePath.endsWith(".md")
 					) {
-						const targetPath = path.join(
-							targetBase,
-							item.replace(/\.md$/, ".toml"),
-						)
+						let targetFileName = targetItemName
+						if (platform === "gemini") {
+							targetFileName = item.replace(/\.md$/, ".toml")
+						}
+
+						const targetPath = path.join(targetBase, targetFileName)
+
 						if (!overwrite && (await fs.pathExists(targetPath))) {
-							/* v8 ignore next */
 							skippedCount++
 						} else {
-							const content = await fs.readFile(currentSourcePath, "utf-8")
-							const tomlContent = convertToGeminiCommandTOML(content)
-							await fs.ensureDir(targetBase)
-							await fs.writeFile(targetPath, tomlContent)
+							let content = await fs.readFile(currentSourcePath, "utf-8")
+
+							if (normalizedType === "agent") {
+								content = transformAgent(
+									content,
+									platform,
+									path.parse(item).name,
+								)
+							}
+
+							if (platform === "gemini") {
+								content = convertToGeminiCommandTOML(content)
+							}
+
+							await fs.ensureDir(path.dirname(targetPath))
+							await fs.writeFile(targetPath, content)
 							installedCount++
 						}
 						continue
