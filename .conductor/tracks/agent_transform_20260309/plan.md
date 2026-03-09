@@ -13,9 +13,9 @@
 - [x] Task: Implement Copilot Handler 00a266f
   - [x] Write tests for `.agent.md` naming and frontmatter injection.
   - [x] Implement `src/utils/platforms/copilot.ts`.
-- [ ] Task: Implement Gemini Handler
-  - [ ] Write tests for `.toml` naming and TOML conversion.
-  - [ ] Implement `src/utils/platforms/gemini.ts`.
+- [x] Task: Implement Gemini Handler b6c3ee1
+  - [x] Write tests for `.toml` naming and TOML conversion.
+  - [x] Implement `src/utils/platforms/gemini.ts`.
 - [ ] Task: Implement Default/Null Handler
   - [ ] Create a fallback for other types or platforms.
 
