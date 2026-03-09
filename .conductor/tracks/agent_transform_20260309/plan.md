@@ -2,8 +2,8 @@
 
 ## Phase 1: Architectural Refactoring & Filtering
 
-- [ ] Task: Implement Platform Filtering in CLI
-  - [ ] Update `src/commands/add.ts` to filter `getPlatformOptions` based on `type`.
+- [x] Task: Implement Platform Filtering in CLI 3f4439f
+  - [x] Update `src/commands/add.ts` to filter `getPlatformOptions` based on `type`.
 - [ ] Task: Create Platform Handler Infrastructure
   - [ ] Create `src/utils/platforms/types.ts` (Interface definition).
   - [ ] Create `src/utils/platforms/index.ts` (Registry).
