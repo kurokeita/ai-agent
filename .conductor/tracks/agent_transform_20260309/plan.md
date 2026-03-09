@@ -16,8 +16,8 @@
 - [x] Task: Implement Gemini Handler b6c3ee1
   - [x] Write tests for `.toml` naming and TOML conversion.
   - [x] Implement `src/utils/platforms/gemini.ts`.
-- [ ] Task: Implement Default/Null Handler
-  - [ ] Create a fallback for other types or platforms.
+- [x] Task: Implement Default/Null Handler 317369e
+  - [x] Create a fallback for other types or platforms.
 
 ## Phase 3: Integration & Verification
 
