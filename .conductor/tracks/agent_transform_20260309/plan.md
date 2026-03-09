@@ -10,9 +10,9 @@
 
 ## Phase 2: Platform Handlers (TDD)
 
-- [ ] Task: Implement Copilot Handler
-  - [ ] Write tests for `.agent.md` naming and frontmatter injection.
-  - [ ] Implement `src/utils/platforms/copilot.ts`.
+- [x] Task: Implement Copilot Handler 00a266f
+  - [x] Write tests for `.agent.md` naming and frontmatter injection.
+  - [x] Implement `src/utils/platforms/copilot.ts`.
 - [ ] Task: Implement Gemini Handler
   - [ ] Write tests for `.toml` naming and TOML conversion.
   - [ ] Implement `src/utils/platforms/gemini.ts`.
