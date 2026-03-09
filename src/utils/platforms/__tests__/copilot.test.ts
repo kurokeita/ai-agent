@@ -4,9 +4,9 @@ import { CopilotHandler } from "../copilot"
 describe("CopilotHandler", () => {
 	const handler = new CopilotHandler()
 
-	it("should return .agent.md for agent type", () => {
+	it("should return .md for agent type", () => {
 		expect(handler.getTargetFileName("test-agent", "agent")).toBe(
-			"test-agent.agent.md",
+			"test-agent.md",
 		)
 	})
 

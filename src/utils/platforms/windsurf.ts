@@ -11,7 +11,7 @@ export class WindsurfHandler implements PlatformHandler {
 		return itemName
 	}
 
-	transform(content: string, type: string, itemName: string): string {
+	transform(content: string, _type: string, _itemName: string): string {
 		return content
 	}
 }

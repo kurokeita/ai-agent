@@ -6,8 +6,9 @@ export class CopilotHandler implements PlatformHandler {
 
 	getTargetFileName(itemName: string, type: string): string {
 		if (type === "agent") {
-			return itemName.replace(/\.md$/, "") + ".agent.md"
+			return `${itemName.replace(/\.md$/, "")}.md`
 		}
+
 		return itemName
 	}
 
@@ -17,7 +18,7 @@ export class CopilotHandler implements PlatformHandler {
 		const frontmatterRegex = /^---\n([\s\S]*?)\n---/
 		const match = content.match(frontmatterRegex)
 
-		let frontmatter: any = {
+		let frontmatter: Record<string, unknown> = {
 			name: itemName,
 			description: "",
 			target: "github-copilot",
@@ -27,7 +28,7 @@ export class CopilotHandler implements PlatformHandler {
 
 		if (match) {
 			try {
-				const parsed = yaml.load(match[1]) as any
+				const parsed = yaml.load(match[1]) as Record<string, unknown>
 				frontmatter = { ...frontmatter, ...parsed }
 				// Ensure target and tools are set for Copilot
 				frontmatter.target = "github-copilot"
@@ -39,7 +40,7 @@ export class CopilotHandler implements PlatformHandler {
 					"githubRepo",
 				]
 				body = content.replace(frontmatterRegex, "").trim()
-			} catch (e) {
+			} catch (_) {
 				// If parsing fails, we'll just use the default frontmatter
 			}
 		}
