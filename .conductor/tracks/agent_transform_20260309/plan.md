@@ -21,8 +21,8 @@
 
 ## Phase 3: Integration & Verification
 
-- [ ] Task: Refactor `src/commands/add.ts`
-  - [ ] Replace inline transformation and installation logic with calls to the new registry.
-- [ ] Task: Cleanup & Verification
-  - [ ] Remove `src/utils/agents.ts` (old file) and fix `src/utils/__tests__/agents.test.ts`.
-  - [ ] Manual Verification — 'Full installation flow for agents'.
+- [x] Task: Refactor `src/commands/add.ts` 5d4ed41
+  - [x] Replace inline transformation and installation logic with calls to the new registry.
+- [x] Task: Cleanup & Verification 43f6f51
+  - [x] Remove `src/utils/agents.ts` (old file) and fix `src/utils/__tests__/agents.test.ts`.
+  - [x] Manual Verification — 'Full installation flow for agents'.

@@ -4,5 +4,5 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 ---
 
-- [ ] **Track: Transform agents to Copilot CLI (.agent.md) and Gemini CLI (.toml) with specific platform tool sets.**
+- [x] **Track: Transform agents to Copilot CLI (.agent.md) and Gemini CLI (.toml) with specific platform tool sets.**
   *Link: [./tracks/agent_transform_20260309/](./tracks/agent_transform_20260309/)*
