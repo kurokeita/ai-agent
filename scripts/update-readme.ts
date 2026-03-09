@@ -36,7 +36,9 @@ function generateSupportedAgentsTable() {
 			"~",
 		)
 
-		table += `| ${label} | \`${agentPath || "-"}\` | \`${skillPath || "-"}\` | \`${workflowPath || "-"}\` |\n`
+		const agentPathDisplay = agentPath ? `\`${agentPath}\`` : "*Not Supported*"
+
+		table += `| ${label} | ${agentPathDisplay} | \`${skillPath || "-"}\` | \`${workflowPath || "-"}\` |\n`
 	}
 
 	return table

@@ -5,32 +5,65 @@ import {
 	intro,
 	isCancel,
 	outro,
+	select,
 	spinner,
+	text,
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
 import { fetchSkillFromGitHub } from "@/utils/github"
 import { TYPE_DIRS } from "@/utils/paths"
 
-export async function importItem(type: string, url: string) {
-	intro(pc.bgCyan(pc.black(` AI Manager : Import ${type} `)))
+export async function importItem(
+	type?: string,
+	url?: string,
+	options?: { skipIntro?: boolean },
+) {
+	if (!options?.skipIntro) {
+		intro(pc.bgCyan(pc.black(" AI Manager : Import ")))
+	}
+
+	let currentType = type
+	if (!currentType) {
+		const selectedType = await select({
+			message: "What would you like to import?",
+			options: [
+				{ label: "Skill", value: "skill" },
+				{ label: "Agent", value: "agent" },
+				{ label: "Workflow", value: "workflow" },
+			],
+		})
+
+		if (isCancel(selectedType)) return
+		currentType = selectedType as string
+	}
 
 	// Normalize type
-	const normalizedType = type.toLowerCase().endsWith("s")
-		? type.slice(0, -1)
-		: type
+	const normalizedType = currentType.toLowerCase().endsWith("s")
+		? currentType.slice(0, -1)
+		: currentType
 	const targetBaseDir = TYPE_DIRS[normalizedType]
 
 	if (!targetBaseDir) {
-		cancel(`Unknown type: ${type}. Supported: skill, agent, workflow`)
+		cancel(`Unknown type: ${currentType}. Supported: skill, agent, workflow`)
 		process.exit(1)
 		return
 	}
 
-	if (!url) {
-		cancel("GitHub URL is required.")
-		process.exit(1)
-		return
+	let currentUrl = url
+	if (!currentUrl) {
+		const inputUrl = await text({
+			message: "Enter the GitHub URL:",
+			placeholder: "https://github.com/owner/repo/tree/main/path/to/item",
+			validate: (value) => {
+				if (!value) return "URL is required."
+				if (!value.startsWith("https://github.com/"))
+					return "Must be a GitHub URL."
+			},
+		})
+
+		if (isCancel(inputUrl)) return
+		currentUrl = inputUrl as string
 	}
 
 	let tempDir: string | null = null
@@ -43,7 +76,7 @@ export async function importItem(type: string, url: string) {
 		let isFile = false
 
 		try {
-			const result = await fetchSkillFromGitHub(url)
+			const result = await fetchSkillFromGitHub(currentUrl)
 			tempDir = result.tempDir
 			if (!tempDir) throw new Error("Failed to create temp directory")
 			itemName = result.skillName // reuse property or rename if possible. assuming generic repo structure
@@ -86,10 +119,7 @@ export async function importItem(type: string, url: string) {
 				})
 
 				if (isCancel(shouldOverwrite) || !shouldOverwrite) {
-					/* v8 ignore next */
-					if (tempDir) await fs.remove(tempDir)
-					cancel("Operation cancelled.")
-					process.exit(0)
+					await fs.remove(tempDir)
 					return
 				}
 			}
@@ -100,10 +130,7 @@ export async function importItem(type: string, url: string) {
 			})
 
 			if (isCancel(shouldOverwrite) || !shouldOverwrite) {
-				/* v8 ignore next */
-				if (tempDir) await fs.remove(tempDir)
-				cancel("Operation cancelled.")
-				process.exit(0)
+				await fs.remove(tempDir)
 				return
 			}
 		}
@@ -125,12 +152,11 @@ export async function importItem(type: string, url: string) {
 		s.stop(pc.green(`Successfully imported ${itemName}!`))
 
 		// Cleanup
-		/* v8 ignore next 3 */
-		if (tempDir) {
-			await fs.remove(tempDir)
-		}
+		await fs.remove(tempDir)
 
-		outro(`${normalizedType} available at: ${targetPath}`)
+		if (!options?.skipIntro) {
+			outro(`${normalizedType} available at: ${targetPath}`)
+		}
 	} catch (error) {
 		if (tempDir) await fs.remove(tempDir)
 		cancel(`An error occurred: ${error}`)
