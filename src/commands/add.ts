@@ -25,12 +25,7 @@ import { getHandler } from "@/utils/platforms"
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type)
 	return Object.entries(paths)
-		.filter(([platform]) => {
-			if (type === "agent") {
-				return platform === "copilot" || platform === "gemini"
-			}
-			return true
-		})
+		.filter(([_, pathStr]) => !!pathStr)
 		.map(([platform, pathStr]) => ({
 			label: PLATFORM_LABELS[platform as Platform],
 			value: platform,
