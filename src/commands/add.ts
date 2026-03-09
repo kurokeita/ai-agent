@@ -13,7 +13,6 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import { transformAgent } from "@/utils/agents"
 import { fetchSkillFromGitHub } from "@/utils/github"
 import {
 	getTargetPaths,
@@ -21,7 +20,7 @@ import {
 	type Platform,
 	TYPE_DIRS,
 } from "@/utils/paths"
-import { convertToGeminiCommandTOML } from "@/utils/toml"
+import { getHandler } from "@/utils/platforms"
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type)
@@ -263,41 +262,25 @@ export async function add(type: string, url?: string) {
 						}
 					}
 
-					let targetItemName = item
-					if (platform === "copilot" && normalizedType === "agent") {
-						targetItemName = item.replace(/\.md$/, ".agent.md")
-					} else if (platform === "windsurf" && normalizedType === "agent") {
-						targetItemName = path.join(path.parse(item).name, "AGENTS.md")
-					}
+					const handler = getHandler(platform)
+					const targetItemName = handler.getTargetFileName(item, normalizedType)
 
 					// Platform-specific Agent/Workflow Transformations
 					if (
 						(normalizedType === "agent" || normalizedType === "workflow") &&
 						currentSourcePath.endsWith(".md")
 					) {
-						let targetFileName = targetItemName
-						if (platform === "gemini") {
-							targetFileName = item.replace(/\.md$/, ".toml")
-						}
-
-						const targetPath = path.join(targetBase, targetFileName)
+						const targetPath = path.join(targetBase, targetItemName)
 
 						if (!overwrite && (await fs.pathExists(targetPath))) {
 							skippedCount++
 						} else {
 							let content = await fs.readFile(currentSourcePath, "utf-8")
-
-							if (normalizedType === "agent") {
-								content = transformAgent(
-									content,
-									platform,
-									path.parse(item).name,
-								)
-							}
-
-							if (platform === "gemini") {
-								content = convertToGeminiCommandTOML(content)
-							}
+							content = handler.transform(
+								content,
+								normalizedType,
+								path.parse(item).name,
+							)
 
 							await fs.ensureDir(path.dirname(targetPath))
 							await fs.writeFile(targetPath, content)
