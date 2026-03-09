@@ -4,6 +4,7 @@ import {
 	intro,
 	isCancel,
 	multiselect,
+	note,
 	outro,
 	select,
 	spinner,

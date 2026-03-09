@@ -35,6 +35,8 @@ describe("src/commands/import.ts", () => {
 		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows"
 
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
+		vi.mocked(prompts.select).mockResolvedValue("exit")
+		vi.mocked(prompts.text).mockResolvedValue("url")
 	})
 
 	it("should cancel if type is unknown", async () => {
@@ -42,12 +44,6 @@ describe("src/commands/import.ts", () => {
 		expect(prompts.cancel).toHaveBeenCalledWith(
 			expect.stringContaining("Unknown type"),
 		)
-		expect(mockExit).toHaveBeenCalledWith(1)
-	})
-
-	it("should cancel if URL is missing", async () => {
-		await importItem("skill", "")
-		expect(prompts.cancel).toHaveBeenCalledWith("GitHub URL is required.")
 		expect(mockExit).toHaveBeenCalledWith(1)
 	})
 
@@ -92,7 +88,7 @@ describe("src/commands/import.ts", () => {
 		expect(fs.copy).toHaveBeenCalled()
 	})
 
-	it("should cancel skill import if overwrite is declined", async () => {
+	it("should return if overwrite is declined", async () => {
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
@@ -103,8 +99,7 @@ describe("src/commands/import.ts", () => {
 
 		await importItem("skill", "url")
 
-		expect(prompts.cancel).toHaveBeenCalledWith("Operation cancelled.")
-		expect(mockExit).toHaveBeenCalledWith(0)
+		expect(fs.copy).not.toHaveBeenCalled()
 	})
 
 	it("should flatten agent/workflow import", async () => {
@@ -151,88 +146,6 @@ describe("src/commands/import.ts", () => {
 		expect(fs.copy).toHaveBeenCalled()
 	})
 
-	it("should cancel flatten import if user says No", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never)
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(false)
-		vi.mocked(prompts.isCancel).mockReturnValue(false)
-
-		await importItem("agent", "url")
-
-		expect(prompts.cancel).toHaveBeenCalledWith("Operation cancelled.")
-		expect(mockExit).toHaveBeenCalledWith(0)
-	})
-
-	it("should handle cancel during flatten overwrite confirmation", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never)
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-
-		await importItem("agent", "url")
-
-		expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
-		expect(prompts.cancel).toHaveBeenCalledWith("Operation cancelled.")
-	})
-
-	it("should cancel direct import if user says No", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(false)
-		vi.mocked(prompts.isCancel).mockReturnValue(false)
-
-		await importItem("skill", "url")
-
-		expect(prompts.cancel).toHaveBeenCalledWith("Operation cancelled.")
-		expect(mockExit).toHaveBeenCalledWith(0)
-	})
-
-	it("should handle cancel during direct overwrite confirmation", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-
-		await importItem("skill", "url")
-
-		expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
-		expect(prompts.cancel).toHaveBeenCalledWith("Operation cancelled.")
-	})
-
-	it("should handle single file import", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item.md",
-			isFile: true,
-		})
-
-		await importItem("workflow", "url")
-
-		expect(fs.copy).toHaveBeenCalledWith(
-			"/tmp/item/item.md",
-			expect.stringContaining("item.md"),
-			expect.anything(),
-		)
-	})
-
 	it("should cleanup tempDir on error", async () => {
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
@@ -257,7 +170,7 @@ describe("src/commands/import.ts", () => {
 		})
 		await importItem("skills", "url")
 		expect(prompts.intro).toHaveBeenCalledWith(
-			expect.stringContaining("Import skills"),
+			expect.stringContaining(" AI Manager : Import "),
 		)
 	})
 

@@ -43,22 +43,13 @@ describe("bin/cli.ts", () => {
 		const importCmd = await import("../../src/commands/import.js")
 		process.argv = ["node", "cli.js", "import", "skill", "url"]
 		await import("../cli.js")
-		expect(importCmd.importItem).toHaveBeenCalledWith(
-			"skill",
-			"url",
-			expect.anything(),
-			expect.anything(),
-		)
+		expect(importCmd.importItem).toHaveBeenCalledWith("skill", "url")
 	})
 
 	it("should call remove command", async () => {
 		const removeCmd = await import("../../src/commands/remove.js")
 		process.argv = ["node", "cli.js", "remove", "skill"]
 		await import("../cli.js")
-		expect(removeCmd.remove).toHaveBeenCalledWith(
-			"skill",
-			expect.anything(),
-			expect.anything(),
-		)
+		expect(removeCmd.remove).toHaveBeenCalledWith("skill")
 	})
 })

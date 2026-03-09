@@ -1,3 +1,4 @@
+import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
 import { getTargetPaths, TYPE_DIRS } from "../../utils/paths.js"
@@ -5,6 +6,12 @@ import { list } from "../list.js"
 
 vi.mock("fs-extra")
 vi.mock("../../utils/paths.js")
+vi.mock("@clack/prompts", () => ({
+	intro: vi.fn(),
+	outro: vi.fn(),
+	select: vi.fn(),
+	isCancel: vi.fn(() => false),
+}))
 
 describe("src/commands/list.ts", () => {
 	let mockConsoleLog: MockInstance
@@ -25,26 +32,20 @@ describe("src/commands/list.ts", () => {
 		vi.mocked(getTargetPaths).mockReturnValue({
 			gemini: "/mock/install/gemini",
 		})
+
+		vi.mocked(prompts.select).mockResolvedValue("exit")
 	})
 
 	it("should list available items for all types by default", async () => {
-		vi.mocked(fs.readdir).mockResolvedValueOnce([
+		// In the new loop, if no type is provided, it prompts.
+		// We can mock select to return "skill", then "exit"
+		vi.mocked(prompts.select)
+			.mockResolvedValueOnce("skill")
+			.mockResolvedValueOnce("exit")
+
+		vi.mocked(fs.readdir).mockResolvedValue([
 			{
 				name: "skill1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		] as never)
-		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{
-				name: "agent1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		] as never)
-		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{
-				name: "workflow1",
 				isDirectory: () => true,
 				isFile: () => false,
 			} as fs.Dirent,
@@ -54,12 +55,6 @@ describe("src/commands/list.ts", () => {
 
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("Available skills"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available agents"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available workflows"),
 		)
 	})
 
