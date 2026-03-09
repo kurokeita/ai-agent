@@ -6,3 +6,8 @@ This file tracks all major tracks for the project. Each track has its own detail
 
 - [x] **Track: Transform agents to Copilot CLI (.agent.md) and Gemini CLI (.toml) with specific platform tool sets.**
   *Link: [./tracks/agent_transform_20260309/](./tracks/agent_transform_20260309/)*
+
+---
+
+- [ ] **Track: Make add and list commands fully interactive with a loop back to the initial step.**
+  *Link: [./tracks/interactive_loop_20260309/](./tracks/interactive_loop_20260309/)*
