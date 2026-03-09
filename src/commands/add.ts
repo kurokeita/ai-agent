@@ -86,9 +86,10 @@ export async function add(
 		}
 
 		// Normalize type
-		const normalizedType = currentType?.toLowerCase().endsWith("s")
-			? currentType.slice(0, -1)
-			: (currentType ?? "")
+		const normalizedType =
+			currentType?.toLowerCase().endsWith("s") && currentType.length > 1
+				? currentType.slice(0, -1)
+				: (currentType ?? "")
 
 		if (!TYPE_DIRS[normalizedType] && !url) {
 			cancel(`Unknown type: ${currentType}. Supported: skill, agent, workflow`)

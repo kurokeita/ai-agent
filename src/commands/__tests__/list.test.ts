@@ -217,4 +217,67 @@ describe("src/commands/list.ts", () => {
 			expect.any(Error),
 		)
 	})
+
+	it("should handle type 'all' by listing everything", async () => {
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "item1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		])
+		await list("all")
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("Available skills"),
+		)
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("Available agents"),
+		)
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("Available workflows"),
+		)
+	})
+
+	it("should handle toggle between Local and Repository view", async () => {
+		vi.mocked(prompts.select)
+			.mockResolvedValueOnce("toggle") // Switch to Local
+			.mockResolvedValueOnce("skill") // List skills (local)
+			.mockResolvedValueOnce("exit")
+
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "local-skill",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		])
+
+		await list()
+
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("Installed skills (Local)"),
+		)
+	})
+
+	it("should handle existing directory in repository view", async () => {
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(fs.readdir).mockResolvedValueOnce([
+			{
+				name: "item1",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		] as never)
+
+		await list("skill")
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("Available skills"),
+		)
+	})
+
+	it("should skip intro and outro if skipIntro option is true", async () => {
+		await list("skill", { skipIntro: true })
+		expect(prompts.intro).not.toHaveBeenCalled()
+		expect(prompts.outro).not.toHaveBeenCalled()
+	})
 })

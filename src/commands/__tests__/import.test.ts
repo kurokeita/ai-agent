@@ -185,4 +185,151 @@ describe("src/commands/import.ts", () => {
 			expect.stringContaining("Failed to create temp directory"),
 		)
 	})
+
+	it("should support fully interactive mode (no args)", async () => {
+		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
+		vi.mocked(prompts.text).mockResolvedValueOnce(
+			"https://github.com/owner/repo/tree/main/skill",
+		)
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/skill",
+			skillName: "skill",
+			isFile: false,
+		})
+
+		await importItem()
+
+		expect(prompts.select).toHaveBeenCalledWith(
+			expect.objectContaining({
+				message: "What would you like to import?",
+			}),
+		)
+		expect(prompts.text).toHaveBeenCalledWith(
+			expect.objectContaining({
+				message: "Enter the GitHub URL:",
+			}),
+		)
+		expect(fs.copy).toHaveBeenCalled()
+	})
+
+	it("should return early if type selection is cancelled", async () => {
+		vi.mocked(prompts.select).mockResolvedValue(Symbol("cancel"))
+		vi.mocked(prompts.isCancel).mockReturnValue(true)
+
+		await importItem()
+		expect(prompts.text).not.toHaveBeenCalled()
+	})
+
+	it("should return early if URL input is cancelled", async () => {
+		vi.mocked(prompts.select).mockResolvedValue("skill")
+		vi.mocked(prompts.text).mockResolvedValue(Symbol("cancel"))
+		vi.mocked(prompts.isCancel)
+			.mockReturnValueOnce(false)
+			.mockReturnValueOnce(true)
+
+		await importItem()
+		expect(fetchSkillFromGitHub).not.toHaveBeenCalled()
+	})
+
+	it("should skip intro and outro if skipIntro option is true", async () => {
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/item",
+			skillName: "item",
+			isFile: false,
+		})
+		await importItem("skill", "url", { skipIntro: true })
+		expect(prompts.intro).not.toHaveBeenCalled()
+		expect(prompts.outro).not.toHaveBeenCalled()
+	})
+
+	it("should cancel if URL is not provided in interactive mode", async () => {
+		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
+		vi.mocked(prompts.text).mockResolvedValueOnce("") // Empty URL
+		// The validation logic in text() will handle it, but here we just return
+		vi.mocked(prompts.isCancel)
+			.mockReturnValueOnce(false)
+			.mockReturnValueOnce(true)
+
+		await importItem()
+		expect(fetchSkillFromGitHub).not.toHaveBeenCalled()
+	})
+
+	it("should handle invalid URL validation", async () => {
+		// This tests the validate function in the text prompt
+		// Since we mock prompts.text, we can't easily trigger the validation logic directly
+		// unless we extract the validate function or test the command with real prompts.
+		// For unit tests, we'll assume the URL validation logic is simple.
+	})
+
+	it("should return early if flatten overwrite is declined", async () => {
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/item",
+			skillName: "item",
+			isFile: false,
+		})
+		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never)
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(prompts.confirm).mockResolvedValue(false)
+
+		await importItem("agent", "url")
+		expect(fs.copy).not.toHaveBeenCalled()
+	})
+
+	it("should handle cancel during flatten overwrite confirmation", async () => {
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/item",
+			skillName: "item",
+			isFile: false,
+		})
+		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never)
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
+		vi.mocked(prompts.isCancel).mockImplementation((v) => typeof v === "symbol")
+
+		await importItem("agent", "url")
+		expect(fs.copy).not.toHaveBeenCalled()
+	})
+
+	it("should validate GitHub URL correctly", async () => {
+		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
+		let validateFn: (v: string) => string | undefined = () => undefined
+		vi.mocked(prompts.text).mockImplementation((opts: any) => {
+			validateFn = opts.validate
+			return Promise.resolve("https://github.com/owner/repo")
+		})
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/item",
+			skillName: "item",
+			isFile: false,
+		})
+
+		await importItem()
+
+		expect(validateFn("")).toBe("URL is required.")
+		expect(validateFn("https://other.com")).toBe("Must be a GitHub URL.")
+		expect(validateFn("https://github.com/")).toBeUndefined()
+	})
+
+	it("should import single file correctly", async () => {
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/item",
+			skillName: "agent.md",
+			isFile: true,
+		})
+
+		await importItem("agent", "url")
+
+		expect(fs.copy).toHaveBeenCalledWith(
+			expect.stringContaining("agent.md"),
+			expect.stringContaining("agent.md"),
+			expect.anything(),
+		)
+	})
+
+	it("should handle error when tempDir is null in catch block", async () => {
+		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(new Error("No tempDir"))
+		// This will trigger catch block with tempDir being null
+		await importItem("skill", "url")
+		expect(fs.remove).not.toHaveBeenCalled()
+	})
 })

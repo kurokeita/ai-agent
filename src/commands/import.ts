@@ -119,8 +119,7 @@ export async function importItem(
 				})
 
 				if (isCancel(shouldOverwrite) || !shouldOverwrite) {
-					/* v8 ignore next */
-					if (tempDir) await fs.remove(tempDir)
+					await fs.remove(tempDir)
 					return
 				}
 			}
@@ -131,8 +130,7 @@ export async function importItem(
 			})
 
 			if (isCancel(shouldOverwrite) || !shouldOverwrite) {
-				/* v8 ignore next */
-				if (tempDir) await fs.remove(tempDir)
+				await fs.remove(tempDir)
 				return
 			}
 		}
@@ -154,10 +152,7 @@ export async function importItem(
 		s.stop(pc.green(`Successfully imported ${itemName}!`))
 
 		// Cleanup
-		/* v8 ignore next 3 */
-		if (tempDir) {
-			await fs.remove(tempDir)
-		}
+		await fs.remove(tempDir)
 
 		if (!options?.skipIntro) {
 			outro(`${normalizedType} available at: ${targetPath}`)

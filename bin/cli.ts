@@ -81,7 +81,7 @@ program
 
 // If no arguments, start interactive mode
 if (process.argv.length <= 2) {
-	interactiveMain()
+	await interactiveMain()
 } else {
-	program.parse()
+	await program.parseAsync()
 }
