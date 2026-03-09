@@ -55,8 +55,14 @@ async function installItem(
 	return true
 }
 
-export async function add(type?: string, url?: string) {
-	intro(pc.bgCyan(pc.black(" AI Manager : Add ")))
+export async function add(
+	type?: string,
+	url?: string,
+	options?: { skipIntro?: boolean },
+) {
+	if (!options?.skipIntro) {
+		intro(pc.bgCyan(pc.black(" AI Manager : Add ")))
+	}
 
 	let currentType = type
 	const isSingleShot = !!type || !!url
@@ -347,5 +353,7 @@ export async function add(type?: string, url?: string) {
 		currentType = undefined
 	}
 
-	outro("You're all set!")
+	if (!options?.skipIntro) {
+		outro("You're all set!")
+	}
 }

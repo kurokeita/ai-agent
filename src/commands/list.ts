@@ -88,8 +88,13 @@ async function performListing(type: string, local: boolean) {
 	}
 }
 
-export async function list(type?: string, options?: { local: boolean }) {
-	intro(pc.bgCyan(pc.black(" AI Manager : List ")))
+export async function list(
+	type?: string,
+	options?: { local?: boolean; skipIntro?: boolean },
+) {
+	if (!options?.skipIntro) {
+		intro(pc.bgCyan(pc.black(" AI Manager : List ")))
+	}
 
 	let currentType = type
 	let isLocal = !!options?.local
@@ -138,5 +143,7 @@ export async function list(type?: string, options?: { local: boolean }) {
 		console.error(pc.red("Error listing items:"), error)
 	}
 
-	outro("Done!")
+	if (!options?.skipIntro) {
+		outro("Done!")
+	}
 }

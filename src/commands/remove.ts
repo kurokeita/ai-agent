@@ -1,24 +1,41 @@
 import path from "node:path"
 import {
-	cancel,
 	confirm,
 	intro,
 	isCancel,
 	multiselect,
 	outro,
+	select,
 	spinner,
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
 import { getTargetPaths, PLATFORM_LABELS, type Platform } from "@/utils/paths"
 
-export async function remove(type: string) {
-	intro(pc.bgCyan(pc.black(` AI Manager : Remove ${type} `)))
+export async function remove(type?: string, options?: { skipIntro?: boolean }) {
+	if (!options?.skipIntro) {
+		intro(pc.bgCyan(pc.black(" AI Manager : Remove ")))
+	}
+
+	let currentType = type
+	if (!currentType) {
+		const selectedType = await select({
+			message: "What would you like to remove?",
+			options: [
+				{ label: "Skills", value: "skill" },
+				{ label: "Agents", value: "agent" },
+				{ label: "Workflows", value: "workflow" },
+			],
+		})
+
+		if (isCancel(selectedType)) return
+		currentType = selectedType as string
+	}
 
 	// Normalize type
-	const normalizedType = type.toLowerCase().endsWith("s")
-		? type.slice(0, -1)
-		: type
+	const normalizedType = currentType.toLowerCase().endsWith("s")
+		? currentType.slice(0, -1)
+		: currentType
 
 	const targetPaths = getTargetPaths(normalizedType)
 
@@ -52,8 +69,7 @@ export async function remove(type: string) {
 	s.stop(`Found ${uniqueItems.size} unique installed ${normalizedType}s.`)
 
 	if (uniqueItems.size === 0) {
-		cancel(`No installed ${normalizedType}s found.`)
-		process.exit(0)
+		outro(`No installed ${normalizedType}s found.`)
 		return
 	}
 
@@ -68,8 +84,6 @@ export async function remove(type: string) {
 	})
 
 	if (isCancel(itemSelections)) {
-		cancel("Operation cancelled.")
-		process.exit(0)
 		return
 	}
 
@@ -77,10 +91,12 @@ export async function remove(type: string) {
 
 	// 3. Select Platforms
 	// Only show platforms relevant to the type
-	const platformOptions = Object.entries(targetPaths).map(([platform]) => ({
-		label: PLATFORM_LABELS[platform as Platform],
-		value: platform,
-	}))
+	const platformOptions = Object.entries(targetPaths)
+		.filter(([_, pathStr]) => !!pathStr)
+		.map(([platform]) => ({
+			label: PLATFORM_LABELS[platform as Platform],
+			value: platform,
+		}))
 
 	const platformSelections = await multiselect({
 		message: "Select platforms to remove from:",
@@ -89,8 +105,6 @@ export async function remove(type: string) {
 	})
 
 	if (isCancel(platformSelections)) {
-		cancel("Operation cancelled.")
-		process.exit(0)
 		return
 	}
 
@@ -103,8 +117,6 @@ export async function remove(type: string) {
 	})
 
 	if (isCancel(confirmDelete) || !confirmDelete) {
-		cancel("Operation cancelled.")
-		process.exit(0)
 		return
 	}
 
@@ -157,5 +169,7 @@ export async function remove(type: string) {
 		)
 	}
 
-	outro("Done!")
+	if (!options?.skipIntro) {
+		outro("Done!")
+	}
 }
