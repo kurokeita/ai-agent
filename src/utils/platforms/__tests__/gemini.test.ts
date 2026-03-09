@@ -43,6 +43,21 @@ describe("GeminiHandler", () => {
 		expect(transformed).not.toContain("skill1")
 	})
 
+	it("should handle agents without frontmatter", () => {
+		const content = "# Simple Body"
+		const transformed = handler.transform(content, "agent", "simple-agent")
+		expect(transformed).toContain("name: simple-agent")
+		expect(transformed).toContain("tools:")
+		expect(transformed).toContain("# Simple Body")
+	})
+
+	it("should handle agents with invalid yaml frontmatter", () => {
+		const content = "---\ninvalid: yaml: : :\n---\n# Body"
+		const transformed = handler.transform(content, "agent", "bad-yaml")
+		expect(transformed).toContain("name: bad-yaml")
+		expect(transformed).toContain("tools:")
+	})
+
 	it("should NOT transform other content types", () => {
 		const content = "# Test Other\nBody"
 		const transformed = handler.transform(content, "skill", "test-skill")

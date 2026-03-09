@@ -33,4 +33,24 @@ describe("CopilotHandler", () => {
 		expect(transformed).toContain("skills:")
 		expect(transformed).toContain("- js")
 	})
+
+	it("should return original content for non-agent types", () => {
+		const content = "# Body"
+		expect(handler.transform(content, "skill", "test")).toBe(content)
+	})
+
+	it("should handle agents without frontmatter", () => {
+		const content = "# Simple Body"
+		const transformed = handler.transform(content, "agent", "simple-agent")
+		expect(transformed).toContain("name: simple-agent")
+		expect(transformed).toContain("target: github-copilot")
+		expect(transformed).toContain("# Simple Body")
+	})
+
+	it("should handle invalid yaml frontmatter", () => {
+		const content = "---\ninvalid: yaml: : :\n---\n# Body"
+		const transformed = handler.transform(content, "agent", "bad-yaml")
+		expect(transformed).toContain("name: bad-yaml")
+		expect(transformed).toContain("target: github-copilot")
+	})
 })
