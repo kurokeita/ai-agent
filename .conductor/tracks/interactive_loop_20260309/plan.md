@@ -1,23 +1,23 @@
 # Implementation Plan: Fully Interactive Command Loops
 
 ## Phase 1: Interactive Add Command
-- [ ] Task: Refactor `src/commands/add.ts` for looping
-    - [ ] Modify `add` function signature to handle optional `type`.
-    - [ ] Implement a `while (true)` loop for the main flow.
-    - [ ] Add a `select` prompt for type/exit.
-- [ ] Task: Verification
-    - [ ] Manual verification of the loop flow.
+- [x] Task: Refactor `src/commands/add.ts` for looping
+    - [x] Modify `add` function signature to handle optional `type`.
+    - [x] Implement a `while (true)` loop for the main flow.
+    - [x] Add a `select` prompt for type/exit.
+- [x] Task: Verification
+    - [x] Manual verification of the loop flow.
 
 ## Phase 2: Interactive List Command
-- [ ] Task: Refactor `src/commands/list.ts` for looping
-    - [ ] Implement a similar loop structure for listing.
-    - [ ] Allow switching between types and potentially view modes (local vs repo).
-- [ ] Task: Verification
-    - [ ] Manual verification of the listing loop.
+- [x] Task: Refactor `src/commands/list.ts` for looping
+    - [x] Implement a similar loop structure for listing.
+    - [x] Allow switching between types and potentially view modes (local vs repo).
+- [x] Task: Verification
+    - [x] Manual verification of the listing loop.
 
 ## Phase 3: CLI Entrypoint Update
-- [ ] Task: Update `bin/cli.ts`
-    - [ ] Adjust command definitions to reflect optional parameters.
-- [ ] Task: Final Polish & Linting
-    - [ ] Ensure consistent messaging and "outro" usage.
-    - [ ] Run `pnpm lint`.
+- [x] Task: Update `bin/cli.ts`
+    - [x] Adjust command definitions to reflect optional parameters.
+- [x] Task: Final Polish & Linting
+    - [x] Ensure consistent messaging and "outro" usage.
+    - [x] Run `pnpm lint`.

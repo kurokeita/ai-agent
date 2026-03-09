@@ -19,7 +19,7 @@ program
 	.action(list)
 
 program
-	.command("add <type> [url]")
+	.command("add [type] [url]")
 	.description(
 		"Add an item (skill, agent, workflow) to platforms (Interactive or from GitHub URL)",
 	)
