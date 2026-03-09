@@ -36,7 +36,12 @@ function generateSupportedAgentsTable() {
 			"~",
 		)
 
-		table += `| ${label} | \`${agentPath || "-"}\` | \`${skillPath || "-"}\` | \`${workflowPath || "-"}\` |\n`
+		let agentPathDisplay = agentPath ? `\`${agentPath}\`` : "` - `"
+		if (platform !== "copilot" && platform !== "gemini") {
+			agentPathDisplay = "*Not Supported*"
+		}
+
+		table += `| ${label} | ${agentPathDisplay} | \`${skillPath || "-"}\` | \`${workflowPath || "-"}\` |\n`
 	}
 
 	return table
