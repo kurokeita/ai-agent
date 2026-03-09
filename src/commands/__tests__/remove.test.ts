@@ -323,7 +323,7 @@ describe("src/commands/remove.ts", () => {
 		// We mock multiselect to return a platform that is NOT gemini
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["nonexistent" as any])
+			.mockResolvedValueOnce(["nonexistent" as unknown as string])
 
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()

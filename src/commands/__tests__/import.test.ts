@@ -293,8 +293,9 @@ describe("src/commands/import.ts", () => {
 	it("should validate GitHub URL correctly", async () => {
 		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
 		let validateFn: (v: string) => string | undefined = () => undefined
-		vi.mocked(prompts.text).mockImplementation((opts: any) => {
-			validateFn = opts.validate
+		vi.mocked(prompts.text).mockImplementation((opts: unknown) => {
+			const options = opts as { validate: (v: string) => string | undefined }
+			validateFn = options.validate
 			return Promise.resolve("https://github.com/owner/repo")
 		})
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({

@@ -543,7 +543,7 @@ describe(add.name, () => {
 			{ name: "item4", isDirectory: () => true, isFile: () => false },
 			{ name: "item5", isDirectory: () => true, isFile: () => false },
 			{ name: "item6", isDirectory: () => true, isFile: () => false },
-		] as any)
+		] as unknown as fs.Dirent<string>[])
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce([
 				"item1",
@@ -569,7 +569,7 @@ describe(add.name, () => {
 			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
 		).mockResolvedValueOnce([
 			{ name: "item", isDirectory: () => true, isFile: () => false },
-		] as any)
+		] as unknown as fs.Dirent<string>[])
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["gemini"])
@@ -657,9 +657,11 @@ describe(add.name, () => {
 			.mockResolvedValueOnce(["item"])
 			.mockResolvedValueOnce(["gemini"])
 		// readdir mock
-		vi.mocked(fs.readdir as any).mockResolvedValueOnce([
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValueOnce([
 			{ name: "item", isDirectory: () => true, isFile: () => false },
-		] as any)
+		] as unknown as fs.Dirent<string>[])
 
 		await add("skill")
 		expect(fs.pathExists).not.toHaveBeenCalledWith(
@@ -683,7 +685,9 @@ describe(add.name, () => {
 			isFile: true,
 		})
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(fs.stat as any).mockResolvedValue({ isFile: () => true })
+		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
+			isFile: () => true,
+		} as fs.Stats)
 		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
 
 		await add("skill", "url")
