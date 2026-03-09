@@ -4,9 +4,9 @@
 
 - [x] Task: Implement Platform Filtering in CLI 3f4439f
   - [x] Update `src/commands/add.ts` to filter `getPlatformOptions` based on `type`.
-- [ ] Task: Create Platform Handler Infrastructure
-  - [ ] Create `src/utils/platforms/types.ts` (Interface definition).
-  - [ ] Create `src/utils/platforms/index.ts` (Registry).
+- [x] Task: Create Platform Handler Infrastructure 0d682ab
+  - [x] Create `src/utils/platforms/types.ts` (Interface definition).
+  - [x] Create `src/utils/platforms/index.ts` (Registry).
 
 ## Phase 2: Platform Handlers (TDD)
 
