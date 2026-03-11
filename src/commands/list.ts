@@ -2,6 +2,7 @@ import { intro, isCancel, outro, select } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
 import { getTargetPaths, TYPE_DIRS } from "@/utils/paths"
+import { codexEntryMatchesType } from "@/utils/platforms/codex"
 
 async function performListing(type: string, local: boolean) {
 	// Handle plural/singular input for convenience
@@ -21,14 +22,25 @@ async function performListing(type: string, local: boolean) {
 				const entries = await fs.readdir(fullPath, {
 					withFileTypes: true,
 				})
-				const items = entries
-					.filter(
-						(entry) =>
-							entry.isDirectory() ||
-							(entry.isFile() && entry.name.endsWith(".md")),
-					)
-					.map((entry) => entry.name)
-					.sort()
+				const items: string[] = []
+
+				for (const entry of entries) {
+					if (platform === "codex") {
+						if (await codexEntryMatchesType(fullPath, entry, normalizedType)) {
+							items.push(entry.name)
+						}
+						continue
+					}
+
+					if (
+						entry.isDirectory() ||
+						(entry.isFile() && entry.name.endsWith(".md"))
+					) {
+						items.push(entry.name)
+					}
+				}
+
+				items.sort()
 
 				if (items.length > 0) {
 					foundAny = true

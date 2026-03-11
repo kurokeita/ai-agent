@@ -131,6 +131,47 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
+	it("should list Codex local installs from skill directories", async () => {
+		vi.mocked(getTargetPaths).mockReturnValue({
+			codex: "/mock/install/codex",
+		})
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "converted-agent",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+			{
+				name: "native-skill",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		] as never)
+		vi.mocked(fs.readFile).mockImplementation((targetPath) => {
+			if (targetPath === "/mock/install/codex/converted-agent/SKILL.md") {
+				return Promise.resolve(
+					"---\nname: converted-agent\nx-ai-agents-type: agent\n---\n",
+				)
+			}
+			if (targetPath === "/mock/install/codex/native-skill/SKILL.md") {
+				return Promise.resolve("---\nname: native-skill\n---\n")
+			}
+			return Promise.reject(new Error(`Unexpected read: ${targetPath}`))
+		})
+
+		await list("agent", { local: true })
+
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("codex:"),
+		)
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("- converted-agent"),
+		)
+		expect(mockConsoleLog).not.toHaveBeenCalledWith(
+			expect.stringContaining("- native-skill"),
+		)
+	})
+
 	it("should handle no installed items found", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([] as never)
 		await list("skill", { local: true })

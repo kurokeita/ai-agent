@@ -87,10 +87,13 @@ pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 | Platform | Agents Path | Skills Path | Workflows Path |
 | :--- | :--- | :--- | :--- |
 | Antigravity | *Not Supported* | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/global_workflows` |
+| Codex | `~/.codex/skills` | `~/.codex/skills` | `~/.codex/skills` |
 | Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/commands` |
 | GitHub Copilot | `~/.copilot/agents` | `~/.copilot/skills` | `~/.copilot/prompts` |
 | Windsurf | *Not Supported* | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/global_workflows` |
 <!-- SUPPORTED_AGENTS_END -->
+
+For Codex, this package installs skills directly and converts agents and workflows into Codex skill packages under `~/.codex/skills`.
 
 ## Development
 

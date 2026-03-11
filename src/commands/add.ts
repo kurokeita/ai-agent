@@ -188,9 +188,11 @@ export async function add(
 			for (const platform of selectedPlatforms) {
 				const targetBase = supportedPaths[platform]
 				if (!targetBase) continue
+				const handler = getHandler(platform)
 
 				for (const item of selectedItems) {
-					const targetPath = path.join(targetBase, item)
+					const targetItemName = handler.getTargetFileName(item, normalizedType)
+					const targetPath = path.join(targetBase, targetItemName)
 					if (await fs.pathExists(targetPath)) {
 						existingItems.push({ item, platform })
 					}

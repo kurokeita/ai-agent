@@ -1,4 +1,5 @@
 import { AntigravityHandler } from "./antigravity"
+import { CodexHandler } from "./codex"
 import { CopilotHandler } from "./copilot"
 import { DefaultHandler } from "./default"
 import { GeminiHandler } from "./gemini"
@@ -13,6 +14,7 @@ export function registerHandler(handler: PlatformHandler) {
 
 // Register default handlers
 registerHandler(new AntigravityHandler())
+registerHandler(new CodexHandler())
 registerHandler(new CopilotHandler())
 registerHandler(new GeminiHandler())
 registerHandler(new WindsurfHandler())

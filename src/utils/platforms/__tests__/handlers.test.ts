@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { AntigravityHandler } from "../antigravity"
+import { CodexHandler } from "../codex"
 import { DefaultHandler } from "../default"
 import { WindsurfHandler } from "../windsurf"
 
@@ -43,6 +44,25 @@ describe("Platform Handlers", () => {
 		})
 		it("should return same content", () => {
 			expect(handler.transform("content", "skill", "test")).toBe("content")
+		})
+	})
+
+	describe("CodexHandler", () => {
+		const handler = new CodexHandler()
+
+		it("should keep skill filenames unchanged", () => {
+			expect(handler.getTargetFileName("test-skill", "skill")).toBe(
+				"test-skill",
+			)
+		})
+
+		it("should wrap agents and workflows into skill packages", () => {
+			expect(handler.getTargetFileName("my-agent.md", "agent")).toBe(
+				"my-agent/SKILL.md",
+			)
+			expect(handler.getTargetFileName("my-workflow.md", "workflow")).toBe(
+				"my-workflow/SKILL.md",
+			)
 		})
 	})
 })
