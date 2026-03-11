@@ -12,6 +12,11 @@ describe("Platform Registry", () => {
 		expect(handler.platform).toBe("gemini")
 	})
 
+	it("should return CodexHandler for codex platform", () => {
+		const handler = getHandler("codex")
+		expect(handler.platform).toBe("codex")
+	})
+
 	it("should return DefaultHandler for unknown platform", () => {
 		const handler = getHandler("unknown")
 		expect(handler.platform).toBe("unknown")

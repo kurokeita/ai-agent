@@ -131,6 +131,28 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
+	it("should list Codex local installs from skill directories", async () => {
+		vi.mocked(getTargetPaths).mockReturnValue({
+			codex: "/mock/install/codex",
+		})
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{
+				name: "converted-agent",
+				isDirectory: () => true,
+				isFile: () => false,
+			} as fs.Dirent,
+		] as never)
+
+		await list("agent", { local: true })
+
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("codex:"),
+		)
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("- converted-agent"),
+		)
+	})
+
 	it("should handle no installed items found", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([] as never)
 		await list("skill", { local: true })

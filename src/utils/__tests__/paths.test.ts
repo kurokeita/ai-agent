@@ -20,11 +20,21 @@ describe("src/utils/paths.ts", () => {
 	it("should have PLATFORM_LABELS", () => {
 		expect(PLATFORM_LABELS.gemini).toBe("Gemini CLI")
 		expect(PLATFORM_LABELS.copilot).toBe("GitHub Copilot")
+		expect(PLATFORM_LABELS.codex).toBe("Codex")
 	})
 
 	it("should have PLATFORM_PATHS_SKILLS", () => {
 		const home = os.homedir()
 		expect(PLATFORM_PATHS_SKILLS.gemini).toBe(path.join(home, ".gemini/skills"))
+		expect(PLATFORM_PATHS_SKILLS.codex).toBe(path.join(home, ".codex/skills"))
+	})
+
+	it("should have Codex agent and workflow paths", () => {
+		const home = os.homedir()
+		expect(PLATFORM_PATHS_AGENTS.codex).toBe(path.join(home, ".codex/skills"))
+		expect(PLATFORM_PATHS_WORKFLOWS.codex).toBe(
+			path.join(home, ".codex/skills"),
+		)
 	})
 
 	it("should have TYPE_DIRS", () => {

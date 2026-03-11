@@ -328,4 +328,23 @@ describe("src/commands/remove.ts", () => {
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
 	})
+
+	it("should remove Codex converted directories", async () => {
+		vi.mocked(getTargetPaths).mockReturnValueOnce({
+			codex: "/mock/install/codex",
+		})
+		vi.mocked(PLATFORM_LABELS).codex = "Codex"
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{ name: "converted-agent", isDirectory: () => true, isFile: () => false },
+		] as never)
+		vi.mocked(prompts.multiselect)
+			.mockResolvedValueOnce(["converted-agent"])
+			.mockResolvedValueOnce(["codex"])
+
+		await remove("agent")
+
+		expect(fs.remove).toHaveBeenCalledWith(
+			"/mock/install/codex/converted-agent",
+		)
+	})
 })
