@@ -17,6 +17,7 @@ describe("CodexHandler", () => {
 
 		expect(transformed).toContain("name: test-agent")
 		expect(transformed).toContain("description: Existing description")
+		expect(transformed).toContain("x-ai-agents-type: agent")
 		expect(transformed).toContain("# Agent")
 		expect(transformed).not.toContain("tools:")
 	})
@@ -29,6 +30,7 @@ describe("CodexHandler", () => {
 		expect(transformed).toContain(
 			"description: This skill should be used when Codex needs to follow the Workflow Title workflow instructions.",
 		)
+		expect(transformed).toContain("x-ai-agents-type: workflow")
 		expect(transformed).toContain("# Workflow Title")
 	})
 

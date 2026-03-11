@@ -336,13 +336,30 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(PLATFORM_LABELS).codex = "Codex"
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{ name: "converted-agent", isDirectory: () => true, isFile: () => false },
+			{ name: "native-skill", isDirectory: () => true, isFile: () => false },
 		] as never)
+		vi.mocked(fs.readFile).mockImplementation((targetPath) => {
+			if (targetPath === "/mock/install/codex/converted-agent/SKILL.md") {
+				return Promise.resolve(
+					"---\nname: converted-agent\nx-ai-agents-type: agent\n---\n",
+				)
+			}
+			if (targetPath === "/mock/install/codex/native-skill/SKILL.md") {
+				return Promise.resolve("---\nname: native-skill\n---\n")
+			}
+			return Promise.reject(new Error(`Unexpected read: ${targetPath}`))
+		})
 		vi.mocked(prompts.multiselect)
 			.mockResolvedValueOnce(["converted-agent"])
 			.mockResolvedValueOnce(["codex"])
 
 		await remove("agent")
 
+		expect(prompts.multiselect).toHaveBeenCalledWith(
+			expect.objectContaining({
+				options: [{ value: "converted-agent", label: "converted-agent" }],
+			}),
+		)
 		expect(fs.remove).toHaveBeenCalledWith(
 			"/mock/install/codex/converted-agent",
 		)

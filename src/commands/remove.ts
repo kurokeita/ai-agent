@@ -12,6 +12,7 @@ import {
 import fs from "fs-extra"
 import pc from "picocolors"
 import { getTargetPaths, PLATFORM_LABELS, type Platform } from "@/utils/paths"
+import { codexEntryMatchesType } from "@/utils/platforms/codex"
 
 export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 	if (!options?.skipIntro) {
@@ -51,13 +52,26 @@ export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 		const s = spinner()
 		s.start("Scanning for installed items...")
 
-		for (const pathStr of Object.values(targetPaths)) {
+		for (const [platform, pathStr] of Object.entries(targetPaths)) {
 			if (await fs.pathExists(pathStr as string)) {
 				const entries = await fs.readdir(pathStr as string, {
 					withFileTypes: true,
 				})
 
 				for (const entry of entries) {
+					if (platform === "codex") {
+						if (
+							await codexEntryMatchesType(
+								pathStr as string,
+								entry,
+								normalizedType,
+							)
+						) {
+							uniqueItems.add(entry.name)
+						}
+						continue
+					}
+
 					if (
 						entry.isDirectory() ||
 						(normalizedType === "workflow" &&

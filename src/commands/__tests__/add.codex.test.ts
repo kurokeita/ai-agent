@@ -65,7 +65,7 @@ describe(`${add.name} - Codex`, () => {
 
 		expect(fs.writeFile).toHaveBeenCalledWith(
 			"/mock/codex/skills/agent/SKILL.md",
-			expect.stringContaining("name: review-agent"),
+			expect.stringContaining("x-ai-agents-type: agent"),
 		)
 	})
 
@@ -91,7 +91,7 @@ describe(`${add.name} - Codex`, () => {
 
 		expect(fs.writeFile).toHaveBeenCalledWith(
 			"/mock/codex/skills/workflow/SKILL.md",
-			expect.stringContaining("name: workflow"),
+			expect.stringContaining("x-ai-agents-type: workflow"),
 		)
 	})
 
