@@ -1,6 +1,7 @@
+import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { describe, expect, it } from "vitest"
+import { afterEach, describe, expect, it } from "vitest"
 import {
 	getTargetPaths,
 	PLATFORM_LABELS,
@@ -8,10 +9,20 @@ import {
 	PLATFORM_PATHS_SKILLS,
 	PLATFORM_PATHS_WORKFLOWS,
 	PROJECT_ROOT,
+	resolveProjectRoot,
 	TYPE_DIRS,
 } from "../paths.js"
 
 describe("src/utils/paths.ts", () => {
+	const tempDirs: string[] = []
+
+	afterEach(() => {
+		for (const tempDir of tempDirs) {
+			fs.rmSync(tempDir, { recursive: true, force: true })
+		}
+		tempDirs.length = 0
+	})
+
 	it("should have a PROJECT_ROOT", () => {
 		expect(PROJECT_ROOT).toBeDefined()
 		expect(path.isAbsolute(PROJECT_ROOT)).toBe(true)
@@ -39,6 +50,22 @@ describe("src/utils/paths.ts", () => {
 
 	it("should have TYPE_DIRS", () => {
 		expect(TYPE_DIRS.skill).toBe(path.join(PROJECT_ROOT, "skills"))
+	})
+
+	it("should resolve the published dist directory as the project root", () => {
+		const tempPackageDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), "add-skill-paths-"),
+		)
+		tempDirs.push(tempPackageDir)
+		fs.mkdirSync(path.join(tempPackageDir, "dist", "skills"), {
+			recursive: true,
+		})
+
+		const publishedModuleDir = path.join(tempPackageDir, "dist", "utils")
+
+		expect(resolveProjectRoot(publishedModuleDir)).toBe(
+			path.join(tempPackageDir, "dist"),
+		)
 	})
 
 	describe("getTargetPaths", () => {
