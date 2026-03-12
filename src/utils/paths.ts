@@ -1,3 +1,4 @@
+import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
@@ -5,7 +6,22 @@ import { fileURLToPath } from "node:url"
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-export const PROJECT_ROOT = path.resolve(__dirname, "../..")
+function hasBundledAssets(rootDir: string) {
+	return ["skills", "agents", "workflows"].some((dir) =>
+		fs.existsSync(path.join(rootDir, dir)),
+	)
+}
+
+export function resolveProjectRoot(moduleDir: string) {
+	const sourceRoot = path.resolve(moduleDir, "../..")
+	if (hasBundledAssets(sourceRoot)) {
+		return sourceRoot
+	}
+
+	return path.resolve(moduleDir, "..")
+}
+
+export const PROJECT_ROOT = resolveProjectRoot(__dirname)
 
 export type Platform =
 	| "copilot"
