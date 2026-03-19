@@ -24,6 +24,7 @@ export function resolveProjectRoot(moduleDir: string) {
 export const PROJECT_ROOT = resolveProjectRoot(__dirname)
 
 export type Platform =
+	| "claude-code"
 	| "copilot"
 	| "windsurf"
 	| "antigravity"
@@ -32,6 +33,7 @@ export type Platform =
 
 export const PLATFORM_LABELS: Record<Platform, string> = {
 	antigravity: "Antigravity",
+	"claude-code": "Claude Code",
 	codex: "Codex",
 	gemini: "Gemini CLI",
 	copilot: "GitHub Copilot",
@@ -40,6 +42,7 @@ export const PLATFORM_LABELS: Record<Platform, string> = {
 
 export const PLATFORM_PATHS_SKILLS: Record<Platform, string> = {
 	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_skills"),
+	"claude-code": path.join(os.homedir(), ".claude/skills"),
 	codex: path.join(os.homedir(), ".codex/skills"),
 	copilot: path.join(os.homedir(), ".copilot/skills"),
 	gemini: path.join(os.homedir(), ".gemini/skills"),
@@ -47,6 +50,7 @@ export const PLATFORM_PATHS_SKILLS: Record<Platform, string> = {
 }
 
 export const PLATFORM_PATHS_AGENTS: Partial<Record<Platform, string>> = {
+	"claude-code": path.join(os.homedir(), ".claude/agents"),
 	codex: path.join(os.homedir(), ".codex/skills"),
 	copilot: path.join(os.homedir(), ".copilot/agents"),
 	gemini: path.join(os.homedir(), ".gemini/agents"),
@@ -54,6 +58,7 @@ export const PLATFORM_PATHS_AGENTS: Partial<Record<Platform, string>> = {
 
 export const PLATFORM_PATHS_WORKFLOWS: Partial<Record<Platform, string>> = {
 	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_workflows"),
+	"claude-code": path.join(os.homedir(), ".claude/skills"),
 	codex: path.join(os.homedir(), ".codex/skills"),
 	copilot: path.join(os.homedir(), ".copilot/prompts"),
 	gemini: path.join(os.homedir(), ".gemini/commands"),
