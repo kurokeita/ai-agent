@@ -87,6 +87,7 @@ pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 | Platform | Agents Path | Skills Path | Workflows Path |
 | :--- | :--- | :--- | :--- |
 | Antigravity | *Not Supported* | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/global_workflows` |
+| Claude Code | `~/.claude/agents` | `~/.claude/skills` | `~/.claude/skills` |
 | Codex | `~/.codex/skills` | `~/.codex/skills` | `~/.codex/skills` |
 | Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/commands` |
 | GitHub Copilot | `~/.copilot/agents` | `~/.copilot/skills` | `~/.copilot/prompts` |

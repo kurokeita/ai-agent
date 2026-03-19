@@ -1,4 +1,5 @@
 import { AntigravityHandler } from "./antigravity"
+import { ClaudeCodeHandler } from "./claude-code"
 import { CodexHandler } from "./codex"
 import { CopilotHandler } from "./copilot"
 import { DefaultHandler } from "./default"
@@ -14,6 +15,7 @@ export function registerHandler(handler: PlatformHandler) {
 
 // Register default handlers
 registerHandler(new AntigravityHandler())
+registerHandler(new ClaudeCodeHandler())
 registerHandler(new CodexHandler())
 registerHandler(new CopilotHandler())
 registerHandler(new GeminiHandler())
