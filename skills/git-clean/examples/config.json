@@ -1,0 +1,7 @@
+{
+	"protectedBranches": ["release/*", "hotfix/*", "production"],
+	"includeCategories": ["branches", "stashes", "worktrees"],
+	"stashAgeDays": 21,
+	"defaultTargetBranch": "origin/main",
+	"branchInactiveDays": 60
+}
