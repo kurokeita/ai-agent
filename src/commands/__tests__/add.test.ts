@@ -38,7 +38,10 @@ describe(add.name, () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => false,
@@ -81,9 +84,10 @@ describe(add.name, () => {
 			} as fs.Dirent,
 		])
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["test-skill"]) // Select item
-			.mockResolvedValueOnce(["gemini"]) // Select platforms
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"test-skill",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await add("skill")
 
@@ -193,13 +197,12 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["a-item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["a-item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await add("skill")
 
-		expect(prompts.multiselect).toHaveBeenCalledWith(
+		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				options: [
 					{ label: "a-item", value: "a-item" },
@@ -224,9 +227,8 @@ describe(add.name, () => {
 			} as fs.Dirent,
 		])
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["skill1"]) // Select skill
-			.mockResolvedValueOnce(["gemini"]) // Select platform
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["skill1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await add()
 
@@ -319,9 +321,8 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.copy).mockRejectedValue(new Error("Disk full"))
 
 		await add("skill")
@@ -407,7 +408,9 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(
+			Symbol("cancel"),
+		)
 		vi.mocked(prompts.isCancel)
 			.mockReset()
 			.mockReturnValueOnce(false) // for select
@@ -431,9 +434,8 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"]) // Items
-			.mockResolvedValueOnce(Symbol("cancel")) // Platforms
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel)
 			.mockReset()
 			.mockReturnValueOnce(false) // select
@@ -458,9 +460,8 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
 		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel)
@@ -485,9 +486,8 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		// Ensure fs.stat doesn't throw here for local source check
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
@@ -516,9 +516,8 @@ describe(add.name, () => {
 				isFile: () => false,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		// Handle various pathExists calls
 		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
@@ -544,16 +543,15 @@ describe(add.name, () => {
 			{ name: "item5", isDirectory: () => true, isFile: () => false },
 			{ name: "item6", isDirectory: () => true, isFile: () => false },
 		] as unknown as fs.Dirent<string>[])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce([
-				"item1",
-				"item2",
-				"item3",
-				"item4",
-				"item5",
-				"item6",
-			])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"item1",
+			"item2",
+			"item3",
+			"item4",
+			"item5",
+			"item6",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
 
@@ -570,9 +568,8 @@ describe(add.name, () => {
 		).mockResolvedValueOnce([
 			{ name: "item", isDirectory: () => true, isFile: () => false },
 		] as unknown as fs.Dirent<string>[])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.copy).mockRejectedValue("string error")
 
 		await add("skill")
@@ -653,9 +650,8 @@ describe(add.name, () => {
 		vi.mocked(getTargetPaths).mockReturnValue({
 			gemini: "", // missing path
 		})
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		// readdir mock
 		vi.mocked(
 			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,

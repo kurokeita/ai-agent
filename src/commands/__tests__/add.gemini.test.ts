@@ -22,7 +22,10 @@ describe(`${add.name} - Gemini`, () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
@@ -55,9 +58,10 @@ describe(`${add.name} - Gemini`, () => {
 		])
 		vi.mocked(fs.readFile).mockResolvedValue("# Title\nPrompt content" as never)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["workflow.md"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"workflow.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await add("workflow")
 
@@ -81,9 +85,10 @@ describe(`${add.name} - Gemini`, () => {
 			"---\nname: test\n---\nBody" as never,
 		)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["agent.md"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"agent.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await add("agent")
 
@@ -103,9 +108,8 @@ describe(`${add.name} - Gemini`, () => {
 				isFile: () => true,
 			} as fs.Dirent,
 		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["wf.md"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["wf.md"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(prompts.confirm).mockResolvedValue(false)
 
 		vi.mocked(fs.pathExists).mockImplementation((p: string) => {

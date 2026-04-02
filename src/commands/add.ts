@@ -2,6 +2,7 @@ import os from "node:os"
 import path from "node:path"
 
 import {
+	autocompleteMultiselect,
 	cancel,
 	confirm,
 	intro,
@@ -111,7 +112,7 @@ export async function add(
 					selectedItems = [result.skillName]
 					s.stop(pc.green(`Fetched ${normalizedType}: ${result.skillName}`))
 				} catch (e) {
-					s.stop(pc.red("Failed to fetch"))
+					s.error("Failed to fetch")
 					throw e
 				}
 			} else {
@@ -143,10 +144,9 @@ export async function add(
 				}
 
 				// Select Items
-				const items = await multiselect({
+				const items = await autocompleteMultiselect({
 					message: `Select ${normalizedType}s to install:`,
 					options: availableItems,
-					required: true,
 				})
 
 				if (isCancel(items)) {

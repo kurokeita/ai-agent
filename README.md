@@ -6,8 +6,8 @@ CLI to manage and install AI agent skills, agents, and workflows to various plat
 
 - **List Items**: View a list of available AI skills, agents, and workflows.
 - **Local status**: Check which items are installed locally.
-- **Add Items**: Interactively add skills, agents, and workflows to your supported platforms.
-- **Remove Items**: Remove locally installed items from specific platforms.
+- **Add Items**: Interactively add skills, agents, and workflows with live search/filtering support.
+- **Remove Items**: Remove locally installed items with live search/filtering support.
 - **Import**: Import items directly from GitHub URLs.
 
 ## Usage
@@ -40,7 +40,7 @@ pnpx @kurokeita/add-skill list agent --local
 
 ### Add Items
 
-Starts an interactive session to select and install items.
+Starts an interactive session to select and install items. Supports live search/filtering as you type.
 
 ```bash
 # Add skills
@@ -55,7 +55,7 @@ pnpx @kurokeita/add-skill add workflow
 
 ### Remove Items
 
-Interactively select items and platforms to remove them from.
+Interactively select items and platforms to remove them from. Supports live search/filtering as you type.
 
 ```bash
 # Remove skills

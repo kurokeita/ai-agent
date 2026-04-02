@@ -23,7 +23,10 @@ describe(`${add.name} - Copilot`, () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
@@ -57,9 +60,10 @@ describe(`${add.name} - Copilot`, () => {
 			"---\nname: test\n---\nBody" as never,
 		)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["my-agent.md"])
-			.mockResolvedValueOnce(["copilot"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"my-agent.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["copilot"])
 
 		await add("agent")
 

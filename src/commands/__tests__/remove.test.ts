@@ -25,7 +25,10 @@ describe("src/commands/remove.ts", () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{ name: "item1", isDirectory: () => true, isFile: () => false },
@@ -48,9 +51,8 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should handle item selection and removal", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"]) // Items
-			.mockResolvedValueOnce(["gemini"]) // Platforms
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await remove("skill")
 
@@ -58,7 +60,9 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should return on cancel during item selection", async () => {
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(
+			Symbol("cancel"),
+		)
 		vi.mocked(prompts.isCancel).mockReturnValueOnce(true)
 
 		await remove("skill")
@@ -66,9 +70,8 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should return on cancel during platform selection", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel)
 			.mockReturnValueOnce(false)
 			.mockReturnValueOnce(true)
@@ -78,9 +81,8 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should handle items not found on specific platforms", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		vi.mocked(fs.pathExists).mockResolvedValueOnce(true as never) // scanning
 		vi.mocked(fs.pathExists).mockResolvedValueOnce(false as never) // removal check
@@ -90,9 +92,8 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should handle removal errors (Error object)", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.remove).mockRejectedValue(new Error("Delete failed") as never)
 
 		await remove("skill")
@@ -100,9 +101,8 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should handle removal errors (string error)", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.remove).mockRejectedValue("Delete failed string" as never)
 
 		await remove("skill")
@@ -119,12 +119,14 @@ describe("src/commands/remove.ts", () => {
 			{ name: "not-file", isDirectory: () => false, isFile: () => false },
 		] as never)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["agent.md", "sub-dir"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"agent.md",
+			"sub-dir",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await remove("agent")
-		expect(prompts.multiselect).toHaveBeenCalledWith(
+		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				options: expect.arrayContaining([
 					{ value: "agent.md", label: "agent.md" },
@@ -150,9 +152,8 @@ describe("src/commands/remove.ts", () => {
 			{ name: "item1", isDirectory: () => true, isFile: () => false },
 		] as never)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"]) // Select item
-			.mockResolvedValueOnce(["gemini"]) // Select platform
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await remove()
 
@@ -171,9 +172,8 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should handle error during deletion", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.remove).mockRejectedValueOnce(new Error("Delete failed"))
 		await remove("skill")
 		expect(mockConsoleError).toHaveBeenCalledWith(
@@ -182,7 +182,9 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should break loop if single shot and cancelled", async () => {
-		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"))
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue(
+			Symbol("cancel"),
+		)
 		vi.mocked(prompts.isCancel).mockReturnValue(true)
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
@@ -190,7 +192,9 @@ describe("src/commands/remove.ts", () => {
 
 	it("should handle interactive cancellation of item selection", async () => {
 		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(
+			Symbol("cancel"),
+		)
 		vi.mocked(prompts.isCancel)
 			.mockReturnValueOnce(false)
 			.mockReturnValueOnce(true)
@@ -201,18 +205,16 @@ describe("src/commands/remove.ts", () => {
 	})
 
 	it("should handle declining delete confirmation", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
 	})
 
 	it("should handle cancel during delete confirmation", async () => {
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel).mockImplementation((v) => typeof v === "symbol")
 		await remove("skill")
@@ -236,9 +238,8 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(prompts.select)
 			.mockResolvedValueOnce("skill")
 			.mockResolvedValueOnce("exit")
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"]) // Items
-			.mockResolvedValueOnce(Symbol("cancel")) // Platforms
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"]) // Items
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel")) // Platforms
 
 		vi.mocked(prompts.isCancel)
 			.mockReturnValueOnce(false) // item selection not cancelled
@@ -252,9 +253,8 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(prompts.select)
 			.mockResolvedValueOnce("skill")
 			.mockResolvedValueOnce("exit")
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"]) // Items
-			.mockResolvedValueOnce(["gemini"]) // Platforms
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"]) // Items
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"]) // Platforms
 		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel)
 			.mockReturnValueOnce(false) // item
@@ -269,9 +269,8 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(prompts.select)
 			.mockResolvedValueOnce("skill")
 			.mockResolvedValueOnce("exit")
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"]) // Items
-			.mockResolvedValueOnce(["gemini"]) // Platforms
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"]) // Items
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"]) // Platforms
 		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 		vi.mocked(prompts.isCancel).mockReturnValue(false)
 
@@ -291,9 +290,8 @@ describe("src/commands/remove.ts", () => {
 			{ name: "item1", isDirectory: () => true, isFile: () => false },
 		] as never)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await remove("skill")
 		expect(fs.readdir).toHaveBeenCalledTimes(1) // Only called for gemini
@@ -304,12 +302,13 @@ describe("src/commands/remove.ts", () => {
 			{ name: "workflow.md", isDirectory: () => false, isFile: () => true },
 		] as never)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["workflow.md"])
-			.mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"workflow.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await remove("workflow")
-		expect(prompts.multiselect).toHaveBeenCalledWith(
+		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				options: [{ value: "workflow.md", label: "workflow.md" }],
 			}),
@@ -321,9 +320,10 @@ describe("src/commands/remove.ts", () => {
 			gemini: "/mock/install/gemini",
 		})
 		// We mock multiselect to return a platform that is NOT gemini
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item1"])
-			.mockResolvedValueOnce(["nonexistent" as unknown as string])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce([
+			"nonexistent" as unknown as string,
+		])
 
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
@@ -349,13 +349,14 @@ describe("src/commands/remove.ts", () => {
 			}
 			return Promise.reject(new Error(`Unexpected read: ${targetPath}`))
 		})
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["converted-agent"])
-			.mockResolvedValueOnce(["codex"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"converted-agent",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["codex"])
 
 		await remove("agent")
 
-		expect(prompts.multiselect).toHaveBeenCalledWith(
+		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
 			expect.objectContaining({
 				options: [{ value: "converted-agent", label: "converted-agent" }],
 			}),

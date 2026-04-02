@@ -1,5 +1,6 @@
 import path from "node:path"
 import {
+	autocompleteMultiselect,
 	confirm,
 	intro,
 	isCancel,
@@ -100,10 +101,9 @@ export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 		const sortedItems = Array.from(uniqueItems).sort()
 
 		// 2. Select Items
-		const itemSelections = await multiselect({
+		const itemSelections = await autocompleteMultiselect({
 			message: `Select ${normalizedType}s to remove:`,
 			options: sortedItems.map((item) => ({ value: item, label: item })),
-			required: true,
 		})
 
 		if (isCancel(itemSelections)) {

@@ -23,7 +23,10 @@ describe("src/commands/add.ts - Antigravity", () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
@@ -54,9 +57,10 @@ describe("src/commands/add.ts - Antigravity", () => {
 			} as fs.Dirent,
 		])
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["test-skill"])
-			.mockResolvedValueOnce(["antigravity"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"test-skill",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["antigravity"])
 
 		await add("skill")
 

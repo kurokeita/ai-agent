@@ -23,7 +23,10 @@ describe(`${add.name} - Windsurf`, () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
@@ -55,9 +58,10 @@ describe(`${add.name} - Windsurf`, () => {
 		])
 		vi.mocked(fs.readFile).mockResolvedValue("content" as never)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["my-agent.md"])
-			.mockResolvedValueOnce(["windsurf"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"my-agent.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["windsurf"])
 
 		await add("agent")
 
