@@ -33,10 +33,10 @@ pnpm --version
 
 ### 2. Audit findings
 
-Run an initial scan to identify hygiene issues without making any changes. Use the `--json` flag if programmatic analysis is needed.
+Run an initial scan using the `--json` flag to identify hygiene issues without making any changes. This enables precise analysis of the findings.
 
 ```bash
-<runner> @kurokeita/git-clean-up scan
+<runner> @kurokeita/git-clean-up scan --json
 ```
 
 ### 3. Present report
