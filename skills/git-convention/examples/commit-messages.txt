@@ -1,0 +1,34 @@
+# Example Commit Messages
+
+## Features
+- `feat(ui): add progress bar component`
+- `feat(auth): implement oauth2 login with google`
+- `feat!: change default api version to v2`
+
+## Bug Fixes
+- `fix(parser): handle empty input string gracefully`
+- `fix: resolve race condition in database connection pool`
+- `fix(styles): fix padding issues on mobile devices`
+
+## Documentation
+- `docs: update readme with installation instructions`
+- `docs(api): document the new /user/profile endpoint`
+- `docs: add contributing guide`
+
+## Refactoring
+- `refactor(core): simplify the request handling logic`
+- `refactor: move utility functions to a separate module`
+- `refactor(tests): reduce duplication in integration tests`
+
+## Performance
+- `perf(image): optimize image loading speed using lazy-loading`
+- `perf: add caching layer for frequently accessed data`
+
+## Tests
+- `test(auth): add unit tests for jwt validation`
+- `test: increase coverage for the math module`
+
+## Chore
+- `chore: update dependencies`
+- `chore(deps): bump vite from 4.0 to 5.0`
+- `chore: remove unused log statements`
