@@ -19,15 +19,27 @@ Maintain repository hygiene by scanning for and removing stale branches, forgott
 
 Follow this procedure to safely clean the repository:
 
-### 1. Audit findings
+### 1. Detect package runner
+
+Determine whether to use `pnpx` or `npx` by checking if `pnpm` is installed. Always prioritize `pnpx`.
+
+```bash
+# Check for pnpm
+pnpm --version
+```
+
+- If `pnpm` is available: Use `pnpx @kurokeita/git-clean-up`
+- If `pnpm` is NOT available: Use `npx @kurokeita/git-clean-up`
+
+### 2. Audit findings
 
 Run an initial scan to identify hygiene issues without making any changes. Use the `--json` flag if programmatic analysis is needed.
 
 ```bash
-npx @kurokeita/git-clean-up scan
+<runner> @kurokeita/git-clean-up scan
 ```
 
-### 2. Present report
+### 3. Present report
 
 Summarize the findings for the user, categorized by:
 
@@ -35,32 +47,32 @@ Summarize the findings for the user, categorized by:
 - **Stashes**: Old stashes or stale WIPs.
 - **Worktrees**: Missing paths or detached HEADs.
 
-### 3. Solicit confirmation
+### 4. Solicit confirmation
 
 Present the findings to the user and ask which items or categories they would like to clean. Do NOT proceed to deletion without explicit user approval.
 
-### 4. Preview cleanup (Optional but Recommended)
+### 5. Preview cleanup (Optional but Recommended)
 
 If the user wants to see exactly what will be deleted for a specific selection, run the clean command without the `--apply` flag.
 
 ```bash
 # Preview all deletions
-npx @kurokeita/git-clean-up clean --all
+<runner> @kurokeita/git-clean-up clean --all
 
 # Preview specific categories
-npx @kurokeita/git-clean-up clean --include branches,stashes
+<runner> @kurokeita/git-clean-up clean --include branches,stashes
 ```
 
-### 5. Execute cleanup
+### 6. Execute cleanup
 
 After receiving confirmation, run the clean command with the `--apply` flag.
 
 ```bash
 # Clean everything confirmed
-npx @kurokeita/git-clean-up clean --apply --all
+<runner> @kurokeita/git-clean-up clean --apply --all
 
 # Clean specific categories
-npx @kurokeita/git-clean-up clean --apply --include branches
+<runner> @kurokeita/git-clean-up clean --apply --include branches
 ```
 
 ## Safety Considerations
