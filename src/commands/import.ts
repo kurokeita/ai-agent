@@ -83,7 +83,7 @@ export async function importItem(
 			isFile = result.isFile
 			s.stop(pc.green(`Fetched: ${itemName}`))
 		} catch (e) {
-			s.stop(pc.red("Failed to fetch"))
+			s.error("Failed to fetch")
 			throw e
 		}
 

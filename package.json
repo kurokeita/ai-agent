@@ -37,7 +37,7 @@
 	"license": "GPL-3.0",
 	"packageManager": "pnpm@10.28.0",
 	"dependencies": {
-		"@clack/prompts": "^0.11.0",
+		"@clack/prompts": "^1.2.0",
 		"commander": "^14.0.2",
 		"fs-extra": "^11.3.3",
 		"js-yaml": "^4.1.1",

@@ -26,6 +26,8 @@ describe("src/commands/import.ts", () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
 		vi.mocked(fs.pathExists).mockResolvedValue(false as never)
 		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as never)

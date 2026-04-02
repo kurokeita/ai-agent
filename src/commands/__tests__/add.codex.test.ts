@@ -22,7 +22,10 @@ describe(`${add.name} - Codex`, () => {
 			start: vi.fn(),
 			stop: vi.fn(),
 			message: vi.fn(),
+			error: vi.fn(),
+			cancel: vi.fn(),
 		})
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue([])
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
 			isFile: () => true,
@@ -57,9 +60,10 @@ describe(`${add.name} - Codex`, () => {
 			"---\nname: review-agent\ndescription: This skill should be used when reviewing code.\n---\n\n# Review Agent\nBody" as never,
 		)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["agent.md"])
-			.mockResolvedValueOnce(["codex"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"agent.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["codex"])
 
 		await add("agent")
 
@@ -83,9 +87,10 @@ describe(`${add.name} - Codex`, () => {
 			"# Workflow Title\nPrompt content" as never,
 		)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["workflow.md"])
-			.mockResolvedValueOnce(["codex"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"workflow.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["codex"])
 
 		await add("workflow")
 
@@ -117,9 +122,10 @@ describe(`${add.name} - Codex`, () => {
 		)
 		vi.mocked(prompts.confirm).mockResolvedValue(false)
 
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["workflow.md"])
-			.mockResolvedValueOnce(["codex"])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"workflow.md",
+		])
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["codex"])
 
 		await add("workflow")
 
