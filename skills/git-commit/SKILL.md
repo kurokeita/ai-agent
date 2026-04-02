@@ -1,19 +1,18 @@
 ---
-name: git-convention
-description: This skill should be used when the user asks to "create a branch", "commit changes", "create a pull request", "manage branches", or "follow conventional commits". Provides guidelines for version control workflows and commit message formatting.
+name: git-commit
+description: This skill should be used when the user asks to "create a branch", "commit changes", "manage branches", or "follow conventional commits". Provides guidelines for version control workflows and commit message formatting.
 version: 1.0.0
 ---
 
-# Git Convention
+# Git Commit
 
-Guide for managing version control workflows, including branching strategies, commit message formatting following Conventional Commits, and pull request management.
+Guide for managing version control workflows, including branching strategies and commit message formatting following the Conventional Commits specification.
 
 ## When to Use This Skill
 
 - Creating new feature, bugfix, or maintenance branches
 - Formatting commit messages to follow project standards
-- Preparing and creating pull requests
-- Managing branch lifecycle and cleanup
+- Managing branch lifecycle and organization
 - Ensuring consistency across the repository's history
 
 ## Branching Strategy
@@ -73,28 +72,6 @@ Format commit messages according to the [Conventional Commits](https://www.conve
 - **Body**: Use the body to explain the "what" and "why" of the change, not the "how".
 - **Footer**: Use the footer to reference issues (e.g., `Closes #123`) or breaking changes.
 
-## Pull Request Management
-
-Create clear and informative pull requests to facilitate effective code review and collaboration.
-
-### PR Creation Process
-
-1. **Push your branch**: `git push origin <branch-name>`.
-2. **Open the PR**: Use the GitHub CLI or web interface.
-3. **Title**: Use the Conventional Commits format for the title (e.g., `feat(ui): add dashboard widgets`).
-4. **Description**: Use a template (if available) to describe:
-    - What changes were made.
-    - Why they were made.
-    - How they were tested.
-    - Any breaking changes or new dependencies.
-
-### Best Practices
-
-- **Keep it focused**: One PR per logical change. Avoid "mega-PRs".
-- **Self-review**: Review your own changes before asking others.
-- **Link issues**: Use keywords like `Fixes #123` or `Closes #123` in the description.
-- **Update regularly**: Rebase or merge from the main branch if the PR becomes stale.
-
 ## Additional Resources
 
 ### Reference Files
@@ -109,4 +86,3 @@ For detailed patterns and advanced git workflows, consult:
 Working examples in `examples/`:
 
 - **`commit-messages.txt`** - Examples of well-formatted commit messages.
-- **`pr-description-template.md`** - A standard PR description template.
