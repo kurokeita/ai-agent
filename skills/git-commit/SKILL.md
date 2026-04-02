@@ -17,24 +17,38 @@ Guide for managing version control workflows, including branching strategies and
 
 ## Branching Strategy
 
-Follow a consistent naming convention for branches to ensure clarity and organization.
+Follow the [Conventional Branch](https://conventional-branch.github.io/) specification for consistent and descriptive branch naming.
 
-### Branch Naming Convention
+### Structure
 
-Use a prefix followed by a descriptive name in kebab-case:
+The branch structure follows a categorized format:
+`<type>/<description>`
 
-- `feature/` - New features or significant functional additions (e.g., `feature/user-authentication`)
-- `fix/` - Bug fixes and patches (e.g., `fix/login-error`)
-- `refactor/` - Code restructuring without changing behavior (e.g., `refactor/api-client`)
-- `docs/` - Documentation updates (e.g., `docs/update-readme`)
-- `chore/` - Maintenance tasks, dependency updates, or internal tooling (e.g., `chore/update-deps`)
-- `test/` - Adding or modifying tests (e.g., `test/unit-tests-auth`)
+### Types (`<type>`)
+
+- `main`: The primary development branch (e.g., `main`, `master`, or `develop`).
+- `feat/`: For new features (e.g., `feat/add-login-page`).
+- `fix/`: For bug fixes (e.g., `fix/header-bug`).
+- `hotfix/`: For urgent production fixes (e.g., `hotfix/security-patch`).
+- `release/`: For preparing a new release (e.g., `release/v1.2.0`).
+- `chore/`: For non-code tasks like dependencies or documentation updates (e.g., `chore/update-dependencies`).
+
+### Naming Rules
+
+- **Character Set**: Use lowercase alphanumerics (`a-z`, `0-9`), hyphens (`-`), and dots (`.`).
+- **Separators**: Use hyphens to separate words in the description. Dots are permitted in `release/` branches for versioning.
+- **Restrictions**:
+  - Avoid special characters, underscores, or spaces.
+  - No consecutive hyphens or dots (e.g., avoid `new--login`).
+  - No leading or trailing hyphens/dots in the description.
+- **Conciseness**: Keep names descriptive yet brief.
+- **Ticket Integration**: Include project management ticket numbers if applicable (e.g., `feat/issue-123-new-login`).
 
 ### Workflow
 
-1. Start from the main integration branch (e.g., `main` or `develop`).
+1. Start from the main integration branch.
 2. Ensure the local branch is up-to-date: `git pull origin main`.
-3. Create the new branch: `git checkout -b <prefix>/<description>`.
+3. Create the new branch: `git checkout -b <type>/<description>`.
 
 ## Conventional Commits
 
