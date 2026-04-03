@@ -42,63 +42,57 @@ This repo uses **squash merge** for all PRs. The resulting commit on `main` foll
   - Use bullet points for listing specific file-level or feature-level changes.
   - Avoid checklist boilerplate in the final description; it clutters the git history.
 
-#### Commit Message Examples (from project history)
+#### Commit Message Examples
 
 **Complex feature** — Summary paragraph + "Key changes:" section:
 
 ```
-feat(cli): implement live search filtering for item selection (#24)
+feat(scope): add feature description (#N)
 
-Upgrade @clack/prompts to v1.2.0 and switch to the new autocompleteMultiselect
-component in the add and remove commands. This enables real-time filtering of
-available skills, agents, and workflows as the user types, significantly
-improving the selection experience for large lists.
+One or two sentences describing what changed and why it matters. Focus on
+the user-facing impact or developer experience improvement.
 
 Key changes:
-- Updated package.json and pnpm-lock.yaml to @clack/prompts@1.2.0.
-- Replaced multiselect with autocompleteMultiselect in src/commands/add.ts
-  and src/commands/remove.ts.
-- Migrated spinner usage to the new semantic API (s.error()) for better
-  failure state management in add.ts and import.ts.
-- Updated mocks and assertions in all 22 test files to support the new
-  component and spinner methods, maintaining 100% test pass rate.
-- Documented the live search/filtering capability in README.md.
+- Updated dependency X to version Y for improved performance.
+- Refactored module A to support the new behavior.
+- Added tests covering edge cases in the new logic.
+- Updated documentation to reflect the new capability.
 ```
 
 **Multi-part refactor** — Summary paragraph + plain bullets:
 
 ```
-feat(skills): modularize git conventions and add git-clean skill
+refactor(scope): describe the refactoring goal
 
-Refines and modularizes the Git-related AI agent skills to improve task targeting and maintain repository hygiene.
+Brief explanation of the refactoring goal and what it improves
+(maintainability, performance, clarity, etc.).
 
-- Split the monolithic `git-convention` skill into three focused skills: `git-branch`, `git-commit`, and `git-pr`.
-- `git-branch`: Implemented the Conventional Branch specification using shorter prefixes (`feat/`, `fix/`).
-- `git-commit`: Refined to focus strictly on the Conventional Commits specification for message formatting.
-- `git-pr`: Added an industry-standard PR template and best practices based on patterns from React, VS Code, and Kubernetes.
-- `git-clean`: Introduced a new skill integrating the `@kurokeita/git-clean-up` tool.
+- Split monolithic module X into focused submodules A, B, and C.
+- Module A: handles responsibility 1 with clear public API.
+- Module B: handles responsibility 2, extracted for reuse.
+- Ensured all modules follow progressive disclosure principles.
 ```
 
 **Architecture change** — Bold-prefixed bullets for scannability:
 
 ```
-feat: modular platform handlers and unified interactive entry point (#17)
+feat: describe the architectural change (#N)
 
-- **Modular Platform Handlers**: Implemented a registry-based system for platform handlers (`Copilot`, `Gemini`, `Windsurf`, `Antigravity`) to manage specific file naming and content transformations.
-- **Agent Transformations**: Added logic to automatically transform `.md` agent files into platform-specific formats (e.g., `.prompt.md` for Copilot, `.toml` for Gemini).
-- **Unified Interactive Entry**: Refactored the main CLI entry point to a single interactive loop while maintaining support for direct command-line arguments.
-- **100% Test Coverage**: Achieved and verified 100% code coverage for all command modules and utility functions.
+- **Component A**: Implemented the new subsystem for handling X.
+- **Component B**: Added transformation logic between formats Y and Z.
+- **Unified Entry**: Refactored the main entry point to support both
+  interactive and programmatic usage.
+- **Test Coverage**: Achieved and verified full coverage for all modules.
 ```
 
 **Simple change** — Minimal bullets, no summary paragraph:
 
 ```
-feat(skills): add git-convention skill
+feat(scope): add or update something
 
-- Add SKILL.md with guidelines for branching, commits, and PRs
-- Add industry-standard pull request template
-- Add references for Conventional Commits, branching workflows, and PR best practices
-- Add example commit messages and PR description template
+- Add configuration file with default settings
+- Add reference documentation for the new feature
+- Add example usage in the project README
 ```
 
 ### Best Practices
