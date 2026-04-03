@@ -23,6 +23,9 @@ import {
 	TYPE_DIRS,
 } from "@/utils/paths"
 import { getHandler } from "@/utils/platforms"
+import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
+
+enableAutocompleteMultiSelectShiftAToggle()
 
 function getPlatformOptions(type: string) {
 	const paths = getTargetPaths(type)

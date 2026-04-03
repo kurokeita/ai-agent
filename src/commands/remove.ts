@@ -14,6 +14,9 @@ import fs from "fs-extra"
 import pc from "picocolors"
 import { getTargetPaths, PLATFORM_LABELS, type Platform } from "@/utils/paths"
 import { codexEntryMatchesType } from "@/utils/platforms/codex"
+import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
+
+enableAutocompleteMultiSelectShiftAToggle()
 
 export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 	if (!options?.skipIntro) {

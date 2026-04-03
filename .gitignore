@@ -34,3 +34,6 @@ Thumbs.db
 # Temporary files
 tmp/
 temp/
+
+# Orchestration
+.sisyphus/
