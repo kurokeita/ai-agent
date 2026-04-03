@@ -39,6 +39,10 @@ function isShiftAToggleKey(key: KeyLike | undefined) {
 	return key?.name === "a" && key.shift === true
 }
 
+function isShiftIInvertKey(key: KeyLike | undefined) {
+	return key?.name === "i" && key.shift === true
+}
+
 function getAvailableFilteredValues(prompt: AutocompletePromptLike) {
 	return prompt.filteredOptions
 		.filter((option) => !option.disabled)
@@ -66,6 +70,23 @@ function toggleFilteredValues(prompt: AutocompletePromptLike) {
 			]
 }
 
+function invertFilteredValues(prompt: AutocompletePromptLike) {
+	const availableValues = getAvailableFilteredValues(prompt)
+
+	if (availableValues.length === 0) {
+		return
+	}
+
+	prompt.selectedValues = [
+		...prompt.selectedValues.filter(
+			(value) => !availableValues.includes(value),
+		),
+		...availableValues.filter(
+			(value) => !prompt.selectedValues.includes(value),
+		),
+	]
+}
+
 function addShiftATextHint(output: string) {
 	if (output.includes("Shift+A")) {
 		return output
@@ -75,7 +96,7 @@ function addShiftATextHint(output: string) {
 	const reset = "\u001B[22m"
 
 	return output.replace(/to search(?![\s\S]*to search)/, (match) => {
-		return `${match} • ${dimOpen}Shift+A:${reset} toggle all`
+		return `${match} • ${dimOpen}Shift+A:${reset} toggle all • ${dimOpen}Shift+I:${reset} invert selection`
 	})
 }
 
@@ -116,11 +137,19 @@ export function attachAutocompleteMultiSelectShiftAToggle(
 	prompt.on("key", (...args: unknown[]) => {
 		const [, key] = args as [string | undefined, KeyLike]
 
-		if (!prompt.multiple || !isShiftAToggleKey(key)) {
+		if (!prompt.multiple) {
 			return
 		}
 
-		toggleFilteredValues(prompt)
+		if (isShiftAToggleKey(key)) {
+			toggleFilteredValues(prompt)
+			return
+		}
+
+		if (isShiftIInvertKey(key)) {
+			invertFilteredValues(prompt)
+			return
+		}
 	})
 
 	prompt.__aiManagerShiftAListenerAttached__ = true
@@ -138,7 +167,7 @@ export function enableAutocompleteMultiSelectShiftAToggle() {
 		char: string | undefined,
 		key: KeyLike,
 	) {
-		if (this.multiple && isShiftAToggleKey(key)) {
+		if (this.multiple && (isShiftAToggleKey(key) || isShiftIInvertKey(key))) {
 			return true
 		}
 

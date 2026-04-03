@@ -91,7 +91,9 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 
 		prompt.emit("key", undefined, { name: "down" })
 
-		expect((prompt as any)._render()).toContain("Shift+A: toggle all")
+		const rendered = (prompt as any)._render() as string
+		expect(rendered).toContain("Shift+A:")
+		expect(rendered).toContain("toggle all")
 	})
 
 	it("shows Shift+A guidance on the initial styled render before any keypress", () => {
@@ -131,7 +133,74 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 		abortController.abort()
 
 		return promptPromise.then(() => {
-			expect(outputText).toContain("Shift+A: toggle all")
+			expect(outputText).toContain("Shift+A:")
+			expect(outputText).toContain("toggle all")
 		})
+	})
+
+	it("inverts the selection of filtered enabled options with Shift+I", async () => {
+		const options = [
+			{ label: "alpha", value: "alpha" },
+			{ label: "beta", value: "beta" },
+			{ label: "gamma", value: "gamma" },
+			{ label: "delta", value: "delta", disabled: true },
+		]
+
+		const prompt = new AutocompletePrompt<any>({
+			options,
+			multiple: true,
+			render() {
+				return ""
+			},
+		})
+
+		enableAutocompleteMultiSelectShiftAToggle()
+		prompt.filteredOptions = [...options]
+		prompt.selectedValues = ["alpha"]
+
+		prompt.emit("key", "I", { name: "i", shift: true })
+		expect(prompt.selectedValues).toEqual(["beta", "gamma"])
+
+		prompt.emit("key", "I", { name: "i", shift: true })
+		expect(prompt.selectedValues).toEqual(["alpha"])
+	})
+
+	it("treats Shift+I as an action key for autocomplete multiselects", () => {
+		enableAutocompleteMultiSelectShiftAToggle()
+
+		const prompt = new AutocompletePrompt<any>({
+			options: [{ label: "alpha", value: "alpha" }],
+			multiple: true,
+			render() {
+				return ""
+			},
+		})
+
+		expect((prompt as any)._isActionKey("I", { name: "i", shift: true })).toBe(
+			true,
+		)
+		expect((prompt as any)._isActionKey("i", { name: "i", shift: false })).toBe(
+			false,
+		)
+	})
+
+	it("adds Shift+I guidance to the styled autocomplete multiselect help text", () => {
+		enableAutocompleteMultiSelectShiftAToggle()
+		const dimOpen = "\u001B[2m"
+		const reset = "\u001B[22m"
+
+		const prompt = new AutocompletePrompt<any>({
+			options: [{ label: "alpha", value: "alpha" }],
+			multiple: true,
+			render() {
+				return `${dimOpen}↑/↓${reset} to navigate • ${dimOpen}Tab:${reset} select • ${dimOpen}Enter:${reset} confirm • ${dimOpen}Type:${reset} to search`
+			},
+		})
+
+		prompt.emit("key", undefined, { name: "down" })
+
+		const rendered = (prompt as any)._render() as string
+		expect(rendered).toContain("Shift+I:")
+		expect(rendered).toContain("invert selection")
 	})
 })
