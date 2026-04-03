@@ -30,6 +30,18 @@ Create clear and informative pull requests to ensure that reviewers can understa
     - How they were tested.
     - Any breaking changes or new dependencies.
 
+### Merge Strategy
+
+This repo uses **squash merge** for all PRs. The resulting commit on `main` follows a strict format:
+
+- **Commit title:** `<conventional-commit-title> (#<pr-number>)`
+  - Example: `feat(cli): implement live search filtering for item selection (#24)`
+- **Extended description:** A concise summary paragraph followed by bullet-point details of key changes.
+  - The PR description body becomes the commit message body during squash merge.
+  - Write the description so it reads well as a git log entry — focus on **what** changed and **why**, not **how**.
+  - Use bullet points for listing specific file-level or feature-level changes.
+  - Avoid checklist boilerplate in the final description; it clutters the git history.
+
 ### Best Practices
 
 - **Keep it focused**: One PR per logical change. Avoid "mega-PRs".
