@@ -5,6 +5,25 @@ import { describe, expect, it } from "vitest"
 
 import { enableAutocompleteMultiSelectShiftAToggle } from "../prompts.js"
 
+interface TestOption {
+	label: string
+	value: string
+	disabled?: boolean
+}
+
+type TestablePrompt = {
+	_isActionKey(key: string, event: { name: string; shift: boolean }): boolean
+	_render(): string
+	selectedValues: string[]
+	filteredOptions: TestOption[]
+	emit(
+		event: string,
+		value: unknown,
+		key: { name: string; shift?: boolean },
+	): void
+	prompt(): Promise<unknown>
+}
+
 describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 	it("selects and deselects the currently filtered enabled options with Shift+A", async () => {
 		const options = [
@@ -13,7 +32,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 			{ label: "gamma", value: "gamma", disabled: true },
 		]
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options,
 			multiple: true,
 			render() {
@@ -38,7 +57,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 			{ label: "delta", value: "delta" },
 		]
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options,
 			multiple: true,
 			render() {
@@ -60,7 +79,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 	it("treats Shift+A as an action key for autocomplete multiselects", () => {
 		enableAutocompleteMultiSelectShiftAToggle()
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options: [{ label: "alpha", value: "alpha" }],
 			multiple: true,
 			render() {
@@ -68,12 +87,18 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 			},
 		})
 
-		expect((prompt as any)._isActionKey("A", { name: "a", shift: true })).toBe(
-			true,
-		)
-		expect((prompt as any)._isActionKey("a", { name: "a", shift: false })).toBe(
-			false,
-		)
+		expect(
+			(prompt as unknown as TestablePrompt)._isActionKey("A", {
+				name: "a",
+				shift: true,
+			}),
+		).toBe(true)
+		expect(
+			(prompt as unknown as TestablePrompt)._isActionKey("a", {
+				name: "a",
+				shift: false,
+			}),
+		).toBe(false)
 	})
 
 	it("adds Shift+A guidance to the styled autocomplete multiselect help text", () => {
@@ -81,7 +106,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 		const dimOpen = "\u001B[2m"
 		const reset = "\u001B[22m"
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options: [{ label: "alpha", value: "alpha" }],
 			multiple: true,
 			render() {
@@ -91,7 +116,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 
 		prompt.emit("key", undefined, { name: "down" })
 
-		const rendered = (prompt as any)._render() as string
+		const rendered = (prompt as unknown as TestablePrompt)._render() as string
 		expect(rendered).toContain("Shift+A:")
 		expect(rendered).toContain("toggle all")
 	})
@@ -118,7 +143,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 		output.columns = 120
 		output.rows = 40
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options: [{ label: "alpha", value: "alpha" }],
 			multiple: true,
 			input,
@@ -146,7 +171,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 			{ label: "delta", value: "delta", disabled: true },
 		]
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options,
 			multiple: true,
 			render() {
@@ -168,7 +193,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 	it("treats Shift+I as an action key for autocomplete multiselects", () => {
 		enableAutocompleteMultiSelectShiftAToggle()
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options: [{ label: "alpha", value: "alpha" }],
 			multiple: true,
 			render() {
@@ -176,12 +201,18 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 			},
 		})
 
-		expect((prompt as any)._isActionKey("I", { name: "i", shift: true })).toBe(
-			true,
-		)
-		expect((prompt as any)._isActionKey("i", { name: "i", shift: false })).toBe(
-			false,
-		)
+		expect(
+			(prompt as unknown as TestablePrompt)._isActionKey("I", {
+				name: "i",
+				shift: true,
+			}),
+		).toBe(true)
+		expect(
+			(prompt as unknown as TestablePrompt)._isActionKey("i", {
+				name: "i",
+				shift: false,
+			}),
+		).toBe(false)
 	})
 
 	it("adds Shift+I guidance to the styled autocomplete multiselect help text", () => {
@@ -189,7 +220,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 		const dimOpen = "\u001B[2m"
 		const reset = "\u001B[22m"
 
-		const prompt = new AutocompletePrompt<any>({
+		const prompt = new AutocompletePrompt<TestOption>({
 			options: [{ label: "alpha", value: "alpha" }],
 			multiple: true,
 			render() {
@@ -199,7 +230,7 @@ describe("enableAutocompleteMultiSelectShiftAToggle", () => {
 
 		prompt.emit("key", undefined, { name: "down" })
 
-		const rendered = (prompt as any)._render() as string
+		const rendered = (prompt as unknown as TestablePrompt)._render() as string
 		expect(rendered).toContain("Shift+I:")
 		expect(rendered).toContain("invert selection")
 	})
