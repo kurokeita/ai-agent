@@ -37,8 +37,9 @@ This repo uses **squash merge** for all PRs. The resulting commit on `main` foll
 - **Commit title:** `<conventional-commit-title> (#<pr-number>)`
   - Example: `feat(cli): implement live search filtering for item selection (#24)`
 - **Extended description:** A concise summary paragraph followed by bullet-point details of key changes.
-  - The PR description body becomes the commit message body during squash merge.
-  - Write the description so it reads well as a git log entry — focus on **what** changed and **why**, not **how**.
+  - **CRITICAL:** `gh pr merge --squash` without `--body` auto-generates the commit body by concatenating all branch commit messages — producing cluttered, redundant git history.
+  - **ALWAYS** pass an explicit `--body` flag with a curated commit message: `gh pr merge --squash --body "<message>"`.
+  - Write the body so it reads well as a git log entry — focus on **what** changed and **why**, not **how**.
   - Use bullet points for listing specific file-level or feature-level changes.
   - Avoid checklist boilerplate in the final description; it clutters the git history.
 
