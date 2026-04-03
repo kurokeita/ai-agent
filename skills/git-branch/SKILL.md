@@ -46,9 +46,9 @@ The branch structure follows a categorized format:
 
 ### Workflow
 
-1. Start from the main integration branch.
-2. Ensure the local branch is up-to-date: `git pull origin main`.
-3. Create the new branch: `git checkout -b <type>/<description>`.
+1. Start from the default branch.
+2. Ensure the local branch is up-to-date: `git pull origin $(git branch --show-current)`.
+3. Create the new branch without tracking: `git checkout --no-track -b <type>/<description>`.
 
 ## Additional Resources
 
