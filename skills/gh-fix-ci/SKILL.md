@@ -21,7 +21,11 @@ Prereq: authenticate with the standard GitHub CLI once (for example, run `gh aut
 
 ## Quick start
 
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
+- Detect the interpreter first:
+  `PYTHON_BIN=$(command -v python || command -v python3 || true)`
+- If `PYTHON_BIN` is empty, skip the bundled script and use the manual `gh` fallback workflow.
+- Otherwise run:
+  `"$PYTHON_BIN" "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
 - Add `--json` if you want machine-friendly output for summarization.
 
 ## Workflow
@@ -34,7 +38,11 @@ Prereq: authenticate with the standard GitHub CLI once (for example, run `gh aut
    - If the user provides a PR number or URL, use that directly.
 3. Inspect failing checks (GitHub Actions only).
    - Preferred: run the bundled script (handles gh field drift and job-log fallbacks):
-     - `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
+     - Resolve the interpreter first:
+       `PYTHON_BIN=$(command -v python || command -v python3 || true)`
+     - If `PYTHON_BIN` is set, run:
+       `"$PYTHON_BIN" "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "<number-or-url>"`
+     - If neither `python` nor `python3` is available, skip the bundled script and use the manual fallback below.
      - Add `--json` for machine-friendly output.
    - Manual fallback:
      - `gh pr checks <pr> --json name,state,bucket,link,startedAt,completedAt,workflow`
@@ -65,6 +73,6 @@ Fetch failing PR checks, pull GitHub Actions logs, and extract a failure snippet
 
 Usage examples:
 
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "123"`
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "https://github.com/org/repo/pull/123" --json`
-- `python "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --max-lines 200 --context 40`
+- `PYTHON_BIN=$(command -v python || command -v python3 || true); test -n "$PYTHON_BIN" && "$PYTHON_BIN" "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "123"`
+- `PYTHON_BIN=$(command -v python || command -v python3 || true); test -n "$PYTHON_BIN" && "$PYTHON_BIN" "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --pr "https://github.com/org/repo/pull/123" --json`
+- `PYTHON_BIN=$(command -v python || command -v python3 || true); test -n "$PYTHON_BIN" && "$PYTHON_BIN" "<path-to-skill>/scripts/inspect_pr_checks.py" --repo "." --max-lines 200 --context 40`
