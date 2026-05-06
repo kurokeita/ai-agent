@@ -36,6 +36,10 @@ List locally installed items:
 ```bash
 pnpx @kurokeita/add-skill list --local
 pnpx @kurokeita/add-skill list agent --local
+
+# Pick a scope non-interactively (default: global)
+pnpx @kurokeita/add-skill list --local --scope project
+pnpx @kurokeita/add-skill list --local --scope both
 ```
 
 ### Add Items
@@ -51,6 +55,11 @@ pnpx @kurokeita/add-skill add agent
 
 # Add workflows
 pnpx @kurokeita/add-skill add workflow
+
+# Install at project scope (writes under the current directory's
+# `.<platform>/...` paths instead of `~/...`). Project scope is
+# refused at $HOME or outside a git work tree.
+pnpx @kurokeita/add-skill add --scope project
 ```
 
 ### Remove Items
@@ -63,6 +72,10 @@ pnpx @kurokeita/add-skill remove skill
 
 # Remove agents
 pnpx @kurokeita/add-skill remove agent
+
+# Pick a scope non-interactively
+pnpx @kurokeita/add-skill remove skill --scope project
+pnpx @kurokeita/add-skill remove skill --scope both
 ```
 
 ### Add Item from GitHub
@@ -95,6 +108,23 @@ pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 <!-- SUPPORTED_AGENTS_END -->
 
 For Codex, this package installs skills directly and converts agents and workflows into Codex skill packages under `~/.codex/skills`.
+
+### Project-scope paths
+
+When you pick `--scope project`, items are written under the current working directory instead of `~`. The mapping below uses `<project-root>` to mean `process.cwd()` (no git-toplevel relocation: a monorepo subdirectory installs into that subdirectory, not the repo root).
+
+<!-- PROJECT_SCOPE_PATHS_START -->
+| Platform | Agents Path | Skills Path | Workflows Path |
+| :--- | :--- | :--- | :--- |
+| Antigravity | *Not Supported* | `<project-root>/.gemini/antigravity/skills` | `<project-root>/.gemini/antigravity/workflows` |
+| Claude Code | `<project-root>/.claude/agents` | `<project-root>/.claude/skills` | `<project-root>/.claude/skills` |
+| Codex | `<project-root>/.codex/skills` | `<project-root>/.codex/skills` | `<project-root>/.codex/skills` |
+| Gemini CLI | `<project-root>/.gemini/agents` | `<project-root>/.gemini/skills` | `<project-root>/.gemini/commands` |
+| GitHub Copilot | `<project-root>/.copilot/agents` | `<project-root>/.copilot/skills` | `<project-root>/.copilot/prompts` |
+| Windsurf | *Not Supported* | `<project-root>/.codeium/windsurf/skills` | `<project-root>/.codeium/windsurf/workflows` |
+<!-- PROJECT_SCOPE_PATHS_END -->
+
+Project scope is refused when `cwd` equals your home directory or `cwd` is not inside a git work tree. When refused interactively, you can fall back to global scope without losing your already-selected items and platforms.
 
 ## Development
 
