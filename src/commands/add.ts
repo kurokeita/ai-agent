@@ -20,10 +20,12 @@ import {
 	getTargetPaths,
 	PLATFORM_LABELS,
 	type Platform,
+	type Scope,
 	TYPE_DIRS,
 } from "@/utils/paths"
 import { getHandler } from "@/utils/platforms"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
+import { chooseInstallScope } from "@/utils/scope-prompt"
 
 enableAutocompleteMultiSelectShiftAToggle()
 
@@ -59,11 +61,12 @@ async function installItem(
 	return true
 }
 
-export async function add(
-	type?: string,
-	url?: string,
-	options?: { skipIntro?: boolean },
-) {
+export interface AddOptions {
+	skipIntro?: boolean
+	scope?: Scope
+}
+
+export async function add(type?: string, url?: string, options?: AddOptions) {
 	if (!options?.skipIntro) {
 		intro(pc.bgCyan(pc.black(" AI Manager : Add ")))
 	}
@@ -161,8 +164,6 @@ export async function add(
 			}
 
 			// 2. Select Platforms
-			// Filter platform options based on support for the type
-			const supportedPaths = getTargetPaths(normalizedType)
 			const currentPlatformOptions = getPlatformOptions(normalizedType)
 
 			if (currentPlatformOptions.length === 0) {
@@ -186,7 +187,37 @@ export async function add(
 
 			const selectedPlatforms = platforms as Platform[]
 
-			// 3. Check for existing items
+			// 3. Select Scope (with guards + soft-refuse fallback)
+			const scopeChoice = await chooseInstallScope({ flag: options?.scope })
+			if (scopeChoice.cancelled) {
+				if (tempDir) await fs.remove(tempDir)
+				if (isSingleShot) break
+				currentType = undefined
+				continue
+			}
+
+			const { scope: chosenScope, root: scopeRoot } = scopeChoice
+			const supportedPaths = getTargetPaths(
+				normalizedType,
+				chosenScope,
+				scopeRoot,
+			)
+
+			// 4. Project-scope explicit confirmation
+			if (chosenScope === "project") {
+				const proceed = await confirm({
+					message: `Install to project scope at ${pc.cyan(scopeRoot)}?`,
+					initialValue: true,
+				})
+				if (isCancel(proceed) || !proceed) {
+					if (tempDir) await fs.remove(tempDir)
+					if (isSingleShot) break
+					currentType = undefined
+					continue
+				}
+			}
+
+			// 5. Check for existing items
 			const existingItems: { item: string; platform: Platform }[] = []
 			for (const platform of selectedPlatforms) {
 				const targetBase = supportedPaths[platform]
@@ -232,13 +263,13 @@ export async function add(
 				overwrite = shouldOverwrite as boolean
 			}
 
-			// 4. Confirmation Note
+			// 6. Confirmation Note
 			note(
-				`Installing ${selectedItems.length} ${normalizedType}s to ${selectedPlatforms.length} platforms...`,
+				`Installing ${selectedItems.length} ${normalizedType}s to ${selectedPlatforms.length} platforms (scope: ${chosenScope})...`,
 				"Summary",
 			)
 
-			// 5. Installation Loop with Spinner
+			// 7. Installation Loop with Spinner
 			const s = spinner()
 			s.start("Installing...")
 

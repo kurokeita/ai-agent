@@ -38,12 +38,29 @@ describe("bin/cli.ts", () => {
 		const addCmd = await import("../../src/commands/add.js")
 		process.argv = ["node", "cli.js", "add", "skill", "url"]
 		await import("../cli.js")
-		expect(addCmd.add).toHaveBeenCalledWith(
-			"skill",
-			"url",
-			expect.anything(),
-			expect.anything(),
-		)
+		expect(addCmd.add).toHaveBeenCalledWith("skill", "url", {
+			scope: undefined,
+		})
+	})
+
+	it("should pass --scope flag to add command", async () => {
+		const addCmd = await import("../../src/commands/add.js")
+		process.argv = ["node", "cli.js", "add", "skill", "--scope", "project"]
+		await import("../cli.js")
+		expect(addCmd.add).toHaveBeenCalledWith("skill", undefined, {
+			scope: "project",
+		})
+	})
+
+	it("should reject invalid --scope value", async () => {
+		const exitSpy = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never)
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		process.argv = ["node", "cli.js", "add", "skill", "--scope", "bogus"]
+		await import("../cli.js")
+		expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid"))
+		expect(exitSpy).toHaveBeenCalledWith(1)
 	})
 
 	it("should call import command", async () => {

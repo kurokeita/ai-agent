@@ -6,6 +6,8 @@ import { add } from "@/commands/add"
 import { importItem } from "@/commands/import"
 import { list } from "@/commands/list"
 import { remove } from "@/commands/remove"
+import type { Scope } from "@/utils/paths"
+import { isValidScopeFlag } from "@/utils/scope-prompt"
 
 const program = new Command()
 
@@ -13,6 +15,15 @@ program
 	.name("ai-agent")
 	.description("CLI to manage AI agents, skills, and workflows")
 	.version("1.4.0")
+
+function parseScopeFlag(value: unknown): Scope | undefined {
+	if (value === undefined) return undefined
+	if (isValidScopeFlag(value)) return value
+	console.error(
+		pc.red(`Invalid --scope value: ${value}. Expected "global" or "project".`),
+	)
+	process.exit(1)
+}
 
 async function interactiveMain() {
 	intro(pc.bgCyan(pc.black(" AI Manager ")))
@@ -63,7 +74,11 @@ program
 	.description(
 		"Add an item (skill, agent, workflow) to platforms (Interactive or from GitHub URL)",
 	)
-	.action(add)
+	.option("-s, --scope <scope>", 'Install scope: "global" or "project"')
+	.action(async (type, url, opts) => {
+		const scope = parseScopeFlag(opts?.scope)
+		await add(type, url, { scope })
+	})
 
 program
 	.command("import [type] [url]")
