@@ -7,7 +7,11 @@ import { importItem } from "@/commands/import"
 import { list } from "@/commands/list"
 import { remove } from "@/commands/remove"
 import type { Scope } from "@/utils/paths"
-import { isValidScopeFlag } from "@/utils/scope-prompt"
+import {
+	isValidListRemoveScopeFlag,
+	isValidScopeFlag,
+	type ScopeChoice,
+} from "@/utils/scope-prompt"
 
 const program = new Command()
 
@@ -21,6 +25,17 @@ function parseScopeFlag(value: unknown): Scope | undefined {
 	if (isValidScopeFlag(value)) return value
 	console.error(
 		pc.red(`Invalid --scope value: ${value}. Expected "global" or "project".`),
+	)
+	process.exit(1)
+}
+
+function parseListRemoveScopeFlag(value: unknown): ScopeChoice | undefined {
+	if (value === undefined) return undefined
+	if (isValidListRemoveScopeFlag(value)) return value
+	console.error(
+		pc.red(
+			`Invalid --scope value: ${value}. Expected "global", "project", or "both".`,
+		),
 	)
 	process.exit(1)
 }
@@ -67,7 +82,14 @@ program
 	.command("list [type]")
 	.description("List available items (skills, agents, workflows)")
 	.option("-l, --local", "List installed items locally")
-	.action(list)
+	.option(
+		"-s, --scope <scope>",
+		'Scope when listing local installs: "global", "project", or "both"',
+	)
+	.action(async (type, opts) => {
+		const scope = parseListRemoveScopeFlag(opts?.scope)
+		await list(type, { local: opts?.local, scope })
+	})
 
 program
 	.command("add [type] [url]")

@@ -1,11 +1,14 @@
+import os from "node:os"
 import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
 import { getTargetPaths, TYPE_DIRS } from "../../utils/paths.js"
+import { chooseListRemoveScope } from "../../utils/scope-prompt.js"
 import { list } from "../list.js"
 
 vi.mock("fs-extra")
 vi.mock("../../utils/paths.js")
+vi.mock("../../utils/scope-prompt.js")
 vi.mock("@clack/prompts", () => ({
 	intro: vi.fn(),
 	outro: vi.fn(),
@@ -34,6 +37,12 @@ describe("src/commands/list.ts", () => {
 		})
 
 		vi.mocked(prompts.select).mockResolvedValue("exit")
+
+		vi.mocked(chooseListRemoveScope).mockResolvedValue({
+			cancelled: false,
+			scope: "global",
+			homedir: os.homedir(),
+		})
 	})
 
 	it("should list available items for all types by default", async () => {
@@ -320,5 +329,94 @@ describe("src/commands/list.ts", () => {
 		await list("skill", { skipIntro: true })
 		expect(prompts.intro).not.toHaveBeenCalled()
 		expect(prompts.outro).not.toHaveBeenCalled()
+	})
+
+	describe("scope handling", () => {
+		it("calls chooseListRemoveScope when listing locally", async () => {
+			await list("skill", { local: true })
+			expect(chooseListRemoveScope).toHaveBeenCalledWith(
+				expect.objectContaining({ action: "list" }),
+			)
+		})
+
+		it("does not call chooseListRemoveScope for repository view", async () => {
+			await list("skill")
+			expect(chooseListRemoveScope).not.toHaveBeenCalled()
+		})
+
+		it("passes the --scope flag through to chooseListRemoveScope", async () => {
+			await list("skill", { local: true, scope: "both" })
+			expect(chooseListRemoveScope).toHaveBeenCalledWith(
+				expect.objectContaining({ action: "list", flag: "both" }),
+			)
+		})
+
+		it("bails out gracefully when scope choice is cancelled", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				cancelled: true,
+			})
+			await list("skill", { local: true })
+			expect(mockConsoleLog).not.toHaveBeenCalledWith(
+				expect.stringContaining("- "),
+			)
+		})
+
+		it("renders project-scope items under a Project section when scope=project", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				homedir: "/home/me",
+				projectRoot: "/home/me/dev/myrepo",
+			})
+			vi.mocked(getTargetPaths).mockReturnValue({
+				gemini: "/home/me/dev/myrepo/.gemini/skills",
+			})
+			vi.mocked(fs.readdir).mockResolvedValue([
+				{
+					name: "proj-skill",
+					isDirectory: () => true,
+					isFile: () => false,
+				} as fs.Dirent,
+			] as never)
+
+			await list("skill", { local: true })
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringContaining("- proj-skill"),
+			)
+		})
+
+		it("renders both Global and Project sections when scope=both", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "both",
+				homedir: "/home/me",
+				projectRoot: "/home/me/dev/myrepo",
+			})
+			vi.mocked(getTargetPaths).mockImplementation(((
+				_type: string,
+				scope?: string,
+				root?: string,
+			) => {
+				if (scope === "project") {
+					return { gemini: `${root}/.gemini/skills` }
+				}
+				return { gemini: "/home/me/.gemini/skills" }
+			}) as typeof getTargetPaths)
+			vi.mocked(fs.readdir).mockResolvedValue([
+				{
+					name: "an-item",
+					isDirectory: () => true,
+					isFile: () => false,
+				} as fs.Dirent,
+			] as never)
+
+			await list("skill", { local: true })
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringMatching(/Global \(.+\):/),
+			)
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringMatching(/Project \(.+\):/),
+			)
+		})
 	})
 })

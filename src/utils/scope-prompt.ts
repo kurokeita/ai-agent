@@ -8,6 +8,8 @@ import {
 	resolveScope,
 } from "./scope"
 
+export type ScopeChoice = Scope | "both"
+
 export interface ChooseScopeOptions extends ResolveScopeOptions {
 	flag?: Scope
 	initial?: Scope
@@ -17,8 +19,28 @@ export type ChooseScopeResult =
 	| { cancelled: true }
 	| { cancelled: false; scope: Scope; root: string }
 
+export interface ChooseListRemoveScopeOptions extends ResolveScopeOptions {
+	flag?: ScopeChoice
+	action: "list" | "remove"
+}
+
+export type ListRemoveScopeResult =
+	| { cancelled: true }
+	| {
+			cancelled: false
+			scope: ScopeChoice
+			homedir: string
+			projectRoot?: string
+	  }
+
 export function isValidScopeFlag(value: unknown): value is Scope {
 	return value === "global" || value === "project"
+}
+
+export function isValidListRemoveScopeFlag(
+	value: unknown,
+): value is ScopeChoice {
+	return value === "global" || value === "project" || value === "both"
 }
 
 async function pickScope(initial: Scope): Promise<Scope | "__cancel__"> {
@@ -93,5 +115,105 @@ export async function chooseInstallScope(
 		cancelled: false,
 		scope: fallbackResolution.scope,
 		root: fallbackResolution.root,
+	}
+}
+
+async function pickListRemoveScope(
+	action: "list" | "remove",
+): Promise<ScopeChoice | "__cancel__"> {
+	const verb = action === "list" ? "List" : "Remove from"
+	const result = await select<ScopeChoice>({
+		message: `Choose scope to ${action === "list" ? "list" : "remove from"}:`,
+		options: [
+			{
+				label: "Global",
+				value: "global",
+				hint: `${verb} items installed under your home directory`,
+			},
+			{
+				label: "Project",
+				value: "project",
+				hint: `${verb} items under the current project`,
+			},
+			{
+				label: "Both",
+				value: "both",
+				hint: `${verb} items at both scopes`,
+			},
+		],
+		initialValue: "global",
+	})
+	if (isCancel(result)) return "__cancel__"
+	return result
+}
+
+async function offerGlobalOnlyFallback(
+	reason: string,
+	action: "list" | "remove",
+): Promise<"global" | "__cancel__"> {
+	note(reason, "Project scope unavailable")
+	const verb = action === "list" ? "List" : "Remove from"
+	const choice = await select<"global" | "cancel">({
+		message: "What would you like to do?",
+		options: [
+			{ label: `${verb} global scope only`, value: "global" },
+			{ label: "Cancel", value: "cancel" },
+		],
+		initialValue: "global",
+	})
+	if (isCancel(choice) || choice === "cancel") return "__cancel__"
+	return "global"
+}
+
+export async function chooseListRemoveScope(
+	options: ChooseListRemoveScopeOptions,
+): Promise<ListRemoveScopeResult> {
+	const requested = options.flag ?? (await pickListRemoveScope(options.action))
+
+	if (requested === "__cancel__") return { cancelled: true }
+
+	if (requested === "global") {
+		const resolved = resolveScope("global", options)
+		if (!resolved.ok) return { cancelled: true }
+		return {
+			cancelled: false,
+			scope: "global",
+			homedir: resolved.root,
+		}
+	}
+
+	const projectResolution = resolveScope("project", options)
+
+	if (projectResolution.ok) {
+		const homeResolution = resolveScope("global", options)
+		if (!homeResolution.ok) return { cancelled: true }
+		return {
+			cancelled: false,
+			scope: requested,
+			homedir: homeResolution.root,
+			projectRoot: projectResolution.root,
+		}
+	}
+
+	if (options.flag) {
+		note(
+			pc.yellow(describeRefusal(projectResolution.reason)),
+			"Project scope unavailable",
+		)
+		return { cancelled: true }
+	}
+
+	const fallback = await offerGlobalOnlyFallback(
+		describeRefusal(projectResolution.reason),
+		options.action,
+	)
+	if (fallback === "__cancel__") return { cancelled: true }
+
+	const homeResolution = resolveScope("global", options)
+	if (!homeResolution.ok) return { cancelled: true }
+	return {
+		cancelled: false,
+		scope: "global",
+		homedir: homeResolution.root,
 	}
 }
