@@ -177,7 +177,7 @@ read_fields() {
       (.rate_limits.five_hour.resets_at // "" | tostring),
       (.rate_limits.seven_day.used_percentage // "" | tostring),
       (.rate_limits.seven_day.resets_at // "" | tostring)
-    ] | join("")
+    ] | join("\u001f")
   ' 2>/dev/null <<<"$payload"
 }
 
