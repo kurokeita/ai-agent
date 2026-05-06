@@ -112,8 +112,13 @@ program
 program
 	.command("remove [type]")
 	.description("Remove locally installed items (skills, agents, workflows)")
-	.action(async (type) => {
-		await remove(type || "")
+	.option(
+		"-s, --scope <scope>",
+		'Scope to remove from: "global", "project", or "both"',
+	)
+	.action(async (type, opts) => {
+		const scope = parseListRemoveScopeFlag(opts?.scope)
+		await remove(type || "", { scope })
 	})
 
 // If no arguments, start interactive mode

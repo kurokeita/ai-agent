@@ -102,7 +102,18 @@ describe("bin/cli.ts", () => {
 		const removeCmd = await import("../../src/commands/remove.js")
 		process.argv = ["node", "cli.js", "remove", "skill"]
 		await import("../cli.js")
-		expect(removeCmd.remove).toHaveBeenCalledWith("skill")
+		expect(removeCmd.remove).toHaveBeenCalledWith("skill", {
+			scope: undefined,
+		})
+	})
+
+	it("should pass --scope flag to remove command", async () => {
+		const removeCmd = await import("../../src/commands/remove.js")
+		process.argv = ["node", "cli.js", "remove", "skill", "--scope", "project"]
+		await import("../cli.js")
+		expect(removeCmd.remove).toHaveBeenCalledWith("skill", {
+			scope: "project",
+		})
 	})
 
 	it("should call import command without arguments", async () => {
@@ -116,7 +127,7 @@ describe("bin/cli.ts", () => {
 		const removeCmd = await import("../../src/commands/remove.js")
 		process.argv = ["node", "cli.js", "remove"]
 		await import("../cli.js")
-		expect(removeCmd.remove).toHaveBeenCalledWith("")
+		expect(removeCmd.remove).toHaveBeenCalledWith("", { scope: undefined })
 	})
 
 	it("should enter interactive mode if no arguments provided", async () => {
