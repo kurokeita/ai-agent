@@ -272,6 +272,8 @@ Write `%USERPROFILE%\.claude\statusline-command.ps1`. Use `ConvertFrom-Json` (no
 
 ```powershell
 $ErrorActionPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 $ESC = [char]27
 
 $C_CWD    = "$ESC[38;2;94;255;255m"
