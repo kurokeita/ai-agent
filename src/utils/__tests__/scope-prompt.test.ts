@@ -58,7 +58,7 @@ describe("chooseInstallScope", () => {
 		})
 	})
 
-	it("returns cancelled when --scope project fails the guard (no fallback prompt)", async () => {
+	it("returns rejected when --scope project fails the guard (no fallback prompt)", async () => {
 		const result = await chooseInstallScope({
 			flag: "project",
 			homedir: "/home/me",
@@ -67,7 +67,10 @@ describe("chooseInstallScope", () => {
 		})
 		expect(prompts.note).toHaveBeenCalled()
 		expect(prompts.select).not.toHaveBeenCalled()
-		expect(result).toEqual({ cancelled: true })
+		expect(result).toMatchObject({ rejected: true })
+		if ("rejected" in result) {
+			expect(result.reason).toMatch(/git repository/i)
+		}
 	})
 
 	it("prompts the user when no flag is given", async () => {
@@ -230,7 +233,7 @@ describe("chooseListRemoveScope", () => {
 		})
 	})
 
-	it("returns cancelled when --scope project fails the guard", async () => {
+	it("returns rejected when --scope project fails the guard", async () => {
 		const result = await chooseListRemoveScope({
 			action: "list",
 			flag: "project",
@@ -239,7 +242,10 @@ describe("chooseListRemoveScope", () => {
 			gitCheck: () => false,
 		})
 		expect(prompts.select).not.toHaveBeenCalled()
-		expect(result).toEqual({ cancelled: true })
+		expect(result).toMatchObject({ rejected: true })
+		if ("rejected" in result) {
+			expect(result.reason).toMatch(/git repository/i)
+		}
 	})
 
 	it("offers global-only fallback when prompted project guard fails", async () => {

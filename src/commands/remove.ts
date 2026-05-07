@@ -1,6 +1,7 @@
 import path from "node:path"
 import {
 	autocompleteMultiselect,
+	cancel,
 	confirm,
 	intro,
 	isCancel,
@@ -149,6 +150,13 @@ export async function remove(type?: string, options?: RemoveOptions) {
 			action: "remove",
 			flag: options?.scope,
 		})
+		if ("rejected" in scopeChoice) {
+			cancel(
+				`Scope --scope=${options?.scope} unavailable: ${scopeChoice.reason}`,
+			)
+			process.exit(1)
+			return
+		}
 		if (scopeChoice.cancelled) {
 			if (isSingleShot) break
 			currentType = undefined

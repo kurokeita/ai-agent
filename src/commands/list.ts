@@ -1,5 +1,5 @@
 import os from "node:os"
-import { intro, isCancel, outro, select } from "@clack/prompts"
+import { cancel, intro, isCancel, outro, select } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
 import { getTargetPaths, type Scope, TYPE_DIRS } from "@/utils/paths"
@@ -227,6 +227,13 @@ export async function list(type?: string, options?: ListOptions) {
 					action: "list",
 					flag: options?.scope,
 				})
+				if ("rejected" in scopeChoice) {
+					cancel(
+						`Scope --scope=${options?.scope} unavailable: ${scopeChoice.reason}`,
+					)
+					process.exit(1)
+					return
+				}
 				if (scopeChoice.cancelled) {
 					if (isSingleShot) break
 					currentType = undefined

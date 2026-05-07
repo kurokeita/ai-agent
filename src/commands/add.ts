@@ -189,6 +189,14 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 
 			// 3. Select Scope (with guards + soft-refuse fallback)
 			const scopeChoice = await chooseInstallScope({ flag: options?.scope })
+			if ("rejected" in scopeChoice) {
+				if (tempDir) await fs.remove(tempDir)
+				cancel(
+					`Scope --scope=${options?.scope} unavailable: ${scopeChoice.reason}`,
+				)
+				process.exit(1)
+				return
+			}
 			if (scopeChoice.cancelled) {
 				if (tempDir) await fs.remove(tempDir)
 				if (isSingleShot) break

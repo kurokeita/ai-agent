@@ -17,6 +17,7 @@ export interface ChooseScopeOptions extends ResolveScopeOptions {
 
 export type ChooseScopeResult =
 	| { cancelled: true }
+	| { rejected: true; reason: string }
 	| { cancelled: false; scope: Scope; root: string }
 
 export interface ChooseListRemoveScopeOptions extends ResolveScopeOptions {
@@ -26,6 +27,7 @@ export interface ChooseListRemoveScopeOptions extends ResolveScopeOptions {
 
 export type ListRemoveScopeResult =
 	| { cancelled: true }
+	| { rejected: true; reason: string }
 	| {
 			cancelled: false
 			scope: ScopeChoice
@@ -99,11 +101,9 @@ export async function chooseInstallScope(
 	}
 
 	if (options.flag === "project") {
-		note(
-			pc.yellow(describeRefusal(resolution.reason)),
-			"Project scope unavailable",
-		)
-		return { cancelled: true }
+		const reason = describeRefusal(resolution.reason)
+		note(pc.yellow(reason), "Project scope unavailable")
+		return { rejected: true, reason }
 	}
 
 	const fallback = await offerGlobalFallback(describeRefusal(resolution.reason))
@@ -196,11 +196,9 @@ export async function chooseListRemoveScope(
 	}
 
 	if (options.flag) {
-		note(
-			pc.yellow(describeRefusal(projectResolution.reason)),
-			"Project scope unavailable",
-		)
-		return { cancelled: true }
+		const reason = describeRefusal(projectResolution.reason)
+		note(pc.yellow(reason), "Project scope unavailable")
+		return { rejected: true, reason }
 	}
 
 	const fallback = await offerGlobalOnlyFallback(
