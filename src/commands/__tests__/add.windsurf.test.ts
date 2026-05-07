@@ -1,3 +1,4 @@
+import os from "node:os"
 import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -6,12 +7,14 @@ import {
 	PLATFORM_LABELS,
 	TYPE_DIRS,
 } from "../../utils/paths.js"
+import { chooseInstallScope } from "../../utils/scope-prompt.js"
 import { add } from "../add.js"
 
 vi.mock("fs-extra")
 vi.mock("@clack/prompts")
 vi.mock("../../utils/github.js")
 vi.mock("../../utils/paths.js")
+vi.mock("../../utils/scope-prompt.js")
 
 describe(`${add.name} - Windsurf`, () => {
 	beforeEach(() => {
@@ -40,6 +43,12 @@ describe(`${add.name} - Windsurf`, () => {
 
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
 		vi.mocked(prompts.select).mockResolvedValue("exit")
+
+		vi.mocked(chooseInstallScope).mockResolvedValue({
+			cancelled: false,
+			scope: "global",
+			root: os.homedir(),
+		})
 	})
 
 	afterEach(() => {

@@ -3,6 +3,9 @@ import path from "node:path"
 import { fileURLToPath } from "node:url"
 import fs from "fs-extra"
 import {
+	getProjectPlatformPathsAgents,
+	getProjectPlatformPathsSkills,
+	getProjectPlatformPathsWorkflows,
 	PLATFORM_LABELS,
 	PLATFORM_PATHS_AGENTS,
 	PLATFORM_PATHS_SKILLS,
@@ -14,6 +17,8 @@ const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 const PROJECT_ROOT = path.resolve(__dirname, "..")
 const README_PATH = path.join(PROJECT_ROOT, "README.md")
+
+const PROJECT_ROOT_TOKEN = "<project-root>"
 
 function generateSupportedAgentsTable() {
 	let table = `| Platform | Agents Path | Skills Path | Workflows Path |\n`
@@ -44,6 +49,46 @@ function generateSupportedAgentsTable() {
 	return table
 }
 
+function generateProjectScopeTable() {
+	const skillPaths = getProjectPlatformPathsSkills(PROJECT_ROOT_TOKEN)
+	const agentPaths = getProjectPlatformPathsAgents(PROJECT_ROOT_TOKEN)
+	const workflowPaths = getProjectPlatformPathsWorkflows(PROJECT_ROOT_TOKEN)
+
+	let table = `| Platform | Agents Path | Skills Path | Workflows Path |\n`
+	table += `| :--- | :--- | :--- | :--- |\n`
+
+	const platforms = Object.keys(PLATFORM_LABELS) as Platform[]
+
+	for (const platform of platforms) {
+		const label = PLATFORM_LABELS[platform]
+		const agentPath = agentPaths[platform]
+		const skillPath = skillPaths[platform]
+		const workflowPath = workflowPaths[platform]
+
+		const agentDisplay = agentPath ? `\`${agentPath}\`` : "*Not Supported*"
+
+		table += `| ${label} | ${agentDisplay} | \`${skillPath || "-"}\` | \`${workflowPath || "-"}\` |\n`
+	}
+
+	return table
+}
+
+function replaceBlock(
+	content: string,
+	startMarker: string,
+	endMarker: string,
+	body: string,
+): string {
+	const regex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`, "m")
+	if (!regex.test(content)) {
+		console.error(
+			`Markers not found in README.md. Please ensure '${startMarker}' and '${endMarker}' exist.`,
+		)
+		process.exit(1)
+	}
+	return content.replace(regex, `${startMarker}\n${body}${endMarker}`)
+}
+
 async function main() {
 	if (!(await fs.pathExists(README_PATH))) {
 		console.error("README.md not found!")
@@ -51,22 +96,20 @@ async function main() {
 	}
 
 	let content = await fs.readFile(README_PATH, "utf-8")
-	const table = generateSupportedAgentsTable()
 
-	const startMarker = "<!-- SUPPORTED_AGENTS_START -->"
-	const endMarker = "<!-- SUPPORTED_AGENTS_END -->"
+	content = replaceBlock(
+		content,
+		"<!-- SUPPORTED_AGENTS_START -->",
+		"<!-- SUPPORTED_AGENTS_END -->",
+		generateSupportedAgentsTable(),
+	)
 
-	const regex = new RegExp(`${startMarker}[\\s\\S]*?${endMarker}`, "m")
-
-	if (!regex.test(content)) {
-		console.error(
-			`Markers not found in README.md. Please ensure '${startMarker}' and '${endMarker}' exist.`,
-		)
-		process.exit(1)
-	}
-
-	const newContent = `${startMarker}\n${table}${endMarker}`
-	content = content.replace(regex, newContent)
+	content = replaceBlock(
+		content,
+		"<!-- PROJECT_SCOPE_PATHS_START -->",
+		"<!-- PROJECT_SCOPE_PATHS_END -->",
+		generateProjectScopeTable(),
+	)
 
 	await fs.writeFile(README_PATH, content)
 	console.log("README.md updated successfully!")

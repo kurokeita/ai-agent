@@ -1,3 +1,4 @@
+import os from "node:os"
 import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import {
@@ -15,12 +16,14 @@ import {
 	PLATFORM_LABELS,
 	TYPE_DIRS,
 } from "../../utils/paths.js"
+import { chooseInstallScope } from "../../utils/scope-prompt.js"
 import { add } from "../add.js"
 
 vi.mock("fs-extra")
 vi.mock("@clack/prompts")
 vi.mock("../../utils/github.js")
 vi.mock("../../utils/paths.js")
+vi.mock("../../utils/scope-prompt.js")
 
 describe(add.name, () => {
 	let mockExit: MockInstance
@@ -57,6 +60,12 @@ describe(add.name, () => {
 
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
 		vi.mocked(prompts.select).mockResolvedValue("exit")
+
+		vi.mocked(chooseInstallScope).mockResolvedValue({
+			cancelled: false,
+			scope: "global",
+			root: os.homedir(),
+		})
 	})
 
 	afterEach(() => {
@@ -696,5 +705,156 @@ describe(add.name, () => {
 		)
 		await add("skill", "url")
 		expect(fs.remove).not.toHaveBeenCalled()
+	})
+
+	describe("scope handling", () => {
+		const mkLocalReaddir = () => {
+			vi.mocked(
+				fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+			).mockResolvedValueOnce([
+				{
+					name: "item",
+					isDirectory: () => true,
+					isFile: () => false,
+				} as fs.Dirent,
+			])
+			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+		}
+
+		it("should call chooseInstallScope after platform selection", async () => {
+			mkLocalReaddir()
+			await add("skill")
+			expect(chooseInstallScope).toHaveBeenCalled()
+		})
+
+		it("should pass --scope flag through to chooseInstallScope", async () => {
+			mkLocalReaddir()
+			await add("skill", undefined, { scope: "project" })
+			expect(chooseInstallScope).toHaveBeenCalledWith(
+				expect.objectContaining({ flag: "project" }),
+			)
+		})
+
+		it("should resolve project scope paths against the chosen root", async () => {
+			mkLocalReaddir()
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				root: "/tmp/myrepo",
+			})
+			await add("skill")
+			expect(getTargetPaths).toHaveBeenCalledWith(
+				"skill",
+				"project",
+				"/tmp/myrepo",
+			)
+		})
+
+		it("should require explicit confirm when project scope is chosen", async () => {
+			mkLocalReaddir()
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				root: "/tmp/myrepo",
+			})
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(true)
+			await add("skill")
+			expect(prompts.confirm).toHaveBeenCalledWith(
+				expect.objectContaining({
+					message: expect.stringContaining("/tmp/myrepo"),
+				}),
+			)
+		})
+
+		it("should bail out and not install when scope choice is cancelled", async () => {
+			mkLocalReaddir()
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+				cancelled: true,
+			})
+			await add("skill")
+			expect(fs.copy).not.toHaveBeenCalled()
+		})
+
+		it("should bail out and clean up tempDir when scope choice is cancelled with URL", async () => {
+			vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+				tempDir: "/tmp/item",
+				skillName: "item",
+				isFile: false,
+			})
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({ cancelled: true })
+			await add("skill", "https://github.com/x/y/tree/main/item")
+			expect(fs.copy).not.toHaveBeenCalled()
+			expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
+		})
+
+		it("should bail out when project-scope confirm is declined", async () => {
+			mkLocalReaddir()
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				root: "/tmp/myrepo",
+			})
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+			await add("skill")
+			expect(fs.copy).not.toHaveBeenCalled()
+		})
+
+		it("should bail out when project-scope confirm is cancelled", async () => {
+			mkLocalReaddir()
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				root: "/tmp/myrepo",
+			})
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
+			vi.mocked(prompts.isCancel)
+				.mockReset()
+				.mockReturnValueOnce(false) // multiselect items
+				.mockReturnValueOnce(false) // multiselect platforms
+				.mockReturnValueOnce(true) // project confirm
+				.mockReturnValue(false)
+			await add("skill")
+			expect(fs.copy).not.toHaveBeenCalled()
+		})
+
+		it("should include scope in summary note", async () => {
+			mkLocalReaddir()
+			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				root: "/tmp/myrepo",
+			})
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(true)
+			await add("skill")
+			expect(prompts.note).toHaveBeenCalledWith(
+				expect.stringContaining("scope: project"),
+				"Summary",
+			)
+		})
+
+		it("should reset scope between loop iterations", async () => {
+			vi.mocked(prompts.select)
+				.mockResolvedValueOnce("skill")
+				.mockResolvedValueOnce("exit")
+			vi.mocked(
+				fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+			).mockResolvedValueOnce([
+				{
+					name: "item",
+					isDirectory: () => true,
+					isFile: () => false,
+				} as fs.Dirent,
+			])
+			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+			await add()
+			// Even when the call site doesn't pass scope, chooseInstallScope is still called once.
+			expect(chooseInstallScope).toHaveBeenCalledTimes(1)
+			expect(chooseInstallScope).toHaveBeenCalledWith(
+				expect.objectContaining({ flag: undefined }),
+			)
+		})
 	})
 })

@@ -31,6 +31,8 @@ export type Platform =
 	| "gemini"
 	| "codex"
 
+export type Scope = "global" | "project"
+
 export const PLATFORM_LABELS: Record<Platform, string> = {
 	antigravity: "Antigravity",
 	"claude-code": "Claude Code",
@@ -65,15 +67,71 @@ export const PLATFORM_PATHS_WORKFLOWS: Partial<Record<Platform, string>> = {
 	windsurf: path.join(os.homedir(), ".codeium/windsurf/global_workflows"),
 }
 
+const PROJECT_RELATIVE_PLATFORM_PATHS_SKILLS: Record<Platform, string> = {
+	antigravity: ".gemini/antigravity/skills",
+	"claude-code": ".claude/skills",
+	codex: ".codex/skills",
+	copilot: ".copilot/skills",
+	gemini: ".gemini/skills",
+	windsurf: ".codeium/windsurf/skills",
+}
+
+const PROJECT_RELATIVE_PLATFORM_PATHS_AGENTS: Partial<
+	Record<Platform, string>
+> = {
+	"claude-code": ".claude/agents",
+	codex: ".codex/skills",
+	copilot: ".copilot/agents",
+	gemini: ".gemini/agents",
+}
+
+const PROJECT_RELATIVE_PLATFORM_PATHS_WORKFLOWS: Partial<
+	Record<Platform, string>
+> = {
+	antigravity: ".gemini/antigravity/workflows",
+	"claude-code": ".claude/skills",
+	codex: ".codex/skills",
+	copilot: ".copilot/prompts",
+	gemini: ".gemini/commands",
+	windsurf: ".codeium/windsurf/workflows",
+}
+
+function resolveProjectPaths<T extends Partial<Record<Platform, string>>>(
+	relative: T,
+	root: string,
+): T {
+	const out: Partial<Record<Platform, string>> = {}
+	for (const [platform, rel] of Object.entries(relative)) {
+		if (rel) out[platform as Platform] = path.join(root, rel)
+	}
+	return out as T
+}
+
+export function getProjectPlatformPathsSkills(
+	root: string,
+): Record<Platform, string> {
+	return resolveProjectPaths(PROJECT_RELATIVE_PLATFORM_PATHS_SKILLS, root)
+}
+
+export function getProjectPlatformPathsAgents(
+	root: string,
+): Partial<Record<Platform, string>> {
+	return resolveProjectPaths(PROJECT_RELATIVE_PLATFORM_PATHS_AGENTS, root)
+}
+
+export function getProjectPlatformPathsWorkflows(
+	root: string,
+): Partial<Record<Platform, string>> {
+	return resolveProjectPaths(PROJECT_RELATIVE_PLATFORM_PATHS_WORKFLOWS, root)
+}
+
 export const TYPE_DIRS: Record<string, string> = {
 	skill: path.join(PROJECT_ROOT, "skills"),
 	agent: path.join(PROJECT_ROOT, "agents"),
 	workflow: path.join(PROJECT_ROOT, "workflows"),
 }
 
-export function getTargetPaths(
-	type: string,
-): Partial<Record<Platform, string>> {
+function getGlobalTargetPaths(type: string): Partial<Record<Platform, string>> {
 	switch (type) {
 		case "agent":
 			return PLATFORM_PATHS_AGENTS
@@ -82,4 +140,30 @@ export function getTargetPaths(
 		default:
 			return PLATFORM_PATHS_SKILLS
 	}
+}
+
+function getProjectTargetPaths(
+	type: string,
+	root: string,
+): Partial<Record<Platform, string>> {
+	switch (type) {
+		case "agent":
+			return getProjectPlatformPathsAgents(root)
+		case "workflow":
+			return getProjectPlatformPathsWorkflows(root)
+		default:
+			return getProjectPlatformPathsSkills(root)
+	}
+}
+
+export function getTargetPaths(
+	type: string,
+	scope: Scope = "global",
+	projectRoot?: string,
+): Partial<Record<Platform, string>> {
+	if (scope === "project") {
+		const root = projectRoot ?? process.cwd()
+		return getProjectTargetPaths(type, root)
+	}
+	return getGlobalTargetPaths(type)
 }

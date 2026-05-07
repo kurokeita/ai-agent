@@ -27,23 +27,68 @@ describe("bin/cli.ts", () => {
 		const listCmd = await import("../../src/commands/list.js")
 		process.argv = ["node", "cli.js", "list", "skill", "--local"]
 		await import("../cli.js")
-		expect(listCmd.list).toHaveBeenCalledWith(
+		expect(listCmd.list).toHaveBeenCalledWith("skill", {
+			local: true,
+			scope: undefined,
+		})
+	})
+
+	it("should pass --scope flag to list command", async () => {
+		const listCmd = await import("../../src/commands/list.js")
+		process.argv = [
+			"node",
+			"cli.js",
+			"list",
 			"skill",
-			expect.objectContaining({ local: true }),
-			expect.anything(),
-		)
+			"--local",
+			"--scope",
+			"both",
+		]
+		await import("../cli.js")
+		expect(listCmd.list).toHaveBeenCalledWith("skill", {
+			local: true,
+			scope: "both",
+		})
+	})
+
+	it("should reject invalid --scope value for list", async () => {
+		const exitSpy = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never)
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		process.argv = ["node", "cli.js", "list", "skill", "--scope", "bogus"]
+		await import("../cli.js")
+		expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid"))
+		expect(exitSpy).toHaveBeenCalledWith(1)
 	})
 
 	it("should call add command", async () => {
 		const addCmd = await import("../../src/commands/add.js")
 		process.argv = ["node", "cli.js", "add", "skill", "url"]
 		await import("../cli.js")
-		expect(addCmd.add).toHaveBeenCalledWith(
-			"skill",
-			"url",
-			expect.anything(),
-			expect.anything(),
-		)
+		expect(addCmd.add).toHaveBeenCalledWith("skill", "url", {
+			scope: undefined,
+		})
+	})
+
+	it("should pass --scope flag to add command", async () => {
+		const addCmd = await import("../../src/commands/add.js")
+		process.argv = ["node", "cli.js", "add", "skill", "--scope", "project"]
+		await import("../cli.js")
+		expect(addCmd.add).toHaveBeenCalledWith("skill", undefined, {
+			scope: "project",
+		})
+	})
+
+	it("should reject invalid --scope value", async () => {
+		const exitSpy = vi
+			.spyOn(process, "exit")
+			.mockImplementation(() => undefined as never)
+		const errSpy = vi.spyOn(console, "error").mockImplementation(() => {})
+		process.argv = ["node", "cli.js", "add", "skill", "--scope", "bogus"]
+		await import("../cli.js")
+		expect(errSpy).toHaveBeenCalledWith(expect.stringContaining("Invalid"))
+		expect(exitSpy).toHaveBeenCalledWith(1)
 	})
 
 	it("should call import command", async () => {
@@ -57,7 +102,18 @@ describe("bin/cli.ts", () => {
 		const removeCmd = await import("../../src/commands/remove.js")
 		process.argv = ["node", "cli.js", "remove", "skill"]
 		await import("../cli.js")
-		expect(removeCmd.remove).toHaveBeenCalledWith("skill")
+		expect(removeCmd.remove).toHaveBeenCalledWith("skill", {
+			scope: undefined,
+		})
+	})
+
+	it("should pass --scope flag to remove command", async () => {
+		const removeCmd = await import("../../src/commands/remove.js")
+		process.argv = ["node", "cli.js", "remove", "skill", "--scope", "project"]
+		await import("../cli.js")
+		expect(removeCmd.remove).toHaveBeenCalledWith("skill", {
+			scope: "project",
+		})
 	})
 
 	it("should call import command without arguments", async () => {
@@ -71,7 +127,7 @@ describe("bin/cli.ts", () => {
 		const removeCmd = await import("../../src/commands/remove.js")
 		process.argv = ["node", "cli.js", "remove"]
 		await import("../cli.js")
-		expect(removeCmd.remove).toHaveBeenCalledWith("")
+		expect(removeCmd.remove).toHaveBeenCalledWith("", { scope: undefined })
 	})
 
 	it("should enter interactive mode if no arguments provided", async () => {

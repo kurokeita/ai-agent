@@ -1,6 +1,7 @@
 import path from "node:path"
 import {
 	autocompleteMultiselect,
+	cancel,
 	confirm,
 	intro,
 	isCancel,
@@ -12,13 +13,108 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import { getTargetPaths, PLATFORM_LABELS, type Platform } from "@/utils/paths"
+import {
+	getTargetPaths,
+	PLATFORM_LABELS,
+	type Platform,
+	type Scope,
+} from "@/utils/paths"
 import { codexEntryMatchesType } from "@/utils/platforms/codex"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
+import { chooseListRemoveScope, type ScopeChoice } from "@/utils/scope-prompt"
 
 enableAutocompleteMultiSelectShiftAToggle()
 
-export async function remove(type?: string, options?: { skipIntro?: boolean }) {
+interface ScopedTargetPaths {
+	scope: Scope
+	paths: Partial<Record<Platform, string>>
+}
+
+interface ScannedItem {
+	key: string
+	label: string
+	name: string
+	scope: Scope
+}
+
+function buildScopedTargetPaths(
+	normalizedType: string,
+	scope: ScopeChoice,
+	projectRoot: string | undefined,
+): ScopedTargetPaths[] {
+	const out: ScopedTargetPaths[] = []
+	if (scope === "global" || scope === "both") {
+		out.push({
+			scope: "global",
+			paths: getTargetPaths(normalizedType, "global"),
+		})
+	}
+	if ((scope === "project" || scope === "both") && projectRoot) {
+		out.push({
+			scope: "project",
+			paths: getTargetPaths(normalizedType, "project", projectRoot),
+		})
+	}
+	return out
+}
+
+async function scanInstalledItems(
+	scopedPaths: ScopedTargetPaths[],
+	normalizedType: string,
+): Promise<ScannedItem[]> {
+	const seen = new Set<string>()
+	const items: ScannedItem[] = []
+	const showScopePrefix = scopedPaths.length > 1
+
+	for (const { scope, paths } of scopedPaths) {
+		for (const [platform, pathStr] of Object.entries(paths)) {
+			if (!pathStr) continue
+			if (!(await fs.pathExists(pathStr))) continue
+
+			const entries = await fs.readdir(pathStr, { withFileTypes: true })
+			for (const entry of entries) {
+				let qualifies = false
+				if (platform === "codex") {
+					qualifies = await codexEntryMatchesType(
+						pathStr,
+						entry,
+						normalizedType,
+					)
+				} else if (
+					entry.isDirectory() ||
+					(normalizedType === "workflow" &&
+						entry.isFile() &&
+						entry.name.endsWith(".md")) ||
+					(normalizedType === "agent" &&
+						entry.isFile() &&
+						entry.name.endsWith(".md"))
+				) {
+					qualifies = true
+				}
+				if (!qualifies) continue
+
+				const key = showScopePrefix ? `${scope}:${entry.name}` : entry.name
+				if (seen.has(key)) continue
+				seen.add(key)
+				items.push({
+					key,
+					name: entry.name,
+					scope,
+					label: showScopePrefix ? `[${scope}] ${entry.name}` : entry.name,
+				})
+			}
+		}
+	}
+
+	return items.sort((a, b) => a.label.localeCompare(b.label))
+}
+
+export interface RemoveOptions {
+	skipIntro?: boolean
+	scope?: ScopeChoice
+}
+
+export async function remove(type?: string, options?: RemoveOptions) {
 	if (!options?.skipIntro) {
 		intro(pc.bgCyan(pc.black(" AI Manager : Remove ")))
 	}
@@ -49,64 +145,50 @@ export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 			? currentType.slice(0, -1)
 			: currentType
 
-		const targetPaths = getTargetPaths(normalizedType)
-
-		// 1. Collect unique installed items across all platforms
-		const uniqueItems = new Set<string>()
-		const s = spinner()
-		s.start("Scanning for installed items...")
-
-		for (const [platform, pathStr] of Object.entries(targetPaths)) {
-			if (await fs.pathExists(pathStr as string)) {
-				const entries = await fs.readdir(pathStr as string, {
-					withFileTypes: true,
-				})
-
-				for (const entry of entries) {
-					if (platform === "codex") {
-						if (
-							await codexEntryMatchesType(
-								pathStr as string,
-								entry,
-								normalizedType,
-							)
-						) {
-							uniqueItems.add(entry.name)
-						}
-						continue
-					}
-
-					if (
-						entry.isDirectory() ||
-						(normalizedType === "workflow" &&
-							entry.isFile() &&
-							entry.name.endsWith(".md")) ||
-						(normalizedType === "agent" &&
-							entry.isFile() &&
-							entry.name.endsWith(".md"))
-					) {
-						uniqueItems.add(entry.name)
-					}
-				}
-			}
+		// Scope selection (with guard + soft-refuse fallback)
+		const scopeChoice = await chooseListRemoveScope({
+			action: "remove",
+			flag: options?.scope,
+		})
+		if ("rejected" in scopeChoice) {
+			cancel(
+				`Scope --scope=${options?.scope} unavailable: ${scopeChoice.reason}`,
+			)
+			process.exit(1)
+			return
+		}
+		if (scopeChoice.cancelled) {
+			if (isSingleShot) break
+			currentType = undefined
+			continue
 		}
 
-		s.stop(`Found ${uniqueItems.size} unique installed ${normalizedType}s.`)
+		const scopedPaths = buildScopedTargetPaths(
+			normalizedType,
+			scopeChoice.scope,
+			scopeChoice.projectRoot,
+		)
 
-		if (uniqueItems.size === 0) {
+		// 1. Scan items across selected scopes
+		const s = spinner()
+		s.start("Scanning for installed items...")
+		const scannedItems = await scanInstalledItems(scopedPaths, normalizedType)
+		s.stop(`Found ${scannedItems.length} installed ${normalizedType}s.`)
+
+		if (scannedItems.length === 0) {
 			note(`No installed ${normalizedType}s found.`, "Information")
 			if (isSingleShot) break
 			currentType = undefined
 			continue
 		}
 
-		// Sort explicitly
-		const sortedItems = Array.from(uniqueItems).sort()
-
 		// 2. Select Items
 		const itemSelections = await autocompleteMultiselect({
 			message: `Select ${normalizedType}s to remove:`,
-			options: sortedItems.map((item) => ({ value: item, label: item })),
+			options: scannedItems.map((item) => ({
+				value: item.key,
+				label: item.label,
+			})),
 		})
 
 		if (isCancel(itemSelections)) {
@@ -115,16 +197,23 @@ export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 			continue
 		}
 
-		const selectedItems = itemSelections as string[]
+		const itemsByKey = new Map(scannedItems.map((i) => [i.key, i]))
+		const selectedScannedItems = (itemSelections as string[])
+			.map((key) => itemsByKey.get(key))
+			.filter((i): i is ScannedItem => !!i)
 
-		// 3. Select Platforms
-		// Only show platforms relevant to the type
-		const platformOptions = Object.entries(targetPaths)
-			.filter(([_, pathStr]) => !!pathStr)
-			.map(([platform]) => ({
-				label: PLATFORM_LABELS[platform as Platform],
-				value: platform,
-			}))
+		// 3. Select Platforms (union across the selected scopes' supported platforms)
+		const supportedPlatforms = new Set<Platform>()
+		for (const { paths } of scopedPaths) {
+			for (const platform of Object.keys(paths)) {
+				if (paths[platform as Platform])
+					supportedPlatforms.add(platform as Platform)
+			}
+		}
+		const platformOptions = [...supportedPlatforms].map((platform) => ({
+			label: PLATFORM_LABELS[platform],
+			value: platform,
+		}))
 
 		const platformSelections = await multiselect({
 			message: "Select platforms to remove from:",
@@ -142,7 +231,7 @@ export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 
 		// 4. Confirmation
 		const confirmDelete = await confirm({
-			message: `Are you sure you want to remove ${selectedItems.length} item(s) from ${selectedPlatforms.length} platform(s)?`,
+			message: `Are you sure you want to remove ${selectedScannedItems.length} item(s) from ${selectedPlatforms.length} platform(s)?`,
 			initialValue: false,
 		})
 
@@ -160,22 +249,28 @@ export async function remove(type?: string, options?: { skipIntro?: boolean }) {
 		let notFoundCount = 0
 		const errors: string[] = []
 
+		const pathsByScope = new Map<Scope, Partial<Record<Platform, string>>>()
+		for (const { scope, paths } of scopedPaths) {
+			pathsByScope.set(scope, paths)
+		}
+
 		for (const platform of selectedPlatforms) {
-			const targetBase = targetPaths[platform]
-			if (!targetBase) continue
+			for (const item of selectedScannedItems) {
+				const targetBase = pathsByScope.get(item.scope)?.[platform]
+				if (!targetBase) continue
 
-			for (const item of selectedItems) {
-				const targetPath = path.join(targetBase, item)
+				const targetPath = path.join(targetBase, item.name)
 
-				// Check if exists before trying to remove, to correctly count "removed" vs "not found"
 				if (await fs.pathExists(targetPath)) {
-					sDel.message(`Removing ${pc.bold(item)} from ${pc.cyan(platform)}...`)
+					sDel.message(
+						`Removing ${pc.bold(item.label)} from ${pc.cyan(platform)}...`,
+					)
 					try {
 						await fs.remove(targetPath)
 						removedCount++
 					} catch (err) {
 						const msg = err instanceof Error ? err.message : String(err)
-						errors.push(`${item} (${platform}): ${msg}`)
+						errors.push(`${item.label} (${platform}): ${msg}`)
 					}
 				} else {
 					notFoundCount++

@@ -1,12 +1,15 @@
+import os from "node:os"
 import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
 import { getTargetPaths, PLATFORM_LABELS } from "../../utils/paths.js"
+import { chooseListRemoveScope } from "../../utils/scope-prompt.js"
 import { remove } from "../remove.js"
 
 vi.mock("fs-extra")
 vi.mock("@clack/prompts")
 vi.mock("../../utils/paths.js")
+vi.mock("../../utils/scope-prompt.js")
 
 describe("src/commands/remove.ts", () => {
 	let _mockExit: MockInstance
@@ -42,6 +45,12 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(prompts.multiselect).mockResolvedValue(["item1"])
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
 		vi.mocked(prompts.select).mockResolvedValue("exit")
+
+		vi.mocked(chooseListRemoveScope).mockResolvedValue({
+			cancelled: false,
+			scope: "global",
+			homedir: os.homedir(),
+		})
 	})
 
 	it("should return if no items are found", async () => {
@@ -327,6 +336,99 @@ describe("src/commands/remove.ts", () => {
 
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
+	})
+
+	describe("scope handling", () => {
+		it("calls chooseListRemoveScope before scanning", async () => {
+			await remove("skill")
+			expect(chooseListRemoveScope).toHaveBeenCalledWith(
+				expect.objectContaining({ action: "remove" }),
+			)
+		})
+
+		it("passes the --scope flag through", async () => {
+			await remove("skill", { scope: "both" })
+			expect(chooseListRemoveScope).toHaveBeenCalledWith(
+				expect.objectContaining({ action: "remove", flag: "both" }),
+			)
+		})
+
+		it("bails out when scope choice is cancelled", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				cancelled: true,
+			})
+			await remove("skill")
+			expect(fs.remove).not.toHaveBeenCalled()
+		})
+
+		it("scopes path lookup to the project root for project scope", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "project",
+				homedir: "/home/me",
+				projectRoot: "/home/me/dev/myrepo",
+			})
+			vi.mocked(getTargetPaths).mockReturnValueOnce({
+				gemini: "/home/me/dev/myrepo/.gemini/skills",
+			})
+			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+				"item1",
+			])
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+
+			await remove("skill")
+
+			expect(getTargetPaths).toHaveBeenCalledWith(
+				"skill",
+				"project",
+				"/home/me/dev/myrepo",
+			)
+			expect(fs.remove).toHaveBeenCalledWith(
+				"/home/me/dev/myrepo/.gemini/skills/item1",
+			)
+		})
+
+		it("prefixes labels with [global]/[project] when scope=both", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				cancelled: false,
+				scope: "both",
+				homedir: "/home/me",
+				projectRoot: "/home/me/dev/myrepo",
+			})
+			vi.mocked(getTargetPaths).mockImplementation(((
+				_t: string,
+				scope?: string,
+				root?: string,
+			) => {
+				if (scope === "project") {
+					return { gemini: `${root}/.gemini/skills` }
+				}
+				return { gemini: "/home/me/.gemini/skills" }
+			}) as typeof getTargetPaths)
+			vi.mocked(fs.readdir).mockResolvedValue([
+				{ name: "item1", isDirectory: () => true, isFile: () => false },
+			] as never)
+
+			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+				"global:item1",
+			])
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+
+			await remove("skill")
+
+			expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: expect.arrayContaining([
+						{ value: "global:item1", label: "[global] item1" },
+						{ value: "project:item1", label: "[project] item1" },
+					]),
+				}),
+			)
+			expect(fs.remove).toHaveBeenCalledWith("/home/me/.gemini/skills/item1")
+			expect(fs.remove).not.toHaveBeenCalledWith(
+				"/home/me/dev/myrepo/.gemini/skills/item1",
+			)
+		})
 	})
 
 	it("should remove Codex converted directories", async () => {

@@ -16,6 +16,15 @@ vi.mock("@/utils/paths.js", () => ({
 	PLATFORM_PATHS_SKILLS: { p1: "/home/user/skills" }, // p2 missing
 	PLATFORM_PATHS_AGENTS: { p1: "/home/user/agents" }, // p2 missing
 	PLATFORM_PATHS_WORKFLOWS: { p1: "/home/user/workflows" }, // p2 missing
+	getProjectPlatformPathsSkills: (root: string) => ({
+		p1: `${root}/.p1/skills`,
+	}),
+	getProjectPlatformPathsAgents: (root: string) => ({
+		p1: `${root}/.p1/agents`,
+	}),
+	getProjectPlatformPathsWorkflows: (root: string) => ({
+		p1: `${root}/.p1/workflows`,
+	}),
 }))
 
 describe("scripts/update-readme.ts", () => {
@@ -42,7 +51,8 @@ describe("scripts/update-readme.ts", () => {
 		vi.mocked(
 			fs.readFile as unknown as () => Promise<string>,
 		).mockResolvedValue(
-			"<!-- SUPPORTED_AGENTS_START --><!-- SUPPORTED_AGENTS_END -->",
+			"<!-- SUPPORTED_AGENTS_START --><!-- SUPPORTED_AGENTS_END -->\n" +
+				"<!-- PROJECT_SCOPE_PATHS_START --><!-- PROJECT_SCOPE_PATHS_END -->",
 		)
 
 		await import("../update-readme.js")
@@ -51,9 +61,29 @@ describe("scripts/update-readme.ts", () => {
 			expect.stringContaining("README.md"),
 			expect.stringContaining("| Platform 1 |"),
 		)
+		expect(fs.writeFile).toHaveBeenCalledWith(
+			expect.stringContaining("README.md"),
+			expect.stringContaining("<project-root>/.p1/skills"),
+		)
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("README.md updated successfully"),
 		)
+	})
+
+	it("should exit if project-scope markers are missing", async () => {
+		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
+		vi.mocked(
+			fs.readFile as unknown as () => Promise<string>,
+		).mockResolvedValue(
+			"<!-- SUPPORTED_AGENTS_START --><!-- SUPPORTED_AGENTS_END -->",
+		)
+
+		await import("../update-readme.js")
+
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Markers not found"),
+		)
+		expect(mockExit).toHaveBeenCalledWith(1)
 	})
 
 	it("should exit if README.md is missing", async () => {
