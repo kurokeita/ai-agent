@@ -38,3 +38,5 @@ temp/
 # Orchestration
 .sisyphus/
 .prd
+.gitnexus
+.claude/settings.local.json
