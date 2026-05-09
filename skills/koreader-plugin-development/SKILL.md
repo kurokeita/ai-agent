@@ -16,9 +16,9 @@ Choose plugins when the change is a feature you can ship as a folder. Choose pat
 
 KOReader's UI is a tree of `WidgetContainer` instances (subclasses of `EventListener`) managed by a top-level `UIManager`. Communication happens via `Event` objects with a `handler` name and `args`. `WidgetContainer:handleEvent` propagates events to children first; if no child returns `true`, the container's own `on<EventName>` method runs.
 
-Plugins are typically classes that `extend(WidgetContainer)` and register themselves to UI host (`ReaderUI` or `FileManager`) via `addToMainMenu`, dispatcher actions, or by listening to events.
+Plugins are typically classes built via `WidgetContainer:extend{...}` and returned from `main.lua`; they register themselves to the UI host (`ReaderUI` or `FileManager`) via `addToMainMenu`, dispatcher actions, or by listening to events.
 
-Patches manipulate already-loaded modules (`require("readerui")`, etc.) to change methods, add hooks, or replace functions before or after the UI is built.
+Patches manipulate already-loaded modules (`require("apps.reader.readerui")`, `require("ui.widget.infomessage")`, etc.) to change methods, add hooks, or replace functions before or after the UI is built. Module paths must be the full namespaced form KOReader uses internally — short forms silently no-op.
 
 ## Workflow
 
@@ -29,9 +29,9 @@ Patches manipulate already-loaded modules (`require("readerui")`, etc.) to chang
    - `_meta.lua` — table with `name`, `fullname`, `description`, optional `version`
 2. Place it under KOReader's `plugins/` directory (or set `extra_plugin_paths`).
 3. Implement the plugin class. Required pieces:
-   - `extend(WidgetContainer:new{ name = "myplugin" })`
-   - `init(self)` to wire dispatcher actions and event handlers
-   - `addToMainMenu(self, menu_items)` if the plugin needs a menu entry
+   - `local MyPlugin = WidgetContainer:extend{ name = "myplugin" }` at the top of `main.lua`, with `return MyPlugin` at the bottom (return the class, not an instance — the loader instantiates it per host)
+   - `function MyPlugin:init() ... end` to wire dispatcher actions and event handlers
+   - `function MyPlugin:addToMainMenu(menu_items) ... end` if the plugin needs a menu entry
 4. Surface UI via `UIManager:show(InfoMessage:new{ text = "..." })` or custom widgets.
 5. React to events via `onEventName(self, ...)` methods. Return `true` to consume.
 6. Restart KOReader (or re-enter file manager) to pick up the plugin.
