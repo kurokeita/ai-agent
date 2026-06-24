@@ -6,12 +6,14 @@
 
 $ErrorActionPreference = 'Stop'
 
-$AgentsDir = '__AGENTS_DIR__'
+$AgentsDir = '.agents'
 
 # __LINK_MAP__ contract: one "SRC_SUBDIR|DEST_DIR" line per (platform x type),
 # where SRC_SUBDIR is skills|agents|commands and DEST_DIR matches the scope.
 $LinkMap = @'
-__LINK_MAP__
+skills|.claude/skills
+agents|.claude/agents
+commands|.claude/commands
 '@
 
 function Write-AgentLog($message) { Write-Host "agent-setup: $message" }

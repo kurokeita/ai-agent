@@ -108,7 +108,7 @@ describe("agent-setup merge helpers", () => {
 
 		it("uses project-relative dest dirs for project scope", () => {
 			const map = buildLinkMap("project", "/repo", ["agents"])
-			expect(map).toContain(path.join("/repo", ".claude/agents"))
+			expect(map).toContain("agents|.claude/agents")
 		})
 
 		it("dedupes collapsed dest dirs (codex)", () => {

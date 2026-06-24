@@ -63,6 +63,15 @@ printf '%s\n' "$LINK_MAP" | while IFS='|' read -r sub destdir; do
 
 	mkdir -p "$destdir"
 
+	# Clean up dangling symlinks in $destdir
+	for link in "$destdir"/*; do
+		[ -e "$link" ] || [ -L "$link" ] || continue
+		if [ -L "$link" ] && [ ! -e "$link" ]; then
+			log "removing broken symlink: $link"
+			rm -f "$link"
+		fi
+	done
+
 	# Project scope only: keep the generated symlinks out of git via a single
 	# .gitignore per platform base dir (the dest's parent), listing each
 	# symlink subdir. The canonical content lives in (tracked) .agents/.
