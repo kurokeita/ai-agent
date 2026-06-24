@@ -365,6 +365,22 @@ describe(add.name, () => {
 		expect(dropAgentsEntry).not.toHaveBeenCalled()
 	})
 
+	it("should bail to the loop when the up-front overwrite prompt is cancelled", async () => {
+		vi.mocked(prompts.select)
+			.mockResolvedValueOnce("skill")
+			.mockResolvedValueOnce("exit")
+		mkLocalSkill("item")
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.isCancel)
+			.mockReturnValueOnce(false)
+			.mockReturnValueOnce(false)
+			.mockReturnValueOnce(true)
+		await add()
+		expect(fs.copy).not.toHaveBeenCalled()
+		expect(wireAgentSetup).not.toHaveBeenCalled()
+	})
+
 	it("should handle non-Error exception during installation", async () => {
 		mkLocalSkill("item")
 		targetMissing()
