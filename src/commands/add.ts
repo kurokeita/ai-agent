@@ -80,6 +80,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 		}
 
 		let tempDir: string | null = null
+		let isGitHubFile = false
 		let selectedItems: string[] = []
 
 		try {
@@ -89,6 +90,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 				try {
 					const result = await fetchSkillFromGitHub(url)
 					tempDir = result.tempDir
+					isGitHubFile = result.isFile
 					selectedItems = [result.skillName]
 					s.stop(pc.green(`Fetched ${normalizedType}: ${result.skillName}`))
 				} catch (e) {
@@ -198,7 +200,9 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 				try {
 					const sourcePath =
 						url && tempDir
-							? path.join(tempDir, item)
+							? isGitHubFile
+								? path.join(tempDir, item)
+								: tempDir
 							: path.join(TYPE_DIRS[normalizedType], item)
 
 					if (!(await fs.pathExists(sourcePath))) {

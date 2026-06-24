@@ -204,7 +204,7 @@ describe(add.name, () => {
 		)
 	})
 
-	it("should handle GitHub fetch and installation", async () => {
+	it("should handle GitHub fetch and installation for a directory (tree)", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill"
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
@@ -218,11 +218,33 @@ describe(add.name, () => {
 
 		expect(fetchSkillFromGitHub).toHaveBeenCalledWith(mockUrl)
 		expect(fs.copy).toHaveBeenCalledWith(
-			"/tmp/skill/skill",
+			"/tmp/skill",
 			expect.stringContaining(".agents/skills/skill"),
 			{ overwrite: true },
 		)
 		expect(fs.remove).toHaveBeenCalledWith("/tmp/skill")
+	})
+
+	it("should handle GitHub fetch and installation for a single file (blob)", async () => {
+		const mockUrl =
+			"https://github.com/owner/repo/blob/main/skills/skill-name.md"
+		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+			tempDir: "/tmp/skill-name.md",
+			skillName: "skill-name.md",
+			isFile: true,
+		})
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+
+		await add("skill", mockUrl)
+
+		expect(fetchSkillFromGitHub).toHaveBeenCalledWith(mockUrl)
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/tmp/skill-name.md/skill-name.md",
+			expect.stringContaining(".agents/skills/skill-name"),
+			{ overwrite: true },
+		)
+		expect(fs.remove).toHaveBeenCalledWith("/tmp/skill-name.md")
 	})
 
 	it("should handle GitHub fetch failure", async () => {
