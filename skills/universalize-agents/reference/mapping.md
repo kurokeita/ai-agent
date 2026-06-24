@@ -41,6 +41,22 @@ root. A few platforms use a different sub-path between scopes (noted in bold).
 | Windsurf | `~/.codeium/windsurf/`**`global_workflows`** | `.codeium/windsurf/`**`workflows`** |
 | Antigravity | `~/.gemini/antigravity/`**`global_workflows`** | `.gemini/antigravity/`**`workflows`** |
 
+### Rules (`.agents/rules`)
+
+Standard markdown rule files, discovered from the dirs below and consolidated
+into `.agents/rules/`. They are **not** symlinked back — the whole
+`.agents/rules/` dir is `@`-imported into `AGENTS.md` (see SKILL.md Phase 4), so
+every platform picks them up via the master chain. Codex and Windsurf have no
+rules dir to discover from.
+
+| Platform | Global | Project |
+|---|---|---|
+| Claude Code | `~/.claude/rules` | `.claude/rules` |
+| Gemini CLI | `~/.gemini/rules` | `.gemini/rules` |
+| Antigravity | `~/.gemini/antigravity/rules` | `.gemini/antigravity/rules` |
+| GitHub Copilot | — | `.github/instructions` |
+| Codex / Windsurf | — | — |
+
 ## Collapsed directories
 
 These targets hold more than one type, so reverse-discovery must read item

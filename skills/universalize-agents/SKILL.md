@@ -56,8 +56,8 @@ For each of the six platforms, check whether its directories exist under
 `BASE` (per `reference/mapping.md`). Treat a platform as "in use" if any of
 its skills/agents/commands dirs or its master-instruction file exists.
 
-For each in-use platform, enumerate items in its `skills`, `agents`, and
-`workflows` source dirs. Some platforms collapse multiple types into one
+For each in-use platform, enumerate items in its `skills`, `agents`,
+`workflows`, and `rules` source dirs. Some platforms collapse multiple types into one
 directory (Codex puts skills + agents + workflows in `.codex/skills`; Claude
 Code puts workflows in `.claude/skills`). Disambiguate an item's real type by
 reading its frontmatter / the `x-ai-agents-type` metadata this toolchain
@@ -75,7 +75,7 @@ Create the unified layout under `BASE`:
   skills/    agents/    commands/    rules/    hooks/
 ```
 
-Copy discovered items into `.agents/{skills,agents,commands}`. When the
+Copy discovered items into `.agents/{skills,agents,commands,rules}`. When the
 same-named item is found on more than one platform, copy it once: prefer the
 first platform discovered and warn about the collision rather than silently
 overwriting. Never wipe an existing `.agents/` — merge into it.
@@ -84,6 +84,13 @@ overwriting. Never wipe an existing `.agents/` — merge into it.
 
 The unified store is markdown-only. Normalize as you copy:
 
+- **Rules.** Collect standard markdown rule files from the platforms that
+  support them — Claude, Gemini, and Antigravity use `<agent-dir>/rules`;
+  GitHub Copilot uses `.github/instructions` (see `reference/mapping.md`) —
+  into `.agents/rules/`. Codex and Windsurf have none. These are per-platform
+  rule files, distinct from the master instruction files consolidated in
+  Phase 4. Rules are **not** symlinked back (not in `__LINK_MAP__`); Phase 4
+  wires the whole dir into `AGENTS.md`.
 - **Workflows → commands.** Treat every platform's "workflow" items as the
   universal `commands` type and place them in `.agents/commands/`. If a prior
   run left a `.agents/workflows/` directory, move its contents into
@@ -132,9 +139,9 @@ Codex, Antigravity, and Windsurf).
      de-duplication, preserving every unique directive). Surface any
      conflicting directives to the user instead of dropping them silently.
 
-After producing `AGENTS.md`, copy it into `.agents/rules/`. Then **replace the
-entire contents** of each non-`AGENTS.md` master file with a single import
-line — its original content now lives in `AGENTS.md`:
+After producing `AGENTS.md` (at `BASE`), **replace the entire contents** of
+each non-`AGENTS.md` master file with a single import line — its original
+content now lives in `AGENTS.md`:
 
 ```text
 @AGENTS.md
@@ -143,6 +150,17 @@ line — its original content now lives in `AGENTS.md`:
 Always create `AGENTS.md` (with the migrated content) before overwriting any
 master file, so nothing is lost. Platforms that natively read `AGENTS.md`
 (Codex, Antigravity, Windsurf) need no such file.
+
+**Wiring rules into masters.** Rules are not symlinked into any platform dir.
+Instead, import the whole `.agents/rules/` directory into `AGENTS.md` with a
+single directory import, so every platform that reads `AGENTS.md` (directly, or
+via its `@AGENTS.md` master import) picks them up:
+
+```text
+@.agents/rules/
+```
+
+Add this import only when `.agents/rules/` is non-empty.
 
 ### Phase 5 — Install and run the setup script
 
