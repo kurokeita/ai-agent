@@ -1,76 +1,50 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Purpose & Tech Stack
 
-## What This Project Is
-
-`@kurokeita/add-skill` is a CLI tool (`ai-agent`) that installs AI agent skills, agents, and workflows from a bundled repository to various AI coding platforms (GitHub Copilot, Windsurf, Gemini CLI, Antigravity, Codex). It can also fetch items from GitHub URLs.
+- **WHAT**: TypeScript CLI manager using Node.js, Commander.js ([bin/cli.ts:L16](bin/cli.ts#L16)), fs-extra, and Clack prompts. Bundled with Esbuild, tested with Vitest, and formatted/linted via Biome.
+- **WHY**: A command-line utility to install, list, remove, and import agentic AI skills, assistant configurations, and workflows centrally across multiple environments (Antigravity, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf) by organizing local directories and symlinking.
 
 ## Commands
 
 ```bash
-pnpm run dev              # Run CLI in dev mode (tsx bin/cli.ts)
-pnpm run build            # Type-check + esbuild bundle + copy assets to dist/
-pnpm run test             # Run all tests (vitest)
-pnpm run test -- --watch  # Watch mode
-pnpm run test -- src/utils/__tests__/github.test.ts  # Single test file
-pnpm run lint             # Lint TS (biome) + MD (markdownlint)
-pnpm run format           # Auto-fix lint issues
+pnpm dev             # Run interactive local CLI in development mode (using tsx)
+pnpm build           # Bundle CLI and copy asset files (skills, agents, workflows) to dist/
+pnpm test            # Run unit tests using Vitest
+pnpm test:coverage   # Run unit tests with code coverage report
+pnpm lint            # Check files with Biome formatter/linter and Markdownlint
+pnpm format          # Auto-format codebase and fix markdown files
+pnpm release         # Trigger semantic-release pipeline (production publishing)
 ```
 
-## Architecture
+## Documentation Index
 
-### Entry Point & Commands
+- [README.md](README.md) — Main user guide including usage commands, directory mapping, and installation details.
+- [docs/architectural_patterns.md](docs/architectural_patterns.md) — Document detail of recurring architectural and design patterns.
+- [.agents/skills/git-commit/SKILL.md](.agents/skills/git-commit/SKILL.md) — Protocol and guidelines for writing Git commits.
+- [.agents/skills/pr/SKILL.md](.agents/skills/pr/SKILL.md) — Instructions for creating a Pull Request following repository conventions.
 
-- `bin/cli.ts` — CLI entry using Commander. No-arg launches interactive mode; subcommands: `add`, `list`, `import`, `remove`.
-- `src/commands/add.ts` — Core install flow: select type → select items (local or GitHub URL) → choose scope → copy into the canonical `.agents/` dir → optionally wire per-platform session-start hooks.
-- `src/commands/import.ts` — Fetches from GitHub into the local repo's `skills/`, `agents/`, or `workflows/` dirs.
-- `src/commands/list.ts` — Lists available items (repo) or installed items under the canonical `.agents/` dir.
-- `src/commands/remove.ts` — Removes installed entries from `.agents/` and prunes any dangling platform symlinks pointing at them.
+## Critical Workflows
 
-### Canonical `.agents/` Model
+### 1. Verification & Testing
 
-Items install into a single canonical directory rather than per-platform paths:
+1. Format and check syntax errors: `pnpm format` followed by `pnpm lint`.
+2. Run entire test suite locally: `pnpm test`. All code changes must keep test suites green.
+3. Validate coverage thresholds (90% minimums): `pnpm test:coverage`.
 
-- **Global scope** → `~/.agents/{skills,agents,commands}`
-- **Project scope** → `<root>/.agents/{skills,agents,commands}`
+### 2. Building & Bundling
 
-`getAgentsBase(scope, root)` resolves the base; `TYPE_SUBDIRS` maps each item type to its subdir (`skill→skills`, `agent→agents`, `workflow→commands`).
+1. Ensure TypeScript compilation passes: `tsc --noEmit`.
+2. Bundle the CLI application to single ESM output: `esbuild bin/cli.ts --bundle --platform=node --format=esm --outfile=dist/bin/cli.js --packages=external`.
+3. Copy static asset files (the database of skills, agents, workflows) to the build distribution directory: `tsx scripts/copy-assets.ts`.
+4. Note: The complete build flow is automated in a single script: `pnpm build`.
 
-### Hook Wiring (`src/utils/agent-setup.ts`)
+### 3. Publishing & Releasing
 
-After install, `add` can wire each platform to the canonical dir:
+1. Ensure build succeeds and tests are green: `pnpm prepublishOnly` runs `pnpm build`.
+2. Generate changelogs and publish version to npm repository: `pnpm release` (triggered by CI pipeline on the `main` branch).
 
-- Generates a session-start hook script (`agent-setup.sh`/`.ps1`) under `.agents/hooks/`, parameterized with a link map of `subdir|platform-dir` destinations.
-- Merges a `SessionStart` hook entry into each platform's config (Claude Code/Gemini/Copilot JSON, Codex TOML) so the script runs at session start and symlinks `.agents/` entries back into each platform's directories.
-- `PLATFORM_PATHS_SKILLS/AGENTS/WORKFLOWS` (and the `getProjectPlatformPaths*` project variants) supply the per-platform destination dirs used to build the link map.
+## Guidelines
 
-### Path Resolution (`src/utils/paths.ts`)
-
-- `Platform` type — Union of supported platform names.
-- `PLATFORM_PATHS_SKILLS/AGENTS/WORKFLOWS` — Per-platform install dirs (under `~`); used as symlink destinations by the hook scripts.
-- `getProjectPlatformPaths{Skills,Agents,Workflows}(root)` — Project-relative variants of the above.
-- `getAgentsBase(scope, root)` — Resolves the canonical `.agents` base for a scope.
-- `TYPE_DIRS` — Maps item types to bundled source dirs relative to `PROJECT_ROOT`.
-- `TYPE_SUBDIRS` — Maps item types to canonical `.agents` subdirs.
-- `resolveProjectRoot()` — Handles both dev (source) and installed (dist/) layouts by checking for bundled asset dirs.
-
-### GitHub Fetching (`src/utils/github.ts`)
-
-`fetchSkillFromGitHub(url)` — Parses GitHub URLs (`/tree/` or `/blob/`), recursively downloads via GitHub Contents API to a temp dir. Returns `{ tempDir, skillName, isFile }`.
-
-## Code Style
-
-- **Formatter**: Biome with tabs, double quotes, no semicolons (ASI).
-- **Path alias**: `@/` maps to `src/` (configured in both tsconfig.json and vitest.config.ts).
-- **Module system**: ESM (`"type": "module"` in package.json).
-- **Test coverage threshold**: 90% across statements, branches, functions, and lines.
-- **Interactive UI**: Uses `@clack/prompts` for all user interaction (spinners, selects, confirms).
-
-## Content Types
-
-All types install into the canonical `.agents/` dir as-is; platforms consume them via the symlinks created by the session-start hook.
-
-- **Skills** — Directories containing a `SKILL.md` and optional reference files. Install into `.agents/skills`.
-- **Agents** — Single `.md` files with optional YAML frontmatter. Install into `.agents/agents`.
-- **Workflows** — Single `.md` files. Install into `.agents/commands`.
+- Be extremely concise. Sacrifice grammar for concision.
+- At the end of each plan, list unresolved questions.
