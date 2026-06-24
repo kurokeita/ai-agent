@@ -131,6 +131,30 @@ export const TYPE_DIRS: Record<string, string> = {
 	workflow: path.join(PROJECT_ROOT, "workflows"),
 }
 
+// Workflows normalize to the universal `commands` directory.
+export const TYPE_SUBDIRS: Record<string, string> = {
+	skill: "skills",
+	agent: "agents",
+	workflow: "commands",
+}
+
+export const AGENT_SETUP_SCRIPTS_DIR = path.join(
+	PROJECT_ROOT,
+	"skills/universalize-agents/scripts",
+)
+
+export const HOOK_TEMPLATES_DIR = path.join(
+	PROJECT_ROOT,
+	"skills/universalize-agents/reference/hook-templates",
+)
+
+export function getAgentsBase(scope: Scope, root?: string): string {
+	if (scope === "project") {
+		return path.join(root ?? process.cwd(), ".agents")
+	}
+	return path.join(os.homedir(), ".agents")
+}
+
 function getGlobalTargetPaths(type: string): Partial<Record<Platform, string>> {
 	switch (type) {
 		case "agent":

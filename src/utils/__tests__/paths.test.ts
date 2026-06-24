@@ -3,10 +3,13 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import {
+	AGENT_SETUP_SCRIPTS_DIR,
+	getAgentsBase,
 	getProjectPlatformPathsAgents,
 	getProjectPlatformPathsSkills,
 	getProjectPlatformPathsWorkflows,
 	getTargetPaths,
+	HOOK_TEMPLATES_DIR,
 	PLATFORM_LABELS,
 	PLATFORM_PATHS_AGENTS,
 	PLATFORM_PATHS_SKILLS,
@@ -14,6 +17,7 @@ import {
 	PROJECT_ROOT,
 	resolveProjectRoot,
 	TYPE_DIRS,
+	TYPE_SUBDIRS,
 } from "../paths.js"
 
 describe("src/utils/paths.ts", () => {
@@ -53,6 +57,40 @@ describe("src/utils/paths.ts", () => {
 
 	it("should have TYPE_DIRS", () => {
 		expect(TYPE_DIRS.skill).toBe(path.join(PROJECT_ROOT, "skills"))
+	})
+
+	it("should map types to canonical .agents subdirs", () => {
+		expect(TYPE_SUBDIRS.skill).toBe("skills")
+		expect(TYPE_SUBDIRS.agent).toBe("agents")
+		expect(TYPE_SUBDIRS.workflow).toBe("commands")
+	})
+
+	it("should resolve bundled script and hook-template dirs under PROJECT_ROOT", () => {
+		expect(AGENT_SETUP_SCRIPTS_DIR).toBe(
+			path.join(PROJECT_ROOT, "skills/universalize-agents/scripts"),
+		)
+		expect(HOOK_TEMPLATES_DIR).toBe(
+			path.join(
+				PROJECT_ROOT,
+				"skills/universalize-agents/reference/hook-templates",
+			),
+		)
+	})
+
+	describe("getAgentsBase", () => {
+		it("returns ~/.agents for global scope", () => {
+			expect(getAgentsBase("global")).toBe(path.join(os.homedir(), ".agents"))
+		})
+
+		it("nests .agents under the given root for project scope", () => {
+			expect(getAgentsBase("project", "/tmp/myrepo")).toBe(
+				path.join("/tmp/myrepo", ".agents"),
+			)
+		})
+
+		it("falls back to cwd for project scope without a root", () => {
+			expect(getAgentsBase("project")).toBe(path.join(process.cwd(), ".agents"))
+		})
 	})
 
 	it("should resolve the published dist directory as the project root", () => {
