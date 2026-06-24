@@ -1,10 +1,13 @@
-description = "Create a GitHub Pull Request for the current branch following project standards"
+---
+name: pr
+description: Create a GitHub Pull Request for the current branch following project standards
+---
 
-prompt = """
 You are a senior engineer tasked with creating a Pull Request for the current branch.
 Follow the standards defined in `.agent/workflows/pr.md` and `conductor/workflow.md`.
 
 ### Context
+
 - Current Branch: !{git branch --show-current}
 - Target Branch: main
 - Commits relative to main:
@@ -13,6 +16,7 @@ Follow the standards defined in `.agent/workflows/pr.md` and `conductor/workflow
 !{git diff main..HEAD --stat}
 
 ### Instructions
+
 1. **Validation**:
    - Confirm you are NOT on the `main` branch.
    - Ensure there are commits to merge.
@@ -24,7 +28,7 @@ Follow the standards defined in `.agent/workflows/pr.md` and `conductor/workflow
    - **Body**:
      - **Summary**: A concise high-level overview of the purpose of this PR.
      - **Key Changes**: A bulleted list of significant modifications.
-     - **Verification**: 
+     - **Verification**:
        - Automated: Mention passing linting and tests.
        - Manual: Briefly describe how the changes were verified.
      - **Related Tracks**: Reference the relevant track(s) from `conductor/tracks.md`.
@@ -33,4 +37,3 @@ Follow the standards defined in `.agent/workflows/pr.md` and `conductor/workflow
    - Use the `--draft` flag if the work is still in progress or if requested in `{{args}}`.
 
 Be professional and ensure the PR description accurately reflects the technical changes.
-"""

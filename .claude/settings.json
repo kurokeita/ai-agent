@@ -1,0 +1,14 @@
+{
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": ".agents/hooks/agent-setup.sh"
+					}
+				]
+			}
+		]
+	}
+}
