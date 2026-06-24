@@ -1,4 +1,3 @@
-import os from "node:os"
 import path from "node:path"
 
 import {
@@ -15,51 +14,27 @@ import {
 } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
+import {
+	detectConflicts,
+	dropAgentsEntry,
+	type LinkSubdir,
+	type PreExistingEntry,
+	removeAgentDirEntries,
+	wireAgentSetup,
+} from "@/utils/agent-setup"
 import { fetchSkillFromGitHub } from "@/utils/github"
 import {
-	getTargetPaths,
+	getAgentsBase,
 	PLATFORM_LABELS,
 	type Platform,
 	type Scope,
 	TYPE_DIRS,
+	TYPE_SUBDIRS,
 } from "@/utils/paths"
-import { getHandler } from "@/utils/platforms"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
 import { chooseInstallScope } from "@/utils/scope-prompt"
 
 enableAutocompleteMultiSelectShiftAToggle()
-
-function getPlatformOptions(type: string) {
-	const paths = getTargetPaths(type)
-	return Object.entries(paths)
-		.filter(([_, pathStr]) => !!pathStr)
-		.map(([platform, pathStr]) => ({
-			label: PLATFORM_LABELS[platform as Platform],
-			value: platform,
-			hint: (pathStr as string).replace(os.homedir(), "~"),
-		}))
-}
-
-async function installItem(
-	itemName: string,
-	overwrite: boolean,
-	sourcePath: string,
-	targetBaseDir: string,
-): Promise<boolean> {
-	const targetPath = path.join(targetBaseDir, itemName)
-
-	if (!(await fs.pathExists(sourcePath))) {
-		throw new Error(`Item '${itemName}' not found at ${sourcePath}`)
-	}
-
-	if (!overwrite && (await fs.pathExists(targetPath))) {
-		return false
-	}
-
-	await fs.ensureDir(targetBaseDir)
-	await fs.copy(sourcePath, targetPath, { overwrite })
-	return true
-}
 
 export interface AddOptions {
 	skipIntro?: boolean
@@ -92,7 +67,6 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			currentType = selectedType as string
 		}
 
-		// Normalize type
 		const normalizedType =
 			currentType?.toLowerCase().endsWith("s") && currentType.length > 1
 				? currentType.slice(0, -1)
@@ -105,16 +79,17 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 		}
 
 		let tempDir: string | null = null
+		let isGitHubFile = false
 		let selectedItems: string[] = []
 
 		try {
-			// 1. Determine Source (Local vs GitHub)
 			if (url) {
 				const s = spinner()
 				s.start(`Fetching ${normalizedType} from GitHub...`)
 				try {
 					const result = await fetchSkillFromGitHub(url)
 					tempDir = result.tempDir
+					isGitHubFile = result.isFile
 					selectedItems = [result.skillName]
 					s.stop(pc.green(`Fetched ${normalizedType}: ${result.skillName}`))
 				} catch (e) {
@@ -122,7 +97,6 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 					throw e
 				}
 			} else {
-				// Local Selection Logic
 				const sourceDir = TYPE_DIRS[normalizedType]
 				if (!(await fs.pathExists(sourceDir))) {
 					cancel(`${normalizedType} directory not found!`)
@@ -149,7 +123,6 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 					continue
 				}
 
-				// Select Items
 				const items = await autocompleteMultiselect({
 					message: `Select ${normalizedType}s to install:`,
 					options: availableItems,
@@ -163,31 +136,6 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 				selectedItems = items as string[]
 			}
 
-			// 2. Select Platforms
-			const currentPlatformOptions = getPlatformOptions(normalizedType)
-
-			if (currentPlatformOptions.length === 0) {
-				cancel(`No supported platforms found for type '${normalizedType}'.`)
-				process.exit(1)
-				return
-			}
-
-			const platforms = await multiselect({
-				message: "Select target platforms:",
-				options: currentPlatformOptions,
-				required: true,
-			})
-
-			if (isCancel(platforms)) {
-				if (tempDir) await fs.remove(tempDir)
-				if (isSingleShot) break
-				currentType = undefined
-				continue
-			}
-
-			const selectedPlatforms = platforms as Platform[]
-
-			// 3. Select Scope (with guards + soft-refuse fallback)
 			const scopeChoice = await chooseInstallScope({ flag: options?.scope })
 			if ("rejected" in scopeChoice) {
 				if (tempDir) await fs.remove(tempDir)
@@ -205,13 +153,10 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			}
 
 			const { scope: chosenScope, root: scopeRoot } = scopeChoice
-			const supportedPaths = getTargetPaths(
-				normalizedType,
-				chosenScope,
-				scopeRoot,
-			)
+			const agentsBase = getAgentsBase(chosenScope, scopeRoot)
+			const subdir = TYPE_SUBDIRS[normalizedType] ?? "skills"
+			const targetBase = path.join(agentsBase, subdir)
 
-			// 4. Project-scope explicit confirmation
 			if (chosenScope === "project") {
 				const proceed = await confirm({
 					message: `Install to project scope at ${pc.cyan(scopeRoot)}?`,
@@ -225,155 +170,90 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 				}
 			}
 
-			// 5. Check for existing items
-			const existingItems: { item: string; platform: Platform }[] = []
-			for (const platform of selectedPlatforms) {
-				const targetBase = supportedPaths[platform]
-				if (!targetBase) continue
-				const handler = getHandler(platform)
-
-				for (const item of selectedItems) {
-					const targetItemName = handler.getTargetFileName(item, normalizedType)
-					const targetPath = path.join(targetBase, targetItemName)
-					if (await fs.pathExists(targetPath)) {
-						existingItems.push({ item, platform })
-					}
+			const subdirName = subdir as LinkSubdir
+			const preExisting: PreExistingEntry[] = []
+			for (const item of selectedItems) {
+				const targetName =
+					normalizedType === "skill" ? path.parse(item).name : item
+				if (await fs.pathExists(path.join(targetBase, targetName))) {
+					preExisting.push({ entry: targetName, subdir: subdirName })
 				}
 			}
 
-			let overwrite = true
-			if (existingItems.length > 0) {
-				const limit = 5
-				const displayList = existingItems
-					.slice(0, limit)
-					.map((e) => `${pc.bold(e.item)} (${e.platform})`)
-					.join(", ")
-				const remainder = existingItems.length - limit
-				const message =
-					remainder > 0
-						? `The following items already exist: ${displayList}, and ${remainder} others.`
-						: `The following items already exist: ${displayList}.`
-
-				note(message, "Attention")
-
-				const shouldOverwrite = await confirm({
-					message: "Do you want to overwrite existing items?",
-					initialValue: false,
+			// Confirm overwrites of pre-existing .agents entries BEFORE copying, so a
+			// canonical copy is never destroyed without consent. Unselected entries are
+			// kept as-is and skipped from installation.
+			const skipEntries = new Set<string>()
+			if (preExisting.length > 0) {
+				const toOverwrite = await multiselect<string>({
+					message:
+						"These entries already exist in .agents. Choose which to OVERWRITE (unselected entries are kept and skipped):",
+					options: preExisting.map((p) => ({ label: p.entry, value: p.entry })),
+					required: false,
 				})
-
-				if (isCancel(shouldOverwrite)) {
+				if (isCancel(toOverwrite)) {
 					if (tempDir) await fs.remove(tempDir)
 					if (isSingleShot) break
 					currentType = undefined
 					continue
 				}
-
-				overwrite = shouldOverwrite as boolean
+				const keep = new Set(toOverwrite as string[])
+				for (const { entry } of preExisting) {
+					if (!keep.has(entry)) skipEntries.add(entry)
+				}
 			}
 
-			// 6. Confirmation Note
 			note(
-				`Installing ${selectedItems.length} ${normalizedType}s to ${selectedPlatforms.length} platforms (scope: ${chosenScope})...`,
+				`Installing ${selectedItems.length} ${normalizedType}s to ${targetBase} (scope: ${chosenScope})...`,
 				"Summary",
 			)
 
-			// 7. Installation Loop with Spinner
 			const s = spinner()
 			s.start("Installing...")
 
 			const errors: string[] = []
 			let installedCount = 0
-			let skippedCount = 0
 
-			for (const platform of selectedPlatforms) {
-				const targetBase = supportedPaths[platform]
-				if (!targetBase) continue
+			await fs.ensureDir(targetBase)
 
-				for (const item of selectedItems) {
-					const message = `Installing ${pc.bold(item)} to ${pc.cyan(platform)}...`
-					s.message(message)
+			for (const item of selectedItems) {
+				const targetName =
+					normalizedType === "skill" ? path.parse(item).name : item
+				if (skipEntries.has(targetName)) continue
 
-					try {
-						let currentSourcePath: string
+				s.message(`Installing ${pc.bold(item)}...`)
 
-						if (url && tempDir) {
-							const potentialFile = path.join(tempDir, item)
-							if (
-								(await fs.pathExists(potentialFile)) &&
-								(await fs.stat(potentialFile)).isFile()
-							) {
-								currentSourcePath = potentialFile
-							} else {
-								currentSourcePath = tempDir
-							}
-						} else {
-							// Local source
-							const src = path.join(TYPE_DIRS[normalizedType], item)
-							if ((await fs.stat(src)).isFile()) {
-								currentSourcePath = src
-							} else {
-								currentSourcePath = src // direct path to dir
-							}
-						}
+				try {
+					const sourcePath =
+						url && tempDir
+							? isGitHubFile
+								? path.join(tempDir, item)
+								: tempDir
+							: path.join(TYPE_DIRS[normalizedType], item)
 
-						const handler = getHandler(platform)
-						const targetItemName = handler.getTargetFileName(
-							item,
-							normalizedType,
-						)
-
-						// Platform-specific Agent/Workflow Transformations
-						if (
-							(normalizedType === "agent" || normalizedType === "workflow") &&
-							currentSourcePath.endsWith(".md")
-						) {
-							const targetPath = path.join(targetBase, targetItemName)
-
-							if (!overwrite && (await fs.pathExists(targetPath))) {
-								skippedCount++
-							} else {
-								let content = await fs.readFile(currentSourcePath, "utf-8")
-								content = handler.transform(
-									content,
-									normalizedType,
-									path.parse(item).name,
-								)
-
-								await fs.ensureDir(path.dirname(targetPath))
-								await fs.writeFile(targetPath, content)
-								installedCount++
-							}
-							continue
-						}
-
-						const installed = await installItem(
-							targetItemName,
-							overwrite,
-							currentSourcePath,
-							targetBase,
-						)
-						if (installed) {
-							installedCount++
-						} else {
-							skippedCount++
-						}
-					} catch (err: unknown) {
-						const errorMessage =
-							err instanceof Error ? err.message : String(err)
-						errors.push(`${item} -> ${platform}: ${errorMessage}`)
+					if (!(await fs.pathExists(sourcePath))) {
+						throw new Error(`Item '${item}' not found at ${sourcePath}`)
 					}
+
+					const targetPath = path.join(targetBase, targetName)
+
+					await fs.copy(sourcePath, targetPath, { overwrite: true })
+					installedCount++
+				} catch (err: unknown) {
+					const errorMessage = err instanceof Error ? err.message : String(err)
+					errors.push(`${item}: ${errorMessage}`)
 				}
 			}
 
-			// Cleanup
 			if (tempDir) {
 				await fs.remove(tempDir)
+				tempDir = null
 			}
 
 			if (errors.length > 0) {
 				s.stop(
 					pc.yellow(
-						`Completed with errors. Installed: ${installedCount}, Skipped: ${skippedCount}, Errors: ${errors.length}`,
+						`Completed with errors. Installed: ${installedCount}, Errors: ${errors.length}`,
 					),
 				)
 				console.error(pc.red("\nErrors encountered:"))
@@ -383,9 +263,13 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			} else {
 				s.stop(
 					pc.green(
-						`Successfully installed ${installedCount} ${normalizedType}s. (${skippedCount} skipped)`,
+						`Successfully installed ${installedCount} ${normalizedType}s.`,
 					),
 				)
+			}
+
+			if (installedCount > 0) {
+				await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
 			}
 		} catch (error) {
 			if (tempDir) await fs.remove(tempDir)
@@ -401,4 +285,79 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 	if (!options?.skipIntro) {
 		outro("You're all set!")
 	}
+}
+
+async function maybeWireAgentSetup(
+	agentsBase: string,
+	scope: Scope,
+	root: string,
+): Promise<void> {
+	const wire = await confirm({
+		message: "Wire the agent-setup session-start hook now?",
+		initialValue: true,
+	})
+	if (isCancel(wire) || !wire) return
+
+	const selected = await multiselect<Platform>({
+		message: "Which agents should be wired?",
+		options: (Object.keys(PLATFORM_LABELS) as Platform[]).map((platform) => ({
+			label: PLATFORM_LABELS[platform],
+			value: platform,
+		})),
+		required: true,
+	})
+	if (isCancel(selected)) return
+	const platforms = selected as Platform[]
+
+	const resolved = await resolveConflicts(agentsBase, platforms, scope, root)
+	if (resolved === "cancelled") return
+
+	const s = spinner()
+	s.start("Wiring agent-setup hook...")
+	try {
+		const result = await wireAgentSetup(agentsBase, scope, root, platforms)
+		s.stop(
+			pc.green(
+				`Wired session-start hook for: ${result.wiredPlatforms.join(", ")}.`,
+			),
+		)
+		if (platforms.includes("windsurf")) {
+			note(
+				"Windsurf has no session-start hook; its symlinks are created once now. Re-run .agents/hooks/agent-setup.sh to refresh.",
+				"Note",
+			)
+		}
+	} catch (err: unknown) {
+		const errorMessage = err instanceof Error ? err.message : String(err)
+		s.error(`Failed to wire agent-setup hook: ${errorMessage}`)
+	}
+}
+
+async function resolveConflicts(
+	agentsBase: string,
+	platforms: Platform[],
+	scope: Scope,
+	root: string,
+): Promise<"ok" | "cancelled"> {
+	const conflicts = await detectConflicts(agentsBase, platforms, scope, root)
+	if (conflicts.length === 0) return "ok"
+
+	const overwrite = await multiselect<string>({
+		message:
+			"These entries already exist in the selected agent dirs. Choose which to OVERWRITE (unselected entries are dropped from .agents):",
+		options: conflicts.map((c) => ({ label: c.entry, value: c.entry })),
+		required: false,
+	})
+	if (isCancel(overwrite)) return "cancelled"
+	const toOverwrite = new Set(overwrite as string[])
+
+	for (const conflict of conflicts) {
+		if (toOverwrite.has(conflict.entry)) {
+			await removeAgentDirEntries(conflict.targetPaths)
+		} else {
+			await dropAgentsEntry(agentsBase, conflict.subdir, conflict.entry)
+		}
+	}
+
+	return "ok"
 }

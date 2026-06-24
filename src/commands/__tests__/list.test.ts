@@ -1,8 +1,9 @@
 import os from "node:os"
+import path from "node:path"
 import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
-import { getTargetPaths, TYPE_DIRS } from "../../utils/paths.js"
+import { getAgentsBase, TYPE_DIRS } from "../../utils/paths.js"
 import { chooseListRemoveScope } from "../../utils/scope-prompt.js"
 import { list } from "../list.js"
 
@@ -13,6 +14,7 @@ vi.mock("@clack/prompts", () => ({
 	intro: vi.fn(),
 	outro: vi.fn(),
 	select: vi.fn(),
+	cancel: vi.fn(),
 	isCancel: vi.fn(() => false),
 }))
 
@@ -28,52 +30,29 @@ describe("src/commands/list.ts", () => {
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
 		vi.mocked(fs.readdir).mockResolvedValue([] as never)
 
-		vi.mocked(TYPE_DIRS).skill = "/mock/skills"
-		vi.mocked(TYPE_DIRS).agent = "/mock/agents"
-		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows"
+		vi.mocked(TYPE_DIRS).skill = "/mock/repo/skills"
+		vi.mocked(TYPE_DIRS).agent = "/mock/repo/agents"
+		vi.mocked(TYPE_DIRS).workflow = "/mock/repo/workflows"
 
-		vi.mocked(getTargetPaths).mockReturnValue({
-			gemini: "/mock/install/gemini",
-		})
+		const home = os.homedir()
+		vi.mocked(getAgentsBase).mockImplementation((scope, root) =>
+			scope === "project"
+				? path.join(root ?? "/proj", ".agents")
+				: path.join(home, ".agents"),
+		)
 
 		vi.mocked(prompts.select).mockResolvedValue("exit")
 
 		vi.mocked(chooseListRemoveScope).mockResolvedValue({
 			cancelled: false,
 			scope: "global",
-			homedir: os.homedir(),
+			homedir: home,
 		})
 	})
 
-	it("should list available items for all types by default", async () => {
-		// In the new loop, if no type is provided, it prompts.
-		// We can mock select to return "skill", then "exit"
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-
+	it("lists repository items for a specific type and handles plural", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "skill1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		] as never)
-
-		await list()
-
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available skills"),
-		)
-	})
-
-	it("should list specific type and handle plural", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "item1", isDirectory: () => true, isFile: () => false },
 		] as never)
 		await list("skills")
 		expect(mockConsoleLog).toHaveBeenCalledWith(
@@ -81,21 +60,29 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
-	it("should handle unknown type", async () => {
+	it("prompts for a type when none is provided", async () => {
+		vi.mocked(prompts.select)
+			.mockResolvedValueOnce("skill")
+			.mockResolvedValueOnce("exit")
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{ name: "skill1", isDirectory: () => true, isFile: () => false },
+		] as never)
+
+		await list()
+
+		expect(mockConsoleLog).toHaveBeenCalledWith(
+			expect.stringContaining("Available skills"),
+		)
+	})
+
+	it("handles unknown type", async () => {
 		await list("unknown")
 		expect(mockConsoleError).toHaveBeenCalledWith(
 			expect.stringContaining("Unknown type: unknown"),
 		)
 	})
 
-	it("should handle unknown type silently if no type provided", async () => {
-		// This is hard to trigger normally, but we can mock TYPE_DIRS to have a key that is then normalized away
-		;(TYPE_DIRS as Record<string, string>).singular = "/mock/singular"
-		// list() with no args lists ["skill", "agent", "workflow"]
-		// We can't easily change the hardcoded list without more complex mocks.
-	})
-
-	it("should handle missing directory", async () => {
+	it("handles missing repository directory", async () => {
 		vi.mocked(fs.pathExists).mockResolvedValue(false as never)
 		await list("skill")
 		expect(mockConsoleLog).toHaveBeenCalledWith(
@@ -103,142 +90,18 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
-	it("should handle no items found for specific type", async () => {
+	it("handles no repository items found", async () => {
 		await list("skill")
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("No skills found"),
 		)
 	})
 
-	it("should list locally installed items", async () => {
+	it("filters repository items by type", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "installed-item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-			{
-				name: "installed-file.md",
-				isDirectory: () => false,
-				isFile: () => true,
-			} as fs.Dirent,
-		] as never)
-
-		await list("skill", { local: true })
-
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Installed skills (Local)"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("gemini:"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("- installed-item"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("- installed-file.md"),
-		)
-	})
-
-	it("should list Codex local installs from skill directories", async () => {
-		vi.mocked(getTargetPaths).mockReturnValue({
-			codex: "/mock/install/codex",
-		})
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "converted-agent",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-			{
-				name: "native-skill",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		] as never)
-		vi.mocked(fs.readFile).mockImplementation((targetPath) => {
-			if (targetPath === "/mock/install/codex/converted-agent/SKILL.md") {
-				return Promise.resolve(
-					"---\nname: converted-agent\nx-ai-agents-type: agent\n---\n",
-				)
-			}
-			if (targetPath === "/mock/install/codex/native-skill/SKILL.md") {
-				return Promise.resolve("---\nname: native-skill\n---\n")
-			}
-			return Promise.reject(new Error(`Unexpected read: ${targetPath}`))
-		})
-
-		await list("agent", { local: true })
-
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("codex:"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("- converted-agent"),
-		)
-		expect(mockConsoleLog).not.toHaveBeenCalledWith(
-			expect.stringContaining("- native-skill"),
-		)
-	})
-
-	it("should handle no installed items found", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([] as never)
-		await list("skill", { local: true })
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("No installed skills found"),
-		)
-	})
-
-	it("should skip local platforms that do not exist", async () => {
-		vi.mocked(fs.pathExists).mockImplementation((p) =>
-			Promise.resolve(p !== "/mock/install/gemini"),
-		)
-		await list("skill", { local: true })
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("No installed skills found"),
-		)
-	})
-
-	it("should skip missing directories silently if no type provided", async () => {
-		vi.mocked(fs.pathExists).mockResolvedValue(false as never)
-		await list()
-		expect(mockConsoleLog).not.toHaveBeenCalledWith(
-			expect.stringContaining("directory found"),
-		)
-	})
-
-	it("should skip unknown types silently if no type provided", async () => {
-		;(TYPE_DIRS as Record<string, string | undefined>).extra = undefined
-		// This is hard to trigger because typesToList is hardcoded when type is undefined.
-		// But I can try to trigger the 'else' of 'if (type)' in the unknown type block.
-	})
-
-	it("should handle empty item list silently if no type provided", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([] as never)
-		await list()
-		// Should not log "No X found"
-		expect(mockConsoleLog).not.toHaveBeenCalledWith(
-			expect.stringContaining("No skills found"),
-		)
-	})
-
-	it("should filter items correctly for different types", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "dir",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-			{
-				name: "file.md",
-				isDirectory: () => false,
-				isFile: () => true,
-			} as fs.Dirent,
-			{
-				name: "other.txt",
-				isDirectory: () => false,
-				isFile: () => false,
-			} as fs.Dirent,
+			{ name: "dir", isDirectory: () => true, isFile: () => false },
+			{ name: "file.md", isDirectory: () => false, isFile: () => true },
+			{ name: "other.txt", isDirectory: () => false, isFile: () => false },
 		] as never)
 
 		await list("skill")
@@ -259,23 +122,10 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
-	it("should handle error during listing", async () => {
-		vi.mocked(fs.readdir).mockRejectedValue(new Error("Disk failure") as never)
-		await list("skill")
-		expect(mockConsoleError).toHaveBeenCalledWith(
-			expect.stringContaining("Error listing items:"),
-			expect.any(Error),
-		)
-	})
-
-	it("should handle type 'all' by listing everything", async () => {
+	it("lists all repository types", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "item1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
+			{ name: "item1", isDirectory: () => true, isFile: () => false },
+		] as never)
 		await list("all")
 		expect(mockConsoleLog).toHaveBeenCalledWith(
 			expect.stringContaining("Available skills"),
@@ -288,19 +138,23 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
-	it("should handle toggle between Local and Repository view", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("toggle") // Switch to Local
-			.mockResolvedValueOnce("skill") // List skills (local)
-			.mockResolvedValueOnce("exit")
+	it("handles errors during listing", async () => {
+		vi.mocked(fs.readdir).mockRejectedValue(new Error("Disk failure") as never)
+		await list("skill")
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Error listing items:"),
+			expect.any(Error),
+		)
+	})
 
+	it("toggles between Repository and Local view", async () => {
+		vi.mocked(prompts.select)
+			.mockResolvedValueOnce("toggle")
+			.mockResolvedValueOnce("skill")
+			.mockResolvedValueOnce("exit")
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{
-				name: "local-skill",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
+			{ name: "local-skill", isDirectory: () => true, isFile: () => false },
+		] as never)
 
 		await list()
 
@@ -309,30 +163,70 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
-	it("should handle existing directory in repository view", async () => {
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{
-				name: "item1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		] as never)
-
-		await list("skill")
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available skills"),
-		)
-	})
-
-	it("should skip intro and outro if skipIntro option is true", async () => {
+	it("skips intro and outro when skipIntro is set", async () => {
 		await list("skill", { skipIntro: true })
 		expect(prompts.intro).not.toHaveBeenCalled()
 		expect(prompts.outro).not.toHaveBeenCalled()
 	})
 
-	describe("scope handling", () => {
-		it("calls chooseListRemoveScope when listing locally", async () => {
+	describe("local listing from .agents", () => {
+		it("lists entries from the canonical .agents subdir", async () => {
+			vi.mocked(fs.readdir).mockResolvedValue([
+				{
+					name: "installed-item",
+					isDirectory: () => true,
+					isFile: () => false,
+				},
+				{ name: "installed.md", isDirectory: () => false, isFile: () => true },
+			] as never)
+
+			await list("skill", { local: true })
+
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringContaining("Installed skills (Local)"),
+			)
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringContaining("- installed-item"),
+			)
+			const skillsDir = path.join(os.homedir(), ".agents", "skills")
+			expect(fs.readdir).toHaveBeenCalledWith(skillsDir, expect.anything())
+		})
+
+		it("reports nothing when the subdir is empty", async () => {
+			vi.mocked(fs.readdir).mockResolvedValue([] as never)
+			await list("skill", { local: true })
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringContaining("No installed skills found"),
+			)
+		})
+
+		it("reports nothing when the subdir is absent", async () => {
+			vi.mocked(fs.pathExists).mockResolvedValue(false as never)
+			await list("skill", { local: true })
+			expect(mockConsoleLog).toHaveBeenCalledWith(
+				expect.stringContaining("No installed skills found"),
+			)
+		})
+
+		it("maps agent type to the agents subdir", async () => {
+			vi.mocked(fs.readdir).mockResolvedValue([
+				{ name: "an-agent", isDirectory: () => true, isFile: () => false },
+			] as never)
+			await list("agent", { local: true })
+			const agentsDir = path.join(os.homedir(), ".agents", "agents")
+			expect(fs.readdir).toHaveBeenCalledWith(agentsDir, expect.anything())
+		})
+
+		it("maps workflow type to the commands subdir", async () => {
+			vi.mocked(fs.readdir).mockResolvedValue([
+				{ name: "a-command.md", isDirectory: () => false, isFile: () => true },
+			] as never)
+			await list("workflow", { local: true })
+			const commandsDir = path.join(os.homedir(), ".agents", "commands")
+			expect(fs.readdir).toHaveBeenCalledWith(commandsDir, expect.anything())
+		})
+
+		it("calls chooseListRemoveScope for local listings", async () => {
 			await list("skill", { local: true })
 			expect(chooseListRemoveScope).toHaveBeenCalledWith(
 				expect.objectContaining({ action: "list" }),
@@ -344,14 +238,27 @@ describe("src/commands/list.ts", () => {
 			expect(chooseListRemoveScope).not.toHaveBeenCalled()
 		})
 
-		it("passes the --scope flag through to chooseListRemoveScope", async () => {
+		it("passes the --scope flag through", async () => {
 			await list("skill", { local: true, scope: "both" })
 			expect(chooseListRemoveScope).toHaveBeenCalledWith(
 				expect.objectContaining({ action: "list", flag: "both" }),
 			)
 		})
 
-		it("bails out gracefully when scope choice is cancelled", async () => {
+		it("exits the process when the scope choice is rejected", async () => {
+			const mockExit = vi
+				.spyOn(process, "exit")
+				.mockImplementation(() => undefined as never)
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				rejected: true,
+				reason: "outside repo",
+			})
+			await list("skill", { local: true, scope: "project" })
+			expect(prompts.cancel).toHaveBeenCalled()
+			expect(mockExit).toHaveBeenCalledWith(1)
+		})
+
+		it("bails gracefully when the scope choice is cancelled", async () => {
 			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
 				cancelled: true,
 			})
@@ -361,53 +268,20 @@ describe("src/commands/list.ts", () => {
 			)
 		})
 
-		it("renders project-scope items under a Project section when scope=project", async () => {
-			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
-				cancelled: false,
-				scope: "project",
-				homedir: "/home/me",
-				projectRoot: "/home/me/dev/myrepo",
-			})
-			vi.mocked(getTargetPaths).mockReturnValue({
-				gemini: "/home/me/dev/myrepo/.gemini/skills",
-			})
-			vi.mocked(fs.readdir).mockResolvedValue([
-				{
-					name: "proj-skill",
-					isDirectory: () => true,
-					isFile: () => false,
-				} as fs.Dirent,
-			] as never)
-
-			await list("skill", { local: true })
-			expect(mockConsoleLog).toHaveBeenCalledWith(
-				expect.stringContaining("- proj-skill"),
-			)
-		})
-
-		it("renders both Global and Project sections when scope=both", async () => {
+		it("renders Global and Project sections when scope=both", async () => {
 			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
 				cancelled: false,
 				scope: "both",
 				homedir: "/home/me",
 				projectRoot: "/home/me/dev/myrepo",
 			})
-			vi.mocked(getTargetPaths).mockImplementation(((
-				_type: string,
-				scope?: string,
-				root?: string,
-			) => {
-				if (scope === "project") {
-					return { gemini: `${root}/.gemini/skills` }
-				}
-				return { gemini: "/home/me/.gemini/skills" }
-			}) as typeof getTargetPaths)
+			vi.mocked(getAgentsBase).mockImplementation((scope, root) =>
+				scope === "project"
+					? path.join(root ?? "/proj", ".agents")
+					: "/home/me/.agents",
+			)
 			vi.mocked(fs.readdir).mockResolvedValue([
-				{
-					name: "an-item",
-					isDirectory: () => true,
-					isFile: () => false,
-				} as fs.Dirent,
+				{ name: "an-item", isDirectory: () => true, isFile: () => false },
 			] as never)
 
 			await list("skill", { local: true })

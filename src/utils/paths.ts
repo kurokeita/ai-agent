@@ -60,7 +60,7 @@ export const PLATFORM_PATHS_AGENTS: Partial<Record<Platform, string>> = {
 
 export const PLATFORM_PATHS_WORKFLOWS: Partial<Record<Platform, string>> = {
 	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_workflows"),
-	"claude-code": path.join(os.homedir(), ".claude/skills"),
+	"claude-code": path.join(os.homedir(), ".claude/commands"),
 	codex: path.join(os.homedir(), ".codex/skills"),
 	copilot: path.join(os.homedir(), ".copilot/prompts"),
 	gemini: path.join(os.homedir(), ".gemini/commands"),
@@ -89,7 +89,7 @@ const PROJECT_RELATIVE_PLATFORM_PATHS_WORKFLOWS: Partial<
 	Record<Platform, string>
 > = {
 	antigravity: ".gemini/antigravity/workflows",
-	"claude-code": ".claude/skills",
+	"claude-code": ".claude/commands",
 	codex: ".codex/skills",
 	copilot: ".copilot/prompts",
 	gemini: ".gemini/commands",
@@ -131,39 +131,26 @@ export const TYPE_DIRS: Record<string, string> = {
 	workflow: path.join(PROJECT_ROOT, "workflows"),
 }
 
-function getGlobalTargetPaths(type: string): Partial<Record<Platform, string>> {
-	switch (type) {
-		case "agent":
-			return PLATFORM_PATHS_AGENTS
-		case "workflow":
-			return PLATFORM_PATHS_WORKFLOWS
-		default:
-			return PLATFORM_PATHS_SKILLS
-	}
+// Workflows normalize to the universal `commands` directory.
+export const TYPE_SUBDIRS: Record<string, string> = {
+	skill: "skills",
+	agent: "agents",
+	workflow: "commands",
 }
 
-function getProjectTargetPaths(
-	type: string,
-	root: string,
-): Partial<Record<Platform, string>> {
-	switch (type) {
-		case "agent":
-			return getProjectPlatformPathsAgents(root)
-		case "workflow":
-			return getProjectPlatformPathsWorkflows(root)
-		default:
-			return getProjectPlatformPathsSkills(root)
-	}
-}
+export const AGENT_SETUP_SCRIPTS_DIR = path.join(
+	PROJECT_ROOT,
+	"skills/universalize-agents/scripts",
+)
 
-export function getTargetPaths(
-	type: string,
-	scope: Scope = "global",
-	projectRoot?: string,
-): Partial<Record<Platform, string>> {
+export const HOOK_TEMPLATES_DIR = path.join(
+	PROJECT_ROOT,
+	"skills/universalize-agents/reference/hook-templates",
+)
+
+export function getAgentsBase(scope: Scope, root?: string): string {
 	if (scope === "project") {
-		const root = projectRoot ?? process.cwd()
-		return getProjectTargetPaths(type, root)
+		return path.join(root ?? process.cwd(), ".agents")
 	}
-	return getGlobalTargetPaths(type)
+	return path.join(os.homedir(), ".agents")
 }

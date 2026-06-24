@@ -3,10 +3,12 @@ import os from "node:os"
 import path from "node:path"
 import { afterEach, describe, expect, it } from "vitest"
 import {
+	AGENT_SETUP_SCRIPTS_DIR,
+	getAgentsBase,
 	getProjectPlatformPathsAgents,
 	getProjectPlatformPathsSkills,
 	getProjectPlatformPathsWorkflows,
-	getTargetPaths,
+	HOOK_TEMPLATES_DIR,
 	PLATFORM_LABELS,
 	PLATFORM_PATHS_AGENTS,
 	PLATFORM_PATHS_SKILLS,
@@ -14,6 +16,7 @@ import {
 	PROJECT_ROOT,
 	resolveProjectRoot,
 	TYPE_DIRS,
+	TYPE_SUBDIRS,
 } from "../paths.js"
 
 describe("src/utils/paths.ts", () => {
@@ -55,6 +58,40 @@ describe("src/utils/paths.ts", () => {
 		expect(TYPE_DIRS.skill).toBe(path.join(PROJECT_ROOT, "skills"))
 	})
 
+	it("should map types to canonical .agents subdirs", () => {
+		expect(TYPE_SUBDIRS.skill).toBe("skills")
+		expect(TYPE_SUBDIRS.agent).toBe("agents")
+		expect(TYPE_SUBDIRS.workflow).toBe("commands")
+	})
+
+	it("should resolve bundled script and hook-template dirs under PROJECT_ROOT", () => {
+		expect(AGENT_SETUP_SCRIPTS_DIR).toBe(
+			path.join(PROJECT_ROOT, "skills/universalize-agents/scripts"),
+		)
+		expect(HOOK_TEMPLATES_DIR).toBe(
+			path.join(
+				PROJECT_ROOT,
+				"skills/universalize-agents/reference/hook-templates",
+			),
+		)
+	})
+
+	describe("getAgentsBase", () => {
+		it("returns ~/.agents for global scope", () => {
+			expect(getAgentsBase("global")).toBe(path.join(os.homedir(), ".agents"))
+		})
+
+		it("nests .agents under the given root for project scope", () => {
+			expect(getAgentsBase("project", "/tmp/myrepo")).toBe(
+				path.join("/tmp/myrepo", ".agents"),
+			)
+		})
+
+		it("falls back to cwd for project scope without a root", () => {
+			expect(getAgentsBase("project")).toBe(path.join(process.cwd(), ".agents"))
+		})
+	})
+
 	it("should resolve the published dist directory as the project root", () => {
 		const tempPackageDir = fs.mkdtempSync(
 			path.join(os.tmpdir(), "add-skill-paths-"),
@@ -69,28 +106,6 @@ describe("src/utils/paths.ts", () => {
 		expect(resolveProjectRoot(publishedModuleDir)).toBe(
 			path.join(tempPackageDir, "dist"),
 		)
-	})
-
-	describe("getTargetPaths (global scope)", () => {
-		it('should return PLATFORM_PATHS_AGENTS for "agent" type', () => {
-			expect(getTargetPaths("agent")).toBe(PLATFORM_PATHS_AGENTS)
-		})
-
-		it('should return PLATFORM_PATHS_WORKFLOWS for "workflow" type', () => {
-			expect(getTargetPaths("workflow")).toBe(PLATFORM_PATHS_WORKFLOWS)
-		})
-
-		it('should return PLATFORM_PATHS_SKILLS for "skill" type', () => {
-			expect(getTargetPaths("skill")).toBe(PLATFORM_PATHS_SKILLS)
-		})
-
-		it("should return PLATFORM_PATHS_SKILLS for unknown types", () => {
-			expect(getTargetPaths("unknown")).toBe(PLATFORM_PATHS_SKILLS)
-		})
-
-		it("should default to global scope when scope is omitted", () => {
-			expect(getTargetPaths("skill")).toBe(getTargetPaths("skill", "global"))
-		})
 	})
 
 	describe("getProjectPlatformPathsSkills", () => {
@@ -138,44 +153,10 @@ describe("src/utils/paths.ts", () => {
 
 		it("maps remaining platforms", () => {
 			const paths = getProjectPlatformPathsWorkflows(root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/skills"))
+			expect(paths["claude-code"]).toBe(path.join(root, ".claude/commands"))
 			expect(paths.codex).toBe(path.join(root, ".codex/skills"))
 			expect(paths.copilot).toBe(path.join(root, ".copilot/prompts"))
 			expect(paths.gemini).toBe(path.join(root, ".gemini/commands"))
-		})
-	})
-
-	describe("getTargetPaths (project scope)", () => {
-		const root = "/tmp/myrepo"
-
-		it("returns project skill paths", () => {
-			const paths = getTargetPaths("skill", "project", root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/skills"))
-		})
-
-		it("returns project agent paths", () => {
-			const paths = getTargetPaths("agent", "project", root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/agents"))
-			expect(paths.antigravity).toBeUndefined()
-		})
-
-		it("returns project workflow paths", () => {
-			const paths = getTargetPaths("workflow", "project", root)
-			expect(paths.antigravity).toBe(
-				path.join(root, ".gemini/antigravity/workflows"),
-			)
-		})
-
-		it("falls back to project skill paths for unknown type", () => {
-			const paths = getTargetPaths("unknown", "project", root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/skills"))
-		})
-
-		it("uses process.cwd() when projectRoot is omitted", () => {
-			const paths = getTargetPaths("skill", "project")
-			expect(paths["claude-code"]).toBe(
-				path.join(process.cwd(), ".claude/skills"),
-			)
 		})
 	})
 })

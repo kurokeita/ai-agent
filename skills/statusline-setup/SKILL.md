@@ -1,11 +1,11 @@
 ---
 name: statusline-setup
-description: 'Set up the Claude Code statusline with cwd, git branch, model, context %, session token totals, and 5h/7d quota usage with ETA. Use when asked to "set up my statusline", "install statusline", "configure Claude Code statusline", or to add a colored status line showing rate limits and token usage. Detects OS and installs the appropriate variant (bash + jq on Linux/macOS, PowerShell on Windows).'
+description: 'Set up the Claude Code or Gemini/Antigravity CLI statusline with cwd, git branch, model, context %, session token totals, and 5h/7d quota usage with ETA. Use when asked to "set up my statusline", "install statusline", "configure statusline", or to add a colored status line showing rate limits and token usage. Detects OS and installs the appropriate variant (bash + jq on Linux/macOS, PowerShell on Windows).'
 ---
 
 # Statusline Setup
 
-Install a Claude Code statusline that renders, left to right, pipe-separated:
+Install a Claude Code or Gemini/Antigravity statusline that renders, left to right, pipe-separated:
 
 1. **cwd** — 24-bit ANSI `#5EFFFF` (`38;2;94;255;255`), with `$HOME` / `%USERPROFILE%` shortened to `~`.
 2. **git branch** in parentheses — 24-bit ANSI `#C24870` (`38;2;194;72;112`), only when inside a repo.
@@ -18,17 +18,24 @@ Segments are joined with ANSI `0;37` pipes (` | `).
 
 ## When to Use This Skill
 
-- "Set up my Claude Code statusline"
+- "Set up my Claude Code statusline" or "Set up my Antigravity statusline"
 - "Install the statusline"
 - "Configure my statusline with token counts and quota"
 - Any request to add a colored status line showing context %, rate limits, or session tokens.
 
-## OS Detection
+## OS & Platform Detection
 
-Detect the platform first and install only the matching variant:
+Detect the operating system and targeted platform first, then write and wire the corresponding configuration:
+
+### Claude Code
 
 - **Linux / macOS** → write `~/.claude/statusline-command.sh` (pure bash + `jq`), wire into `~/.claude/settings.json`.
 - **Windows** → write `%USERPROFILE%\.claude\statusline-command.ps1`, wire into `%USERPROFILE%\.claude\settings.json`.
+
+### Antigravity / Gemini CLI
+
+- **Linux / macOS** → write `~/.gemini/antigravity-cli/statusline-command.sh` (pure bash + `jq`), wire into `~/.gemini/antigravity-cli/settings.json`.
+- **Windows** → write `%USERPROFILE%\.gemini\antigravity-cli\statusline-command.ps1`, wire into `%USERPROFILE%\.gemini\antigravity-cli\settings.json`.
 
 ## Token Formatting
 
@@ -39,12 +46,14 @@ Detect the platform first and install only the matching variant:
 
 ## Token Source
 
-Claude Code does **not** include token totals in the statusline JSON. Read `transcript_path` (JSONL, one message per line) and sum across **assistant** messages:
+Tokens are calculated dynamically:
 
-- `input` = `message.usage.input_tokens` + `message.usage.cache_creation_input_tokens` + `message.usage.cache_read_input_tokens`
-- `output` = `message.usage.output_tokens`
-
-Skip lines that fail JSON parsing or lack `message.usage`. If `transcript_path` is missing or the file does not exist, omit the tokens segment.
+1. **Transcript Parsing (Claude Code / general)**: Sum across assistant messages in the JSONL `transcript_path` file:
+   - `input` = `message.usage.input_tokens` + `message.usage.cache_creation_input_tokens` + `message.usage.cache_read_input_tokens`
+   - `output` = `message.usage.output_tokens`
+2. **Payload Fallback (Antigravity / Gemini CLI)**: If transcript parsing yields `0` tokens (or the transcript doesn't store step token metrics), fallback to:
+   - `input` = `context_window.total_input_tokens`
+   - `output` = `context_window.total_output_tokens`
 
 ## Quota Colors (by REMAINING quota = 100 - used%)
 
@@ -57,7 +66,7 @@ Skip lines that fail JSON parsing or lack `message.usage`. If `transcript_path` 
 
 The 5h and 7d windows must be colored **independently**.
 
-## ETA Format (from epoch seconds in `resets_at`)
+## ETA Format (from epoch seconds or reset duration in seconds)
 
 - `> 1 day` → `Xd Yh`
 - `> 1 hour` → `Xh Ym`
@@ -66,34 +75,57 @@ The 5h and 7d windows must be colored **independently**.
 
 ## Input Schema (stdin JSON)
 
-Any field may be missing:
+The input schema depends on the platform:
 
+### Claude Code Schema
+
+```json
+{
+  "cwd": "/path/to/cwd",
+  "transcript_path": "/path/to/transcript.jsonl",
+  "model": { "display_name": "Opus 4.7" },
+  "effort": { "level": "medium" },
+  "context_window": { "used_percentage": 42 },
+  "rate_limits": {
+    "five_hour": { "used_percentage": 80, "resets_at": 1719213265 },
+    "seven_day": { "used_percentage": 50, "resets_at": 1719213265 }
+  }
+}
 ```
-cwd
-transcript_path
-model.display_name
-effort.level
-context_window.used_percentage
-rate_limits.five_hour.used_percentage
-rate_limits.five_hour.resets_at
-rate_limits.seven_day.used_percentage
-rate_limits.seven_day.resets_at
+
+### Antigravity Schema
+
+```json
+{
+  "cwd": "/path/to/cwd",
+  "transcript_path": "/path/to/transcript.jsonl",
+  "model": { "display_name": "Gemini 3.5 Flash" },
+  "context_window": {
+    "used_percentage": 6.7,
+    "total_input_tokens": 70419,
+    "total_output_tokens": 16667
+  },
+  "quota": {
+    "gemini-5h": { "remaining_fraction": 0.87, "reset_in_seconds": 2515 },
+    "gemini-weekly": { "remaining_fraction": 0.97, "reset_in_seconds": 589315 }
+  }
+}
 ```
 
 ## Linux / macOS Implementation
 
-Write `~/.claude/statusline-command.sh` (chmod +x). Pure bash + `jq` — no Python. `jq` must be installed (`apt install jq`, `brew install jq`, etc.); if missing, the script prints a one-line hint and exits 0 so the statusline area stays clean.
+Write `statusline-command.sh` (chmod +x) to the targeted platform directory. Pure bash + `jq` — no Python. `jq` must be installed; if missing, the script prints a one-line hint and exits 0.
 
 JSON parsing rules:
 
 - Read the full stdin payload **once** with `cat`, parse all fields with a single `jq` call.
-- For the JSONL transcript, invoke `jq` **once over the whole file** (do not call `jq` per line) — use a streaming filter that reduces over `inputs`.
+- Use `fromjson?` to process JSONL files line-by-line resiliently to ignore malformed/plain-text entries.
 
-`~/.claude/statusline-command.sh`:
+`statusline-command.sh`:
 
 ```bash
 #!/usr/bin/env bash
-# Claude Code statusline — pure bash + jq.
+# Statusline — pure bash + jq. Supports Claude Code & Antigravity payload formats.
 
 set -u
 
@@ -127,10 +159,14 @@ quota_color() {
 
 fmt_eta() {
   local resets="$1"
-  [[ -z "$resets" || "$resets" == "null" ]] && { printf ''; return; }
+  [[ -z "$resets" || "$resets" == "null" || "$resets" == "" ]] && { printf ''; return; }
   local now delta days hours mins
-  now=$(date +%s)
-  delta=$(( resets - now ))
+  if (( resets < 10000000 )); then
+    delta=$resets
+  else
+    now=$(date +%s)
+    delta=$(( resets - now ))
+  fi
   if   (( delta <= 0 )); then printf 'now'
   elif (( delta >= 86400 )); then
     days=$(( delta / 86400 )); hours=$(( (delta % 86400) / 3600 ))
@@ -173,15 +209,41 @@ read_fields() {
       .model.display_name // "",
       .effort.level // "",
       (.context_window.used_percentage // "" | tostring),
-      (.rate_limits.five_hour.used_percentage // "" | tostring),
-      (.rate_limits.five_hour.resets_at // "" | tostring),
-      (.rate_limits.seven_day.used_percentage // "" | tostring),
-      (.rate_limits.seven_day.resets_at // "" | tostring)
+      (
+        .rate_limits.five_hour.used_percentage // 
+        (if .quota."gemini-5h" != null then ((1.0 - .quota."gemini-5h".remaining_fraction) * 100) 
+         elif .quota."3p-5h" != null then ((1.0 - .quota."3p-5h".remaining_fraction) * 100) 
+         else "" end)
+        | tostring
+      ),
+      (
+        .rate_limits.five_hour.resets_at // 
+        .quota."gemini-5h".reset_in_seconds // 
+        .quota."3p-5h".reset_in_seconds // 
+        ""
+        | tostring
+      ),
+      (
+        .rate_limits.seven_day.used_percentage // 
+        (if .quota."gemini-weekly" != null then ((1.0 - .quota."gemini-weekly".remaining_fraction) * 100) 
+         elif .quota."3p-weekly" != null then ((1.0 - .quota."3p-weekly".remaining_fraction) * 100) 
+         else "" end)
+        | tostring
+      ),
+      (
+        .rate_limits.seven_day.resets_at // 
+        .quota."gemini-weekly".reset_in_seconds // 
+        .quota."3p-weekly".reset_in_seconds // 
+        ""
+        | tostring
+      ),
+      (.context_window.total_input_tokens // "" | tostring),
+      (.context_window.total_output_tokens // "" | tostring)
     ] | join("\u001f")
   ' 2>/dev/null <<<"$payload"
 }
 
-IFS=$'\x1f' read -r cwd transcript model effort ctx five_used five_reset seven_used seven_reset < <(read_fields)
+IFS=$'\x1f' read -r cwd transcript model effort ctx five_used five_reset seven_used seven_reset payload_in payload_out < <(read_fields)
 
 segments=()
 
@@ -211,10 +273,23 @@ if [[ -n "$ctx" ]]; then
   segments+=("${C_CTX}ctx ${ctx_int}%${RESET}")
 fi
 
-# --- tokens: one jq pass over the whole JSONL transcript ---
+ti=0
+to=0
+
+# --- tokens: sum transcripts, fallback to context_window if needed ---
+if [[ -n "$transcript" ]]; then
+  # Resolve path mismatch (if it has .gemini/antigravity/ but it actually is at .gemini/antigravity-cli/)
+  if [[ ! -f "$transcript" && "$transcript" == *"/antigravity/"* ]]; then
+    corrected_transcript="${transcript//\/antigravity\//\/antigravity-cli\/}"
+    if [[ -f "$corrected_transcript" ]]; then
+      transcript="$corrected_transcript"
+    fi
+  fi
+fi
+
 if [[ -n "$transcript" && -f "$transcript" ]]; then
-  tok=$(jq -rs '
-    reduce .[] as $m ({i:0,o:0};
+  tok=$(jq -Rn '
+    reduce (inputs | fromjson?) as $m ({i:0,o:0};
       ($m.message.usage // null) as $u
       | if $u == null then .
         else
@@ -226,10 +301,19 @@ if [[ -n "$transcript" && -f "$transcript" ]]; then
   ' "$transcript" 2>/dev/null) || tok=""
   if [[ -n "$tok" ]]; then
     IFS=$'\t' read -r ti to <<<"$tok"
-    if (( ti > 0 || to > 0 )); then
-      segments+=("${C_TOK}↑$(fmt_tokens "$ti") ↓$(fmt_tokens "$to")${RESET}")
-    fi
   fi
+fi
+
+# Fallback to payload context_window tokens if transcript sum is 0
+if (( ti == 0 && to == 0 )); then
+  if [[ -n "$payload_in" && -n "$payload_out" ]]; then
+    ti=$payload_in
+    to=$payload_out
+  fi
+fi
+
+if (( ti > 0 || to > 0 )); then
+  segments+=("${C_TOK}↑$(fmt_tokens "$ti") ↓$(fmt_tokens "$to")${RESET}")
 fi
 
 if [[ -n "$five_used" ]]; then
@@ -253,22 +337,11 @@ done
 printf '%s' "$out"
 ```
 
-Wire into `~/.claude/settings.json` (merge into existing JSON, don't clobber other keys):
-
-```json
-{
-  "statusLine": {
-    "type": "command",
-    "command": "bash ~/.claude/statusline-command.sh"
-  }
-}
-```
-
 ## Windows Implementation
 
-Write `%USERPROFILE%\.claude\statusline-command.ps1`. Use `ConvertFrom-Json` (no Python dep). Read the JSONL transcript with `Get-Content -ReadCount 0` and `ConvertFrom-Json` per line inside try/catch. Use `[char]27` for ANSI escapes (works on PS 5.1 and 7+). Read stdin with `[Console]::In.ReadToEnd()`.
+Write `statusline-command.ps1` to the targeted platform directory. Use `ConvertFrom-Json` (no Python dep). Read the JSONL transcript with `Get-Content -ReadCount 0` and `ConvertFrom-Json` per line inside try/catch. Use `[char]27` for ANSI escapes.
 
-`%USERPROFILE%\.claude\statusline-command.ps1`:
+`statusline-command.ps1`:
 
 ```powershell
 $ErrorActionPreference = 'SilentlyContinue'
@@ -298,8 +371,13 @@ function QuotaColor([double]$used) {
 }
 
 function FmtEta($resetsAt) {
-  if ($null -eq $resetsAt) { return "" }
-  $delta = [int64]$resetsAt - [int64](Get-Date -UFormat %s)
+  if ($null -eq $resetsAt -or $resetsAt -eq "") { return "" }
+  $val = [int64]$resetsAt
+  if ($val -lt 10000000) {
+    $delta = $val
+  } else {
+    $delta = $val - [int64](Get-Date -UFormat %s)
+  }
   if ($delta -le 0) { return "now" }
   $days = [math]::Floor($delta / 86400); $delta = $delta % 86400
   $hours = [math]::Floor($delta / 3600); $delta = $delta % 3600
@@ -334,6 +412,13 @@ function GetBranch($cwd) {
 
 function SumTokens($path) {
   if (-not $path) { return $null }
+  # Resolve path mismatch (if it has .gemini/antigravity/ but it actually is at .gemini/antigravity-cli/)
+  if (-not (Test-Path -LiteralPath $path) -and $path.Contains("/.gemini/antigravity/")) {
+    $corrected = $path.Replace(".gemini/antigravity/", ".gemini/antigravity-cli/").Replace(".gemini\antigravity\", ".gemini\antigravity-cli\")
+    if (Test-Path -LiteralPath $corrected) {
+      $path = $corrected
+    }
+  }
   if (-not (Test-Path -LiteralPath $path)) { return $null }
   $sumIn = 0; $sumOut = 0; $found = $false
   $lines = Get-Content -LiteralPath $path -ReadCount 0 -ErrorAction SilentlyContinue
@@ -377,39 +462,99 @@ $ctx = $data.context_window.used_percentage
 if ($null -ne $ctx) { $segments += "$C_CTX" + "ctx " + [int][math]::Round([double]$ctx) + "%$RESET" }
 
 $tokens = SumTokens $data.transcript_path
+$ti = 0
+$to = 0
 if ($null -ne $tokens) {
-  $segments += "$C_TOK↑$(FmtTokens $tokens[0]) ↓$(FmtTokens $tokens[1])$RESET"
+  $ti = $tokens[0]
+  $to = $tokens[1]
 }
 
-$five = $data.rate_limits.five_hour
-$seven = $data.rate_limits.seven_day
-if ($null -ne $five.used_percentage) {
-  $u = [double]$five.used_percentage
-  $segments += "$(QuotaColor $u)5h:$([int][math]::Round($u))%($(FmtEta $five.resets_at))$RESET"
+# Fallback to payload context_window tokens if transcript sum is 0
+if ($ti -eq 0 -and $to -eq 0) {
+  if ($null -ne $data.context_window.total_input_tokens -and $null -ne $data.context_window.total_output_tokens) {
+    $ti = [int64]$data.context_window.total_input_tokens
+    $to = [int64]$data.context_window.total_output_tokens
+  }
 }
-if ($null -ne $seven.used_percentage) {
-  $u = [double]$seven.used_percentage
-  $segments += "$(QuotaColor $u)7d:$([int][math]::Round($u))%($(FmtEta $seven.resets_at))$RESET"
+
+if ($ti -gt 0 -or $to -gt 0) {
+  $segments += "$C_TOK↑$(FmtTokens $ti) ↓$(FmtTokens $to)$RESET"
+}
+
+$five_used = $null
+$five_reset = $null
+$seven_used = $null
+$seven_reset = $null
+
+if ($null -ne $data.rate_limits.five_hour.used_percentage) {
+  $five_used = $data.rate_limits.five_hour.used_percentage
+  $five_reset = $data.rate_limits.five_hour.resets_at
+} elseif ($null -ne $data.quota) {
+  $q5 = if ($null -ne $data.quota."gemini-5h") { $data.quota."gemini-5h" } else { $data.quota."3p-5h" }
+  if ($null -ne $q5) {
+    $five_used = (1.0 - $q5.remaining_fraction) * 100
+    $five_reset = $q5.reset_in_seconds
+  }
+}
+
+if ($null -ne $data.rate_limits.seven_day.used_percentage) {
+  $seven_used = $data.rate_limits.seven_day.used_percentage
+  $seven_reset = $data.rate_limits.seven_day.resets_at
+} elseif ($null -ne $data.quota) {
+  $qw = if ($null -ne $data.quota."gemini-weekly") { $data.quota."gemini-weekly" } else { $data.quota."3p-weekly" }
+  if ($null -ne $qw) {
+    $seven_used = (1.0 - $qw.remaining_fraction) * 100
+    $seven_reset = $qw.reset_in_seconds
+  }
+}
+
+if ($null -ne $five_used) {
+  $segments += "$(QuotaColor $five_used)5h:$([int][math]::Round($five_used))%($(FmtEta $five_reset))$RESET"
+}
+if ($null -ne $seven_used) {
+  $segments += "$(QuotaColor $seven_used)7d:$([int][math]::Round($seven_used))%($(FmtEta $seven_reset))$RESET"
 }
 
 $sep = " $C_PIPE|$RESET "
 [Console]::Out.Write([string]::Join($sep, $segments))
 ```
 
-Wire into `%USERPROFILE%\.claude\settings.json`:
+## Settings Wiring
+
+### Claude Code
+
+Wire into `~/.claude/settings.json` (or `%USERPROFILE%\.claude\settings.json` on Windows):
 
 ```json
 {
   "statusLine": {
     "type": "command",
-    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"%USERPROFILE%\\.claude\\statusline-command.ps1\""
+    "command": "bash ~/.claude/statusline-command.sh"
   }
 }
 ```
 
+(Or the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude\statusline-command.ps1"` variant on Windows).
+
+### Antigravity CLI
+
+Wire into `~/.gemini/antigravity-cli/settings.json` (or `%USERPROFILE%\.gemini\antigravity-cli\settings.json` on Windows):
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.gemini/antigravity-cli/statusline-command.sh",
+    "enabled": true
+  }
+}
+```
+
+(Or the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.gemini\antigravity-cli\statusline-command.ps1"` variant on Windows).
+
 ## Smoke Test
 
-After installing, generate a fake JSON payload with 5h at 80% used, 7d at 50% used, both with future `resets_at`, plus a `transcript_path` pointing at a small fixture JSONL containing two assistant messages with `usage` blocks. Pipe it into the script and confirm:
+After installing, generate a fake JSON payload with 5h at 80% used, 7d at 50% used, both with future `resets_at`/`reset_in_seconds`, plus a `transcript_path` pointing at a small fixture JSONL containing two assistant messages with `usage` blocks. Pipe it into the script and confirm:
 
 - 5h renders **orange**, 7d renders **amber**.
 - cwd, model, and context % are present.

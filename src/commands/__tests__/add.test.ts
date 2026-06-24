@@ -10,11 +10,18 @@ import {
 	type MockInstance,
 	vi,
 } from "vitest"
+import {
+	detectConflicts,
+	dropAgentsEntry,
+	removeAgentDirEntries,
+	wireAgentSetup,
+} from "../../utils/agent-setup.js"
 import { fetchSkillFromGitHub } from "../../utils/github.js"
 import {
-	getTargetPaths,
+	getAgentsBase,
 	PLATFORM_LABELS,
 	TYPE_DIRS,
+	TYPE_SUBDIRS,
 } from "../../utils/paths.js"
 import { chooseInstallScope } from "../../utils/scope-prompt.js"
 import { add } from "../add.js"
@@ -24,6 +31,7 @@ vi.mock("@clack/prompts")
 vi.mock("../../utils/github.js")
 vi.mock("../../utils/paths.js")
 vi.mock("../../utils/scope-prompt.js")
+vi.mock("../../utils/agent-setup.js")
 
 describe(add.name, () => {
 	let mockExit: MockInstance
@@ -50,15 +58,29 @@ describe(add.name, () => {
 			isFile: () => false,
 		} as fs.Stats)
 
-		vi.mocked(getTargetPaths).mockReturnValue({
-			gemini: "/mock/gemini/path",
-		})
-		vi.mocked(PLATFORM_LABELS).gemini = "Gemini CLI"
 		vi.mocked(TYPE_DIRS).skill = "/mock/skills"
 		vi.mocked(TYPE_DIRS).agent = "/mock/agents"
 		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows"
+		vi.mocked(TYPE_SUBDIRS).skill = "skills"
+		vi.mocked(TYPE_SUBDIRS).agent = "agents"
+		vi.mocked(TYPE_SUBDIRS).workflow = "commands"
+		vi.mocked(getAgentsBase).mockReturnValue("/mock/home/.agents")
+		vi.mocked(PLATFORM_LABELS)["claude-code"] = "Claude Code"
+		vi.mocked(PLATFORM_LABELS).gemini = "Gemini CLI"
+		vi.mocked(PLATFORM_LABELS).codex = "Codex"
+		vi.mocked(PLATFORM_LABELS).copilot = "GitHub Copilot"
+		vi.mocked(PLATFORM_LABELS).windsurf = "Windsurf"
+		vi.mocked(PLATFORM_LABELS).antigravity = "Antigravity"
+		vi.mocked(wireAgentSetup).mockResolvedValue({
+			wiredPlatforms: ["claude-code", "gemini"],
+			ranScript: true,
+		})
+		vi.mocked(detectConflicts).mockResolvedValue([])
+		vi.mocked(removeAgentDirEntries).mockResolvedValue(undefined)
+		vi.mocked(dropAgentsEntry).mockResolvedValue(undefined)
 
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
+		vi.mocked(prompts.multiselect).mockResolvedValue(["claude-code"])
 		vi.mocked(prompts.select).mockResolvedValue("exit")
 
 		vi.mocked(chooseInstallScope).mockResolvedValue({
@@ -74,6 +96,21 @@ describe(add.name, () => {
 		vi.resetModules()
 	})
 
+	const mkLocalSkill = (name = "test-skill") => {
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValueOnce([
+			{ name, isDirectory: () => true, isFile: () => false } as fs.Dirent,
+		])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([name])
+	}
+
+	const targetMissing = () =>
+		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
+			if (p.includes("/.agents/")) return Promise.resolve(false)
+			return Promise.resolve(true)
+		})
+
 	it("should cancel if type is unknown", async () => {
 		await add("unknown")
 		expect(prompts.cancel).toHaveBeenCalledWith(
@@ -82,84 +119,112 @@ describe(add.name, () => {
 		expect(mockExit).toHaveBeenCalledWith(1)
 	})
 
-	it("should handle local selection and installation", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValue([
-			{
-				name: "test-skill",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"test-skill",
-		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-
+	it("should install a local skill into .agents/skills", async () => {
+		mkLocalSkill()
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false) // decline hook wiring
 		await add("skill")
 
 		expect(prompts.intro).toHaveBeenCalled()
-		expect(fs.copy).toHaveBeenCalled()
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/mock/skills/test-skill",
+			"/mock/home/.agents/skills/test-skill",
+			{ overwrite: true },
+		)
 		expect(prompts.outro).toHaveBeenCalled()
 	})
 
-	it("should handle GitHub fetch and installation", async () => {
+	it("should install a local agent .md into .agents/agents", async () => {
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValueOnce([
+			{
+				name: "my-agent.md",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
+		])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"my-agent.md",
+		])
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+
+		await add("agent")
+
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/mock/agents/my-agent.md",
+			"/mock/home/.agents/agents/my-agent.md",
+			{ overwrite: true },
+		)
+	})
+
+	it("should install a workflow into .agents/commands", async () => {
+		vi.mocked(
+			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+		).mockResolvedValueOnce([
+			{
+				name: "flow.md",
+				isDirectory: () => false,
+				isFile: () => true,
+			} as fs.Dirent,
+		])
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+			"flow.md",
+		])
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+
+		await add("workflow")
+
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/mock/workflows/flow.md",
+			"/mock/home/.agents/commands/flow.md",
+			{ overwrite: true },
+		)
+	})
+
+	it("should handle GitHub fetch and installation for a directory (tree)", async () => {
 		const mockUrl = "https://github.com/owner/repo/tree/main/skill"
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/skill",
 			skillName: "skill",
 			isFile: false,
 		})
-
-		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 
 		await add("skill", mockUrl)
 
 		expect(fetchSkillFromGitHub).toHaveBeenCalledWith(mockUrl)
-		expect(fs.copy).toHaveBeenCalled()
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/tmp/skill",
+			expect.stringContaining(".agents/skills/skill"),
+			{ overwrite: true },
+		)
 		expect(fs.remove).toHaveBeenCalledWith("/tmp/skill")
 	})
 
-	it("should handle GitHub fetch and file installation", async () => {
-		const mockUrl = "https://github.com/owner/repo/blob/main/agent.md"
+	it("should handle GitHub fetch and installation for a single file (blob)", async () => {
+		const mockUrl =
+			"https://github.com/owner/repo/blob/main/skills/skill-name.md"
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/agent",
-			skillName: "agent.md",
+			tempDir: "/tmp/skill-name.md",
+			skillName: "skill-name.md",
 			isFile: true,
 		})
-		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
-			if (p.includes("/tmp/agent/agent.md")) return Promise.resolve(true)
-			return Promise.resolve(true)
-		})
-		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
-			isFile: () => true,
-		} as fs.Stats)
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 
-		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
+		await add("skill", mockUrl)
 
-		await add("agent", mockUrl)
-
-		expect(fs.readFile).toHaveBeenCalled()
-	})
-
-	it("should handle cancel during multiselect", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValue([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-
-		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-
-		await add("skill")
-		expect(fs.copy).not.toHaveBeenCalled()
+		expect(fetchSkillFromGitHub).toHaveBeenCalledWith(mockUrl)
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/tmp/skill-name.md/skill-name.md",
+			expect.stringContaining(".agents/skills/skill-name"),
+			{ overwrite: true },
+		)
+		expect(fs.remove).toHaveBeenCalledWith("/tmp/skill-name.md")
 	})
 
 	it("should handle GitHub fetch failure", async () => {
@@ -177,7 +242,6 @@ describe(add.name, () => {
 	})
 
 	it("should handle no items found in directory", async () => {
-		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(
 			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
 		).mockResolvedValue([])
@@ -191,23 +255,14 @@ describe(add.name, () => {
 	})
 
 	it("should sort available items", async () => {
-		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
 		vi.mocked(
 			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
 		).mockResolvedValue([
-			{
-				name: "b-item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-			{
-				name: "a-item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
+			{ name: "b-item", isDirectory: () => true, isFile: () => false },
+			{ name: "a-item", isDirectory: () => true, isFile: () => false },
+		] as unknown as fs.Dirent<string>[])
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["a-item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 
 		await add("skill")
 
@@ -223,28 +278,16 @@ describe(add.name, () => {
 
 	it("should support interactive loop starting from no type", async () => {
 		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill") // First iteration: pick skill
-			.mockResolvedValueOnce("exit") // Second iteration: exit
-
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "skill1",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["skill1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+			.mockResolvedValueOnce("skill")
+			.mockResolvedValueOnce("exit")
+		mkLocalSkill("skill1")
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 
 		await add()
 
 		expect(prompts.select).toHaveBeenCalledWith(
-			expect.objectContaining({
-				message: "What would you like to add?",
-			}),
+			expect.objectContaining({ message: "What would you like to add?" }),
 		)
 		expect(fs.copy).toHaveBeenCalled()
 	})
@@ -269,75 +312,13 @@ describe(add.name, () => {
 	})
 
 	it("should return early if local selection is cancelled", async () => {
-		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"))
+		mkLocalSkill()
+		vi.mocked(prompts.autocompleteMultiselect)
+			.mockReset()
+			.mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel).mockReturnValue(true)
 		await add("skill")
 		expect(fs.copy).not.toHaveBeenCalled()
-	})
-
-	it("should return early if platform selection is cancelled", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"]) // items
-			.mockResolvedValueOnce(Symbol("cancel")) // platforms
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true)
-
-		await add("skill")
-		expect(fs.copy).not.toHaveBeenCalled()
-	})
-
-	it("should return early if overwrite confirmation is cancelled", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.multiselect)
-			.mockResolvedValueOnce(["item"])
-			.mockResolvedValueOnce(["gemini"])
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false) // item
-			.mockReturnValueOnce(false) // platform
-			.mockReturnValueOnce(true) // overwrite
-
-		await add("skill")
-		expect(fs.copy).not.toHaveBeenCalled()
-	})
-
-	it("should handle installation errors in loop", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		vi.mocked(fs.copy).mockRejectedValue(new Error("Disk full"))
-
-		await add("skill")
-		expect(mockConsoleError).toHaveBeenCalledWith(
-			expect.stringContaining("item -> gemini: Disk full"),
-		)
 	})
 
 	it("should cancel if source directory not found", async () => {
@@ -347,418 +328,124 @@ describe(add.name, () => {
 		expect(mockExit).toHaveBeenCalledWith(1)
 	})
 
-	it("should cancel if no supported platforms found", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(getTargetPaths).mockReturnValue({})
-
-		await add("skill")
-		expect(prompts.cancel).toHaveBeenCalledWith(
-			"No supported platforms found for type 'skill'.",
-		)
-		expect(mockExit).toHaveBeenCalledWith(1)
-	})
-
-	it("should return early if interactive loop type selection is cancelled", async () => {
-		vi.mocked(prompts.select).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-		await add()
-		expect(fs.readdir).not.toHaveBeenCalled()
-	})
-
-	it("should handle error in loop catch block", async () => {
-		// Mock select to return a value once, then throw on the next loop iteration check or similar
-		// Actually, the simplest is to mock a dependency inside the loop to throw.
-		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
-		vi.mocked(fs.pathExists).mockRejectedValueOnce(new Error("fatal error"))
-
-		await add()
-		expect(prompts.cancel).toHaveBeenCalledWith(
-			expect.stringContaining("fatal error"),
-		)
-		expect(mockExit).toHaveBeenCalledWith(1)
-	})
-
-	it("should handle no items found in directory and continue in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(fs.pathExists as () => Promise<boolean>).mockResolvedValue(true)
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([])
-
-		await add()
-
-		expect(prompts.note).toHaveBeenCalledWith(
-			expect.stringContaining("No skills found in directory."),
-			"Information",
-		)
-	})
-
-	it("should handle item selection cancellation and continue in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(
-			Symbol("cancel"),
-		)
-		vi.mocked(prompts.isCancel)
-			.mockReset()
-			.mockReturnValueOnce(false) // for select
-			.mockReturnValueOnce(true) // for multiselect items
-			.mockReturnValue(false)
-
-		await add()
-		expect(prompts.select).toHaveBeenCalledTimes(2)
-	})
-
-	it("should handle platform selection cancellation and continue in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReset()
-			.mockReturnValueOnce(false) // select
-			.mockReturnValueOnce(false) // items
-			.mockReturnValueOnce(true) // platforms
-			.mockReturnValue(false)
-
-		await add()
-		expect(prompts.select).toHaveBeenCalledTimes(2)
-	})
-
-	it("should handle overwrite confirmation cancellation and continue in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReset()
-			.mockReturnValueOnce(false) // select
-			.mockReturnValueOnce(false) // item
-			.mockReturnValueOnce(false) // platform
-			.mockReturnValueOnce(true) // confirm overwrite
-			.mockReturnValue(false)
-
-		await add()
-		expect(prompts.select).toHaveBeenCalledTimes(2)
-	})
-
 	it("should throw error if item not found during installation", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-
-		// Ensure fs.stat doesn't throw here for local source check
-		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
-			isFile: () => false,
-		} as fs.Stats)
-
-		// First pathExists for source check, second for installation check
+		mkLocalSkill("item")
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
-			if (p.includes("/mock/skills/item")) return Promise.resolve(false) // item not found in installItem
+			if (p.includes("/mock/skills/item")) return Promise.resolve(false)
 			return Promise.resolve(true)
 		})
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["item"])
 
 		await add("skill")
 		expect(mockConsoleError).toHaveBeenCalledWith(
-			expect.stringContaining("item -> gemini: Item 'item' not found"),
+			expect.stringContaining("item: Item 'item' not found"),
 		)
 	})
 
-	it("should skip item if not overwriting and target exists", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "item",
-				isDirectory: () => true,
-				isFile: () => false,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+	it("should copy when the user confirms overwriting an existing .agents entry", async () => {
+		mkLocalSkill("item")
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+		await add("skill")
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/mock/skills/item",
+			"/mock/home/.agents/skills/item",
+			{ overwrite: true },
+		)
+	})
 
-		// Handle various pathExists calls
-		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
-			if (p.includes("/mock/skills")) return Promise.resolve(true) // source exists
-			if (p.includes("/mock/gemini/path")) return Promise.resolve(true) // target exists
-			return Promise.resolve(true)
-		})
-
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(false) // don't overwrite
-
+	it("should preserve the original and skip when overwrite is declined", async () => {
+		mkLocalSkill("item")
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce([])
 		await add("skill")
 		expect(fs.copy).not.toHaveBeenCalled()
+		expect(dropAgentsEntry).not.toHaveBeenCalled()
 	})
 
-	it("should handle more than 5 existing items in warning message", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{ name: "item1", isDirectory: () => true, isFile: () => false },
-			{ name: "item2", isDirectory: () => true, isFile: () => false },
-			{ name: "item3", isDirectory: () => true, isFile: () => false },
-			{ name: "item4", isDirectory: () => true, isFile: () => false },
-			{ name: "item5", isDirectory: () => true, isFile: () => false },
-			{ name: "item6", isDirectory: () => true, isFile: () => false },
-		] as unknown as fs.Dirent<string>[])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"item1",
-			"item2",
-			"item3",
-			"item4",
-			"item5",
-			"item6",
-		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+	it("should bail to the loop when the up-front overwrite prompt is cancelled", async () => {
+		vi.mocked(prompts.select)
+			.mockResolvedValueOnce("skill")
+			.mockResolvedValueOnce("exit")
+		mkLocalSkill("item")
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(true)
-
-		await add("skill")
-		expect(prompts.note).toHaveBeenCalledWith(
-			expect.stringContaining("and 1 others"),
-			"Attention",
-		)
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.isCancel)
+			.mockReturnValueOnce(false)
+			.mockReturnValueOnce(false)
+			.mockReturnValueOnce(true)
+		await add()
+		expect(fs.copy).not.toHaveBeenCalled()
+		expect(wireAgentSetup).not.toHaveBeenCalled()
 	})
 
 	it("should handle non-Error exception during installation", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{ name: "item", isDirectory: () => true, isFile: () => false },
-		] as unknown as fs.Dirent<string>[])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
+		mkLocalSkill("item")
+		targetMissing()
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 		vi.mocked(fs.copy).mockRejectedValue("string error")
 
 		await add("skill")
 		expect(mockConsoleError).toHaveBeenCalledWith(
-			expect.stringContaining("item -> gemini: string error"),
+			expect.stringContaining("item: string error"),
 		)
 	})
 
-	it("should handle platform-specific transformation for agent/workflow and skip if exists", async () => {
-		const mockUrl = "https://github.com/owner/repo/blob/main/agent.md"
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/agent",
-			skillName: "agent.md",
-			isFile: true,
-		})
-		vi.mocked(fs.pathExists).mockImplementation((p: string) => {
-			if (p.includes("/mock/gemini/path")) return Promise.resolve(true) // target exists
-			return Promise.resolve(true) // source exists
-		})
-		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
-			isFile: () => true,
-		} as fs.Stats)
-
-		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
-		vi.mocked(prompts.confirm).mockResolvedValue(false) // don't overwrite
-
-		await add("agent", mockUrl)
-
-		expect(fs.readFile).not.toHaveBeenCalled()
-	})
-
-	it("should handle fetch with undefined type (normalized to empty string)", async () => {
+	it("should cleanup tempDir when scope choice is cancelled with URL", async () => {
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		})
-		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
-
-		await add(undefined, "https://github.com/url")
-
-		expect(fs.copy).toHaveBeenCalled()
-	})
-
-	it("should cleanup tempDir if platform selection is cancelled", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(prompts.multiselect).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-
-		await add("skill", "url")
+		vi.mocked(chooseInstallScope).mockResolvedValueOnce({ cancelled: true })
+		await add("skill", "https://github.com/x/y/tree/main/item")
+		expect(fs.copy).not.toHaveBeenCalled()
 		expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
 	})
 
-	it("should cleanup tempDir if overwrite confirmation is cancelled", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReset()
-			.mockReturnValueOnce(false) // multiselect platforms
-			.mockReturnValueOnce(true) // confirm overwrite
-			.mockReturnValue(false)
-
-		await add("skill", "url")
-		expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
-	})
-
-	it("should handle missing targetBase during check and installation", async () => {
-		vi.mocked(getTargetPaths).mockReturnValue({
-			gemini: "", // missing path
-		})
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		// readdir mock
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{ name: "item", isDirectory: () => true, isFile: () => false },
-		] as unknown as fs.Dirent<string>[])
-
+	it("should bail out when scope choice is cancelled", async () => {
+		mkLocalSkill()
+		vi.mocked(chooseInstallScope).mockResolvedValueOnce({ cancelled: true })
 		await add("skill")
-		expect(fs.pathExists).not.toHaveBeenCalledWith(
-			expect.stringMatching(/\/item$/),
-		)
 		expect(fs.copy).not.toHaveBeenCalled()
 	})
 
-	it("should handle currentType being null/undefined for normalizedType coverage", async () => {
-		// Mock select to return "exit" immediately
-		vi.mocked(prompts.select).mockResolvedValueOnce("exit")
-		// add(undefined) will make currentType undefined
-		await add(undefined)
-		expect(prompts.select).toHaveBeenCalled()
-	})
-
-	it("should handle fetch with non-md file", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item.txt",
-			isFile: true,
+	it("should reject when scope flag is unavailable", async () => {
+		mkLocalSkill()
+		vi.mocked(chooseInstallScope).mockResolvedValueOnce({
+			rejected: true,
+			reason: "not a git repo",
 		})
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(fs.stat as unknown as () => Promise<fs.Stats>).mockResolvedValue({
-			isFile: () => true,
-		} as fs.Stats)
-		vi.mocked(prompts.multiselect).mockResolvedValue(["gemini"])
-
-		await add("skill", "url")
-		expect(fs.copy).toHaveBeenCalled()
-	})
-
-	it("should handle error when tempDir is null in catch block", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockRejectedValue(
-			new Error("pre-fetch error"),
+		await add("skill", undefined, { scope: "project" })
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			expect.stringContaining("not a git repo"),
 		)
-		await add("skill", "url")
-		expect(fs.remove).not.toHaveBeenCalled()
+		expect(mockExit).toHaveBeenCalledWith(1)
 	})
 
 	describe("scope handling", () => {
-		const mkLocalReaddir = () => {
-			vi.mocked(
-				fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-			).mockResolvedValueOnce([
-				{
-					name: "item",
-					isDirectory: () => true,
-					isFile: () => false,
-				} as fs.Dirent,
-			])
-			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		}
-
-		it("should call chooseInstallScope after platform selection", async () => {
-			mkLocalReaddir()
-			await add("skill")
-			expect(chooseInstallScope).toHaveBeenCalled()
-		})
-
 		it("should pass --scope flag through to chooseInstallScope", async () => {
-			mkLocalReaddir()
+			mkLocalSkill()
+			vi.mocked(prompts.confirm).mockResolvedValue(false)
 			await add("skill", undefined, { scope: "project" })
 			expect(chooseInstallScope).toHaveBeenCalledWith(
 				expect.objectContaining({ flag: "project" }),
 			)
 		})
 
-		it("should resolve project scope paths against the chosen root", async () => {
-			mkLocalReaddir()
-			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
-				cancelled: false,
-				scope: "project",
-				root: "/tmp/myrepo",
-			})
-			await add("skill")
-			expect(getTargetPaths).toHaveBeenCalledWith(
-				"skill",
-				"project",
-				"/tmp/myrepo",
-			)
-		})
-
 		it("should require explicit confirm when project scope is chosen", async () => {
-			mkLocalReaddir()
+			mkLocalSkill()
+			vi.mocked(getAgentsBase).mockReturnValue("/tmp/myrepo/.agents")
 			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
 				cancelled: false,
 				scope: "project",
 				root: "/tmp/myrepo",
 			})
-			vi.mocked(prompts.confirm).mockResolvedValueOnce(true)
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(true) // project confirm
+				.mockResolvedValueOnce(false) // decline hook
 			await add("skill")
 			expect(prompts.confirm).toHaveBeenCalledWith(
 				expect.objectContaining({
@@ -767,30 +454,8 @@ describe(add.name, () => {
 			)
 		})
 
-		it("should bail out and not install when scope choice is cancelled", async () => {
-			mkLocalReaddir()
-			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
-				cancelled: true,
-			})
-			await add("skill")
-			expect(fs.copy).not.toHaveBeenCalled()
-		})
-
-		it("should bail out and clean up tempDir when scope choice is cancelled with URL", async () => {
-			vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-				tempDir: "/tmp/item",
-				skillName: "item",
-				isFile: false,
-			})
-			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-			vi.mocked(chooseInstallScope).mockResolvedValueOnce({ cancelled: true })
-			await add("skill", "https://github.com/x/y/tree/main/item")
-			expect(fs.copy).not.toHaveBeenCalled()
-			expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
-		})
-
 		it("should bail out when project-scope confirm is declined", async () => {
-			mkLocalReaddir()
+			mkLocalSkill()
 			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
 				cancelled: false,
 				scope: "project",
@@ -801,60 +466,207 @@ describe(add.name, () => {
 			expect(fs.copy).not.toHaveBeenCalled()
 		})
 
-		it("should bail out when project-scope confirm is cancelled", async () => {
-			mkLocalReaddir()
-			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
-				cancelled: false,
-				scope: "project",
-				root: "/tmp/myrepo",
-			})
-			vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
-			vi.mocked(prompts.isCancel)
-				.mockReset()
-				.mockReturnValueOnce(false) // multiselect items
-				.mockReturnValueOnce(false) // multiselect platforms
-				.mockReturnValueOnce(true) // project confirm
-				.mockReturnValue(false)
-			await add("skill")
-			expect(fs.copy).not.toHaveBeenCalled()
-		})
-
 		it("should include scope in summary note", async () => {
-			mkLocalReaddir()
+			mkLocalSkill()
 			vi.mocked(chooseInstallScope).mockResolvedValueOnce({
 				cancelled: false,
 				scope: "project",
 				root: "/tmp/myrepo",
 			})
-			vi.mocked(prompts.confirm).mockResolvedValueOnce(true)
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(true)
+				.mockResolvedValueOnce(false)
 			await add("skill")
 			expect(prompts.note).toHaveBeenCalledWith(
 				expect.stringContaining("scope: project"),
 				"Summary",
 			)
 		})
+	})
 
-		it("should reset scope between loop iterations", async () => {
-			vi.mocked(prompts.select)
-				.mockResolvedValueOnce("skill")
-				.mockResolvedValueOnce("exit")
-			vi.mocked(
-				fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-			).mockResolvedValueOnce([
-				{
-					name: "item",
-					isDirectory: () => true,
-					isFile: () => false,
-				} as fs.Dirent,
-			])
-			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item"])
-			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-			await add()
-			// Even when the call site doesn't pass scope, chooseInstallScope is still called once.
-			expect(chooseInstallScope).toHaveBeenCalledTimes(1)
-			expect(chooseInstallScope).toHaveBeenCalledWith(
-				expect.objectContaining({ flag: undefined }),
+	describe("hook wiring", () => {
+		it("should offer to wire the hook after a successful install", async () => {
+			mkLocalSkill()
+			targetMissing()
+			await add("skill")
+			expect(prompts.confirm).toHaveBeenCalledWith(
+				expect.objectContaining({
+					message: "Wire the agent-setup session-start hook now?",
+				}),
 			)
+			expect(wireAgentSetup).toHaveBeenCalledWith(
+				"/mock/home/.agents",
+				"global",
+				os.homedir(),
+				["claude-code"],
+			)
+		})
+
+		it("should prompt for which agents to wire", async () => {
+			mkLocalSkill()
+			targetMissing()
+			await add("skill")
+			expect(prompts.multiselect).toHaveBeenCalledWith(
+				expect.objectContaining({
+					message: "Which agents should be wired?",
+					required: true,
+				}),
+			)
+		})
+
+		it("should bail when the agent multiselect is cancelled", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
+			vi.mocked(prompts.isCancel)
+				.mockReturnValueOnce(false) // autocomplete items
+				.mockReturnValueOnce(false) // hook confirm
+				.mockReturnValueOnce(true) // agent multiselect
+			await add("skill")
+			expect(wireAgentSetup).not.toHaveBeenCalled()
+		})
+
+		it("should overwrite conflicting entries the user selects", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(detectConflicts).mockResolvedValueOnce([
+				{
+					entry: "dup",
+					subdir: "skills",
+					targetPaths: ["/x/.claude/skills/dup"],
+				},
+			])
+			vi.mocked(prompts.multiselect)
+				.mockResolvedValueOnce(["claude-code"]) // agents
+				.mockResolvedValueOnce(["dup"]) // overwrite selection
+			await add("skill")
+			expect(removeAgentDirEntries).toHaveBeenCalledWith([
+				"/x/.claude/skills/dup",
+			])
+			expect(dropAgentsEntry).not.toHaveBeenCalled()
+			expect(wireAgentSetup).toHaveBeenCalled()
+		})
+
+		it("should drop conflicting entries the user does not select", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(detectConflicts).mockResolvedValueOnce([
+				{
+					entry: "dup",
+					subdir: "skills",
+					targetPaths: ["/x/.claude/skills/dup"],
+				},
+			])
+			vi.mocked(prompts.multiselect)
+				.mockResolvedValueOnce(["claude-code"]) // agents
+				.mockResolvedValueOnce([]) // overwrite none
+			await add("skill")
+			expect(dropAgentsEntry).toHaveBeenCalledWith(
+				"/mock/home/.agents",
+				"skills",
+				"dup",
+			)
+			expect(removeAgentDirEntries).not.toHaveBeenCalled()
+		})
+
+		it("should prompt up front to overwrite an entry pre-existing in .agents", async () => {
+			mkLocalSkill("pre")
+			vi.mocked(detectConflicts).mockResolvedValueOnce([])
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce([])
+			await add("skill")
+			expect(prompts.multiselect).toHaveBeenCalledWith(
+				expect.objectContaining({
+					options: [{ label: "pre", value: "pre" }],
+				}),
+			)
+			expect(fs.copy).not.toHaveBeenCalled()
+			expect(dropAgentsEntry).not.toHaveBeenCalled()
+			expect(removeAgentDirEntries).not.toHaveBeenCalled()
+		})
+
+		it("should overwrite an entry conflicting in both .agents and a platform dir", async () => {
+			mkLocalSkill("dup")
+			vi.mocked(detectConflicts).mockResolvedValueOnce([
+				{
+					entry: "dup",
+					subdir: "skills",
+					targetPaths: ["/x/.claude/skills/dup"],
+				},
+			])
+			vi.mocked(prompts.multiselect)
+				.mockResolvedValueOnce(["dup"])
+				.mockResolvedValueOnce(["claude-code"])
+				.mockResolvedValueOnce(["dup"])
+			await add("skill")
+			expect(fs.copy).toHaveBeenCalledWith(
+				"/mock/skills/dup",
+				"/mock/home/.agents/skills/dup",
+				{ overwrite: true },
+			)
+			expect(removeAgentDirEntries).toHaveBeenCalledWith([
+				"/x/.claude/skills/dup",
+			])
+			expect(dropAgentsEntry).not.toHaveBeenCalled()
+		})
+
+		it("should not prompt when there are no conflicts", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(detectConflicts).mockResolvedValueOnce([])
+			await add("skill")
+			expect(prompts.multiselect).toHaveBeenCalledTimes(1)
+			expect(wireAgentSetup).toHaveBeenCalled()
+		})
+
+		it("should bail when the conflict multiselect is cancelled", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(detectConflicts).mockResolvedValueOnce([
+				{ entry: "dup", subdir: "skills", targetPaths: ["/x/dup"] },
+			])
+			vi.mocked(prompts.multiselect)
+				.mockResolvedValueOnce(["claude-code"]) // agents
+				.mockResolvedValueOnce(Symbol("cancel")) // overwrite cancelled
+			vi.mocked(prompts.isCancel)
+				.mockReturnValueOnce(false) // autocomplete items
+				.mockReturnValueOnce(false) // hook confirm
+				.mockReturnValueOnce(false) // agent multiselect
+				.mockReturnValueOnce(true) // conflict multiselect
+			await add("skill")
+			expect(wireAgentSetup).not.toHaveBeenCalled()
+		})
+
+		it("should not wire the hook when declined", async () => {
+			mkLocalSkill()
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+			await add("skill")
+			expect(wireAgentSetup).not.toHaveBeenCalled()
+		})
+
+		it("should not wire the hook when wiring confirm is cancelled", async () => {
+			mkLocalSkill()
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
+			vi.mocked(prompts.isCancel)
+				.mockReturnValueOnce(false) // autocomplete items
+				.mockReturnValueOnce(true) // hook confirm
+			await add("skill")
+			expect(wireAgentSetup).not.toHaveBeenCalled()
+		})
+
+		it("should not offer wiring when nothing was installed", async () => {
+			mkLocalSkill("item")
+			targetMissing()
+			vi.mocked(fs.copy).mockRejectedValue(new Error("Disk full"))
+			await add("skill")
+			expect(wireAgentSetup).not.toHaveBeenCalled()
+		})
+
+		it("should surface wiring errors without crashing", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(wireAgentSetup).mockRejectedValueOnce(new Error("wire boom"))
+			await add("skill")
+			expect(prompts.outro).toHaveBeenCalled()
 		})
 	})
 })

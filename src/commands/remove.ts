@@ -5,7 +5,6 @@ import {
 	confirm,
 	intro,
 	isCancel,
-	multiselect,
 	note,
 	outro,
 	select,
@@ -14,20 +13,26 @@ import {
 import fs from "fs-extra"
 import pc from "picocolors"
 import {
-	getTargetPaths,
-	PLATFORM_LABELS,
+	getAgentsBase,
+	getProjectPlatformPathsAgents,
+	getProjectPlatformPathsSkills,
+	getProjectPlatformPathsWorkflows,
+	PLATFORM_PATHS_AGENTS,
+	PLATFORM_PATHS_SKILLS,
+	PLATFORM_PATHS_WORKFLOWS,
 	type Platform,
 	type Scope,
+	TYPE_SUBDIRS,
 } from "@/utils/paths"
-import { codexEntryMatchesType } from "@/utils/platforms/codex"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
 import { chooseListRemoveScope, type ScopeChoice } from "@/utils/scope-prompt"
 
 enableAutocompleteMultiSelectShiftAToggle()
 
-interface ScopedTargetPaths {
+interface ScopedBase {
 	scope: Scope
-	paths: Partial<Record<Platform, string>>
+	base: string
+	root: string
 }
 
 interface ScannedItem {
@@ -37,76 +42,108 @@ interface ScannedItem {
 	scope: Scope
 }
 
-function buildScopedTargetPaths(
-	normalizedType: string,
+function buildScopedBases(
 	scope: ScopeChoice,
+	homedir: string,
 	projectRoot: string | undefined,
-): ScopedTargetPaths[] {
-	const out: ScopedTargetPaths[] = []
+): ScopedBase[] {
+	const out: ScopedBase[] = []
 	if (scope === "global" || scope === "both") {
 		out.push({
 			scope: "global",
-			paths: getTargetPaths(normalizedType, "global"),
+			base: getAgentsBase("global"),
+			root: homedir,
 		})
 	}
 	if ((scope === "project" || scope === "both") && projectRoot) {
 		out.push({
 			scope: "project",
-			paths: getTargetPaths(normalizedType, "project", projectRoot),
+			base: getAgentsBase("project", projectRoot),
+			root: projectRoot,
 		})
 	}
 	return out
 }
 
 async function scanInstalledItems(
-	scopedPaths: ScopedTargetPaths[],
+	scopedBases: ScopedBase[],
+	subdir: string,
 	normalizedType: string,
 ): Promise<ScannedItem[]> {
 	const seen = new Set<string>()
 	const items: ScannedItem[] = []
-	const showScopePrefix = scopedPaths.length > 1
+	const showScopePrefix = scopedBases.length > 1
 
-	for (const { scope, paths } of scopedPaths) {
-		for (const [platform, pathStr] of Object.entries(paths)) {
-			if (!pathStr) continue
-			if (!(await fs.pathExists(pathStr))) continue
+	for (const { scope, base } of scopedBases) {
+		const subdirPath = path.join(base, subdir)
+		if (!(await fs.pathExists(subdirPath))) continue
 
-			const entries = await fs.readdir(pathStr, { withFileTypes: true })
-			for (const entry of entries) {
-				let qualifies = false
-				if (platform === "codex") {
-					qualifies = await codexEntryMatchesType(
-						pathStr,
-						entry,
-						normalizedType,
-					)
-				} else if (
-					entry.isDirectory() ||
-					(normalizedType === "workflow" &&
-						entry.isFile() &&
-						entry.name.endsWith(".md")) ||
-					(normalizedType === "agent" &&
-						entry.isFile() &&
-						entry.name.endsWith(".md"))
-				) {
-					qualifies = true
-				}
-				if (!qualifies) continue
+		const entries = await fs.readdir(subdirPath, { withFileTypes: true })
+		for (const entry of entries) {
+			const qualifies =
+				entry.isDirectory() ||
+				(normalizedType !== "skill" &&
+					entry.isFile() &&
+					entry.name.endsWith(".md"))
+			if (!qualifies) continue
 
-				const key = showScopePrefix ? `${scope}:${entry.name}` : entry.name
-				if (seen.has(key)) continue
-				seen.add(key)
-				items.push({
-					key,
-					name: entry.name,
-					scope,
-					label: showScopePrefix ? `[${scope}] ${entry.name}` : entry.name,
-				})
-			}
+			const key = showScopePrefix ? `${scope}:${entry.name}` : entry.name
+			if (seen.has(key)) continue
+			seen.add(key)
+			items.push({
+				key,
+				name: entry.name,
+				scope,
+				label: showScopePrefix ? `[${scope}] ${entry.name}` : entry.name,
+			})
 		}
 	}
 
 	return items.sort((a, b) => a.label.localeCompare(b.label))
+}
+
+function getPlatformDirs(
+	scope: Scope,
+	root: string,
+	normalizedType: string,
+): Partial<Record<Platform, string>> {
+	if (scope === "project") {
+		switch (normalizedType) {
+			case "agent":
+				return getProjectPlatformPathsAgents(root)
+			case "workflow":
+				return getProjectPlatformPathsWorkflows(root)
+			default:
+				return getProjectPlatformPathsSkills(root)
+		}
+	}
+	switch (normalizedType) {
+		case "agent":
+			return PLATFORM_PATHS_AGENTS
+		case "workflow":
+			return PLATFORM_PATHS_WORKFLOWS
+		default:
+			return PLATFORM_PATHS_SKILLS
+	}
+}
+
+async function pruneDanglingLinks(
+	platformDirs: Partial<Record<Platform, string>>,
+	entry: string,
+	removedAgentsPath: string,
+): Promise<void> {
+	for (const dir of Object.values(platformDirs)) {
+		if (!dir) continue
+		const link = path.join(dir, entry)
+		try {
+			const stat = await fs.lstat(link)
+			if (!stat.isSymbolicLink()) continue
+			const resolved = await fs.realpath(link).catch(() => "")
+			if (resolved === removedAgentsPath || resolved === "") {
+				await fs.remove(link)
+			}
+		} catch {}
+	}
 }
 
 export interface RemoveOptions {
@@ -140,12 +177,11 @@ export async function remove(type?: string, options?: RemoveOptions) {
 			currentType = selectedType as string
 		}
 
-		// Normalize type
 		const normalizedType = currentType.toLowerCase().endsWith("s")
 			? currentType.slice(0, -1)
 			: currentType
+		const subdir = TYPE_SUBDIRS[normalizedType] ?? "skills"
 
-		// Scope selection (with guard + soft-refuse fallback)
 		const scopeChoice = await chooseListRemoveScope({
 			action: "remove",
 			flag: options?.scope,
@@ -163,16 +199,19 @@ export async function remove(type?: string, options?: RemoveOptions) {
 			continue
 		}
 
-		const scopedPaths = buildScopedTargetPaths(
-			normalizedType,
+		const scopedBases = buildScopedBases(
 			scopeChoice.scope,
+			scopeChoice.homedir,
 			scopeChoice.projectRoot,
 		)
 
-		// 1. Scan items across selected scopes
 		const s = spinner()
 		s.start("Scanning for installed items...")
-		const scannedItems = await scanInstalledItems(scopedPaths, normalizedType)
+		const scannedItems = await scanInstalledItems(
+			scopedBases,
+			subdir,
+			normalizedType,
+		)
 		s.stop(`Found ${scannedItems.length} installed ${normalizedType}s.`)
 
 		if (scannedItems.length === 0) {
@@ -182,7 +221,6 @@ export async function remove(type?: string, options?: RemoveOptions) {
 			continue
 		}
 
-		// 2. Select Items
 		const itemSelections = await autocompleteMultiselect({
 			message: `Select ${normalizedType}s to remove:`,
 			options: scannedItems.map((item) => ({
@@ -202,36 +240,8 @@ export async function remove(type?: string, options?: RemoveOptions) {
 			.map((key) => itemsByKey.get(key))
 			.filter((i): i is ScannedItem => !!i)
 
-		// 3. Select Platforms (union across the selected scopes' supported platforms)
-		const supportedPlatforms = new Set<Platform>()
-		for (const { paths } of scopedPaths) {
-			for (const platform of Object.keys(paths)) {
-				if (paths[platform as Platform])
-					supportedPlatforms.add(platform as Platform)
-			}
-		}
-		const platformOptions = [...supportedPlatforms].map((platform) => ({
-			label: PLATFORM_LABELS[platform],
-			value: platform,
-		}))
-
-		const platformSelections = await multiselect({
-			message: "Select platforms to remove from:",
-			options: platformOptions,
-			required: true,
-		})
-
-		if (isCancel(platformSelections)) {
-			if (isSingleShot) break
-			currentType = undefined
-			continue
-		}
-
-		const selectedPlatforms = platformSelections as Platform[]
-
-		// 4. Confirmation
 		const confirmDelete = await confirm({
-			message: `Are you sure you want to remove ${selectedScannedItems.length} item(s) from ${selectedPlatforms.length} platform(s)?`,
+			message: `Are you sure you want to remove ${selectedScannedItems.length} item(s) from .agents?`,
 			initialValue: false,
 		})
 
@@ -241,7 +251,6 @@ export async function remove(type?: string, options?: RemoveOptions) {
 			continue
 		}
 
-		// 5. Deletion Loop
 		const sDel = spinner()
 		sDel.start("Removing items...")
 
@@ -249,32 +258,34 @@ export async function remove(type?: string, options?: RemoveOptions) {
 		let notFoundCount = 0
 		const errors: string[] = []
 
-		const pathsByScope = new Map<Scope, Partial<Record<Platform, string>>>()
-		for (const { scope, paths } of scopedPaths) {
-			pathsByScope.set(scope, paths)
+		const basesByScope = new Map<Scope, ScopedBase>()
+		for (const sb of scopedBases) {
+			basesByScope.set(sb.scope, sb)
 		}
 
-		for (const platform of selectedPlatforms) {
-			for (const item of selectedScannedItems) {
-				const targetBase = pathsByScope.get(item.scope)?.[platform]
-				if (!targetBase) continue
+		for (const item of selectedScannedItems) {
+			const scoped = basesByScope.get(item.scope)
+			if (!scoped) continue
 
-				const targetPath = path.join(targetBase, item.name)
+			const agentsPath = path.join(scoped.base, subdir, item.name)
 
-				if (await fs.pathExists(targetPath)) {
-					sDel.message(
-						`Removing ${pc.bold(item.label)} from ${pc.cyan(platform)}...`,
+			if (await fs.pathExists(agentsPath)) {
+				sDel.message(`Removing ${pc.bold(item.label)} from .agents...`)
+				try {
+					await fs.remove(agentsPath)
+					removedCount++
+					const platformDirs = getPlatformDirs(
+						item.scope,
+						scoped.root,
+						normalizedType,
 					)
-					try {
-						await fs.remove(targetPath)
-						removedCount++
-					} catch (err) {
-						const msg = err instanceof Error ? err.message : String(err)
-						errors.push(`${item.label} (${platform}): ${msg}`)
-					}
-				} else {
-					notFoundCount++
+					await pruneDanglingLinks(platformDirs, item.name, agentsPath)
+				} catch (err) {
+					const msg = err instanceof Error ? err.message : String(err)
+					errors.push(`${item.label}: ${msg}`)
 				}
+			} else {
+				notFoundCount++
 			}
 		}
 

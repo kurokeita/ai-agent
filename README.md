@@ -94,35 +94,44 @@ Import a skill, agent, or workflow from GitHub into this repository.
 pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 ```
 
+## How Installs Work
+
+`add` copies every item into a single canonical directory:
+
+- **Global scope** → `~/.agents/{skills,agents,commands}`
+- **Project scope** → `<project-root>/.agents/{skills,agents,commands}`
+
+Skills go under `skills`, agents under `agents`, and workflows under `commands`. After copying, `add` can optionally wire each platform you select: it installs a session-start hook (under `.agents/hooks/`) and registers it in that platform's config. On each new session the hook symlinks the canonical `.agents/` entries back into the platform's own directories, so every tool sees the same set of items from one source of truth.
+
+`list` and `remove` operate on the canonical `.agents/` dir. Removing an entry also prunes any platform symlink left pointing at it.
+
 ## Supported Platforms
 
-<!-- SUPPORTED_AGENTS_START -->
+The tables below show where each platform consumes items from — i.e. the symlink destinations the session-start hook creates.
+
 | Platform | Agents Path | Skills Path | Workflows Path |
 | :--- | :--- | :--- | :--- |
 | Antigravity | *Not Supported* | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/global_workflows` |
-| Claude Code | `~/.claude/agents` | `~/.claude/skills` | `~/.claude/skills` |
+| Claude Code | `~/.claude/agents` | `~/.claude/skills` | `~/.claude/commands` |
 | Codex | `~/.codex/skills` | `~/.codex/skills` | `~/.codex/skills` |
 | Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/commands` |
 | GitHub Copilot | `~/.copilot/agents` | `~/.copilot/skills` | `~/.copilot/prompts` |
 | Windsurf | *Not Supported* | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/global_workflows` |
-<!-- SUPPORTED_AGENTS_END -->
 
-For Codex, this package installs skills directly and converts agents and workflows into Codex skill packages under `~/.codex/skills`.
+Codex consumes skills, agents, and workflows from a single `~/.codex/skills` directory, so all three symlink there.
 
 ### Project-scope paths
 
-When you pick `--scope project`, items are written under the current working directory instead of `~`. The mapping below uses `<project-root>` to mean `process.cwd()` (no git-toplevel relocation: a monorepo subdirectory installs into that subdirectory, not the repo root).
+When you pick `--scope project`, the canonical `.agents/` dir and the symlink destinations live under the current working directory instead of `~`. The mapping below uses `<project-root>` to mean `process.cwd()` (no git-toplevel relocation: a monorepo subdirectory installs into that subdirectory, not the repo root).
 
-<!-- PROJECT_SCOPE_PATHS_START -->
 | Platform | Agents Path | Skills Path | Workflows Path |
 | :--- | :--- | :--- | :--- |
 | Antigravity | *Not Supported* | `<project-root>/.gemini/antigravity/skills` | `<project-root>/.gemini/antigravity/workflows` |
-| Claude Code | `<project-root>/.claude/agents` | `<project-root>/.claude/skills` | `<project-root>/.claude/skills` |
+| Claude Code | `<project-root>/.claude/agents` | `<project-root>/.claude/skills` | `<project-root>/.claude/commands` |
 | Codex | `<project-root>/.codex/skills` | `<project-root>/.codex/skills` | `<project-root>/.codex/skills` |
 | Gemini CLI | `<project-root>/.gemini/agents` | `<project-root>/.gemini/skills` | `<project-root>/.gemini/commands` |
 | GitHub Copilot | `<project-root>/.copilot/agents` | `<project-root>/.copilot/skills` | `<project-root>/.copilot/prompts` |
 | Windsurf | *Not Supported* | `<project-root>/.codeium/windsurf/skills` | `<project-root>/.codeium/windsurf/workflows` |
-<!-- PROJECT_SCOPE_PATHS_END -->
 
 Project scope is refused when `cwd` equals your home directory or `cwd` is not inside a git work tree. When refused interactively, you can fall back to global scope without losing your already-selected items and platforms.
 
