@@ -132,16 +132,17 @@ Codex, Antigravity, and Windsurf).
      de-duplication, preserving every unique directive). Surface any
      conflicting directives to the user instead of dropping them silently.
 
-After producing `AGENTS.md`, copy it into `.agents/rules/`. Then append a
-reference pointer to each non-`AGENTS.md` master file (append only — never
-overwrite existing content):
+After producing `AGENTS.md`, copy it into `.agents/rules/`. Then **replace the
+entire contents** of each non-`AGENTS.md` master file with a single import
+line — its original content now lives in `AGENTS.md`:
 
 ```text
-> Canonical instructions: see @AGENTS.md
+@AGENTS.md
 ```
 
-Platforms that natively read `AGENTS.md` (Codex, Antigravity, Windsurf) need
-no pointer.
+Always create `AGENTS.md` (with the migrated content) before overwriting any
+master file, so nothing is lost. Platforms that natively read `AGENTS.md`
+(Codex, Antigravity, Windsurf) need no such file.
 
 ### Phase 5 — Install and run the setup script
 
@@ -162,6 +163,13 @@ The script symlinks each item individually (not whole directories) so that
 collapsed targets like `.codex/skills` can receive skills + agents + commands
 merged together without conflict. It is idempotent and refuses to clobber a
 real (non-symlink) path.
+
+In **project scope** the script keeps the generated symlinks out of git by
+writing a single `.gitignore` per platform at its base dir (the parent of the
+target dirs, e.g. `.claude/.gitignore`) that lists each symlink subdir
+(`skills/`, `commands/`, …). Only the canonical `.agents/` content (which you
+commit) is version-controlled. Global scope skips this (it is not inside a
+repo).
 
 Once `.agents/` holds every item and the script is installed, **delete the
 original item files/directories at each platform source dir**. The canonical
@@ -211,7 +219,9 @@ skipped/unverified), and any collisions or backups created.
 
 ## Constraints
 
-- Append-only for all existing config and instruction files; back up first.
+- Append-only for existing config (settings/hook) files; back up first.
+  Master instruction files are the exception: replace their contents with the
+  `@AGENTS.md` import once the content is migrated into `AGENTS.md`.
 - Per-item symlinks, never whole-directory, never clobber real paths.
 - Do not fabricate hook schemas; verify unverified platforms at runtime.
 - Do not modify this repo's `src/`, CLI, or `paths.ts`.

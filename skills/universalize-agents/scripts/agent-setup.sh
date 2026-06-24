@@ -63,10 +63,20 @@ printf '%s\n' "$LINK_MAP" | while IFS='|' read -r sub destdir; do
 
 	mkdir -p "$destdir"
 
+	# Project scope only: keep the generated symlinks out of git via a single
+	# .gitignore per platform base dir (the dest's parent), listing each
+	# symlink subdir. The canonical content lives in (tracked) .agents/.
 	prefix=""
 	case "$AGENTS_DIR" in
 		/*) ;;
-		*) prefix="$(up_to_root "$destdir")" ;;
+		*)
+			prefix="$(up_to_root "$destdir")"
+			gi="$(dirname "$destdir")/.gitignore"
+			entry="$(basename "$destdir")/"
+			if [ ! -f "$gi" ] || ! grep -qxF "$entry" "$gi"; then
+				printf '%s\n' "$entry" >>"$gi"
+			fi
+			;;
 	esac
 
 	for item in "$srcdir"/*; do

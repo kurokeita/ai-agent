@@ -50,6 +50,17 @@ foreach ($line in $LinkMap -split "`r?`n") {
 		New-Item -ItemType Directory -Path $destDir -Force | Out-Null
 	}
 
+	# Project scope only: keep the generated symlinks out of git via a single
+	# .gitignore per platform base dir (the dest's parent), listing each
+	# symlink subdir. The canonical content lives in (tracked) .agents/.
+	if ($IsRelative) {
+		$gi = Join-Path (Split-Path -Parent $destDir) '.gitignore'
+		$entry = (Split-Path -Leaf $destDir) + '/'
+		$lines = @()
+		if (Test-Path -LiteralPath $gi) { $lines = @(Get-Content -LiteralPath $gi) }
+		if ($lines -notcontains $entry) { Add-Content -LiteralPath $gi -Value $entry }
+	}
+
 	foreach ($item in Get-ChildItem -LiteralPath $srcDir -Force) {
 		$dest = Join-Path $destDir $item.Name
 		if ($IsRelative) {

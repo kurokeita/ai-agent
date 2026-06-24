@@ -34,7 +34,7 @@ root. A few platforms use a different sub-path between scopes (noted in bold).
 
 | Platform | Global | Project |
 |---|---|---|
-| Claude Code | `~/.claude/skills` | `.claude/skills` |
+| Claude Code | `~/.claude/commands` | `.claude/commands` |
 | Codex | `~/.codex/skills` | `.codex/skills` |
 | GitHub Copilot | `~/.copilot/prompts` | `.copilot/prompts` |
 | Gemini CLI | `~/.gemini/commands` | `.gemini/commands` |
@@ -47,7 +47,6 @@ These targets hold more than one type, so reverse-discovery must read item
 frontmatter / the `x-ai-agents-type` metadata to recover the true type:
 
 - `.codex/skills` — skills **and** agents **and** commands.
-- `.claude/skills` — skills **and** commands.
 
 When symlinking back, use per-item links so these merged directories do not
 collide.
