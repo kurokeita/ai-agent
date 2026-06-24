@@ -138,7 +138,7 @@ describe("src/utils/paths.ts", () => {
 
 		it("maps remaining platforms", () => {
 			const paths = getProjectPlatformPathsWorkflows(root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/skills"))
+			expect(paths["claude-code"]).toBe(path.join(root, ".claude/commands"))
 			expect(paths.codex).toBe(path.join(root, ".codex/skills"))
 			expect(paths.copilot).toBe(path.join(root, ".copilot/prompts"))
 			expect(paths.gemini).toBe(path.join(root, ".gemini/commands"))

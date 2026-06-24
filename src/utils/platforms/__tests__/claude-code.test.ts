@@ -23,15 +23,15 @@ describe("ClaudeCodeHandler", () => {
 			)
 		})
 
-		it("should return name/SKILL.md for workflows", () => {
+		it("should return name.md for workflows", () => {
 			expect(handler.getTargetFileName("my-workflow.md", "workflow")).toBe(
-				"my-workflow/SKILL.md",
+				"my-workflow.md",
 			)
 		})
 
 		it("should strip .md before creating workflow path", () => {
 			expect(handler.getTargetFileName("test-workflow", "workflow")).toBe(
-				"test-workflow/SKILL.md",
+				"test-workflow.md",
 			)
 		})
 	})
@@ -81,16 +81,15 @@ describe("ClaudeCodeHandler", () => {
 			expect(transformed).toContain("tools:")
 		})
 
-		it("should transform workflow to skill format", () => {
+		it("should transform workflow to command format", () => {
 			const content = "# My Workflow\nDo the thing"
 			const transformed = handler.transform(
 				content,
 				"workflow",
 				"test-workflow",
 			)
-			expect(transformed).toContain("name: test-workflow")
 			expect(transformed).toContain("description: 'Workflow: My Workflow'")
-			expect(transformed).toContain("user-invocable: true")
+			expect(transformed).not.toContain("user-invocable")
 			expect(transformed).toContain("# My Workflow")
 		})
 
@@ -99,14 +98,14 @@ describe("ClaudeCodeHandler", () => {
 				"---\nname: wf\ndescription: Custom description\n---\n# Title\nBody"
 			const transformed = handler.transform(content, "workflow", "my-wf")
 			expect(transformed).toContain("description: Custom description")
-			expect(transformed).toContain("user-invocable: true")
+			expect(transformed).not.toContain("user-invocable")
 		})
 
 		it("should handle workflow without title", () => {
 			const content = "Just some content without a title"
 			const transformed = handler.transform(content, "workflow", "no-title")
-			expect(transformed).toContain("name: no-title")
-			expect(transformed).toContain("user-invocable: true")
+			expect(transformed).toContain("description: 'Workflow: no-title'")
+			expect(transformed).not.toContain("user-invocable")
 		})
 
 		it("should return unknown types as-is", () => {

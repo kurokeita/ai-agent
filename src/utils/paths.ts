@@ -60,7 +60,7 @@ export const PLATFORM_PATHS_AGENTS: Partial<Record<Platform, string>> = {
 
 export const PLATFORM_PATHS_WORKFLOWS: Partial<Record<Platform, string>> = {
 	antigravity: path.join(os.homedir(), ".gemini/antigravity/global_workflows"),
-	"claude-code": path.join(os.homedir(), ".claude/skills"),
+	"claude-code": path.join(os.homedir(), ".claude/commands"),
 	codex: path.join(os.homedir(), ".codex/skills"),
 	copilot: path.join(os.homedir(), ".copilot/prompts"),
 	gemini: path.join(os.homedir(), ".gemini/commands"),
@@ -89,7 +89,7 @@ const PROJECT_RELATIVE_PLATFORM_PATHS_WORKFLOWS: Partial<
 	Record<Platform, string>
 > = {
 	antigravity: ".gemini/antigravity/workflows",
-	"claude-code": ".claude/skills",
+	"claude-code": ".claude/commands",
 	codex: ".codex/skills",
 	copilot: ".copilot/prompts",
 	gemini: ".gemini/commands",

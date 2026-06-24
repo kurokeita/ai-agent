@@ -26,7 +26,7 @@ export class ClaudeCodeHandler implements PlatformHandler {
 
 		if (type === "workflow") {
 			const name = itemName.replace(/\.md$/, "")
-			return path.join(name, "SKILL.md")
+			return `${name}.md`
 		}
 
 		return itemName
@@ -103,11 +103,7 @@ export class ClaudeCodeHandler implements PlatformHandler {
 			description = `Workflow: ${title}`
 		}
 
-		const frontmatter = yaml.dump({
-			name,
-			description,
-			"user-invocable": true,
-		})
+		const frontmatter = yaml.dump({ description })
 
 		return `---\n${frontmatter}---\n\n${body}`
 	}
