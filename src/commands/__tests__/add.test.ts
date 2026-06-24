@@ -13,7 +13,6 @@ import {
 import {
 	detectConflicts,
 	dropAgentsEntry,
-	mergeConflicts,
 	removeAgentDirEntries,
 	wireAgentSetup,
 } from "../../utils/agent-setup.js"
@@ -77,25 +76,6 @@ describe(add.name, () => {
 			ranScript: true,
 		})
 		vi.mocked(detectConflicts).mockResolvedValue([])
-		vi.mocked(mergeConflicts).mockImplementation((platformConflicts, pre) => {
-			const byKey = new Map<
-				string,
-				{ entry: string; subdir: string; targetPaths: string[] }
-			>()
-			for (const c of platformConflicts) {
-				byKey.set(`${c.subdir} ${c.entry}`, {
-					...c,
-					targetPaths: [...c.targetPaths],
-				})
-			}
-			for (const p of pre) {
-				const key = `${p.subdir} ${p.entry}`
-				if (!byKey.has(key)) {
-					byKey.set(key, { entry: p.entry, subdir: p.subdir, targetPaths: [] })
-				}
-			}
-			return [...byKey.values()] as ReturnType<typeof mergeConflicts>
-		})
 		vi.mocked(removeAgentDirEntries).mockResolvedValue(undefined)
 		vi.mocked(dropAgentsEntry).mockResolvedValue(undefined)
 
@@ -355,6 +335,7 @@ describe(add.name, () => {
 			if (p.includes("/mock/skills/item")) return Promise.resolve(false)
 			return Promise.resolve(true)
 		})
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["item"])
 
 		await add("skill")
 		expect(mockConsoleError).toHaveBeenCalledWith(
@@ -362,16 +343,26 @@ describe(add.name, () => {
 		)
 	})
 
-	it("should always copy even when the target already exists in .agents", async () => {
+	it("should copy when the user confirms overwriting an existing .agents entry", async () => {
 		mkLocalSkill("item")
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(false) // decline hook wiring
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["item"])
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 		await add("skill")
 		expect(fs.copy).toHaveBeenCalledWith(
 			"/mock/skills/item",
 			"/mock/home/.agents/skills/item",
 			{ overwrite: true },
 		)
+	})
+
+	it("should preserve the original and skip when overwrite is declined", async () => {
+		mkLocalSkill("item")
+		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
+		vi.mocked(prompts.multiselect).mockResolvedValueOnce([])
+		await add("skill")
+		expect(fs.copy).not.toHaveBeenCalled()
+		expect(dropAgentsEntry).not.toHaveBeenCalled()
 	})
 
 	it("should handle non-Error exception during installation", async () => {
@@ -562,29 +553,23 @@ describe(add.name, () => {
 			expect(removeAgentDirEntries).not.toHaveBeenCalled()
 		})
 
-		it("should include an entry pre-existing only in .agents in the prompt", async () => {
+		it("should prompt up front to overwrite an entry pre-existing in .agents", async () => {
 			mkLocalSkill("pre")
 			vi.mocked(detectConflicts).mockResolvedValueOnce([])
-			vi.mocked(prompts.multiselect)
-				.mockResolvedValueOnce(["claude-code"])
-				.mockResolvedValueOnce([])
+			vi.mocked(prompts.multiselect).mockResolvedValueOnce([])
 			await add("skill")
 			expect(prompts.multiselect).toHaveBeenCalledWith(
 				expect.objectContaining({
 					options: [{ label: "pre", value: "pre" }],
 				}),
 			)
-			expect(dropAgentsEntry).toHaveBeenCalledWith(
-				"/mock/home/.agents",
-				"skills",
-				"pre",
-			)
+			expect(fs.copy).not.toHaveBeenCalled()
+			expect(dropAgentsEntry).not.toHaveBeenCalled()
 			expect(removeAgentDirEntries).not.toHaveBeenCalled()
 		})
 
 		it("should overwrite an entry conflicting in both .agents and a platform dir", async () => {
 			mkLocalSkill("dup")
-			// preExisting in .agents (pathExists default true) AND platform conflict
 			vi.mocked(detectConflicts).mockResolvedValueOnce([
 				{
 					entry: "dup",
@@ -593,13 +578,14 @@ describe(add.name, () => {
 				},
 			])
 			vi.mocked(prompts.multiselect)
+				.mockResolvedValueOnce(["dup"])
 				.mockResolvedValueOnce(["claude-code"])
 				.mockResolvedValueOnce(["dup"])
 			await add("skill")
-			expect(prompts.multiselect).toHaveBeenCalledWith(
-				expect.objectContaining({
-					options: [{ label: "dup", value: "dup" }],
-				}),
+			expect(fs.copy).toHaveBeenCalledWith(
+				"/mock/skills/dup",
+				"/mock/home/.agents/skills/dup",
+				{ overwrite: true },
 			)
 			expect(removeAgentDirEntries).toHaveBeenCalledWith([
 				"/x/.claude/skills/dup",

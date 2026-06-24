@@ -18,7 +18,6 @@ import {
 	detectConflicts,
 	dropAgentsEntry,
 	type LinkSubdir,
-	mergeConflicts,
 	type PreExistingEntry,
 	removeAgentDirEntries,
 	wireAgentSetup,
@@ -181,6 +180,29 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 				}
 			}
 
+			// Confirm overwrites of pre-existing .agents entries BEFORE copying, so a
+			// canonical copy is never destroyed without consent. Unselected entries are
+			// kept as-is and skipped from installation.
+			const skipEntries = new Set<string>()
+			if (preExisting.length > 0) {
+				const toOverwrite = await multiselect<string>({
+					message:
+						"These entries already exist in .agents. Choose which to OVERWRITE (unselected entries are kept and skipped):",
+					options: preExisting.map((p) => ({ label: p.entry, value: p.entry })),
+					required: false,
+				})
+				if (isCancel(toOverwrite)) {
+					if (tempDir) await fs.remove(tempDir)
+					if (isSingleShot) break
+					currentType = undefined
+					continue
+				}
+				const keep = new Set(toOverwrite as string[])
+				for (const { entry } of preExisting) {
+					if (!keep.has(entry)) skipEntries.add(entry)
+				}
+			}
+
 			note(
 				`Installing ${selectedItems.length} ${normalizedType}s to ${targetBase} (scope: ${chosenScope})...`,
 				"Summary",
@@ -195,6 +217,10 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			await fs.ensureDir(targetBase)
 
 			for (const item of selectedItems) {
+				const targetName =
+					normalizedType === "skill" ? path.parse(item).name : item
+				if (skipEntries.has(targetName)) continue
+
 				s.message(`Installing ${pc.bold(item)}...`)
 
 				try {
@@ -209,8 +235,6 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 						throw new Error(`Item '${item}' not found at ${sourcePath}`)
 					}
 
-					const targetName =
-						normalizedType === "skill" ? path.parse(item).name : item
 					const targetPath = path.join(targetBase, targetName)
 
 					await fs.copy(sourcePath, targetPath, { overwrite: true })
@@ -245,12 +269,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			}
 
 			if (installedCount > 0) {
-				await maybeWireAgentSetup(
-					agentsBase,
-					chosenScope,
-					scopeRoot,
-					preExisting,
-				)
+				await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
 			}
 		} catch (error) {
 			if (tempDir) await fs.remove(tempDir)
@@ -272,7 +291,6 @@ async function maybeWireAgentSetup(
 	agentsBase: string,
 	scope: Scope,
 	root: string,
-	preExisting: PreExistingEntry[],
 ): Promise<void> {
 	const wire = await confirm({
 		message: "Wire the agent-setup session-start hook now?",
@@ -291,13 +309,7 @@ async function maybeWireAgentSetup(
 	if (isCancel(selected)) return
 	const platforms = selected as Platform[]
 
-	const resolved = await resolveConflicts(
-		agentsBase,
-		platforms,
-		scope,
-		root,
-		preExisting,
-	)
+	const resolved = await resolveConflicts(agentsBase, platforms, scope, root)
 	if (resolved === "cancelled") return
 
 	const s = spinner()
@@ -326,20 +338,13 @@ async function resolveConflicts(
 	platforms: Platform[],
 	scope: Scope,
 	root: string,
-	preExisting: PreExistingEntry[],
 ): Promise<"ok" | "cancelled"> {
-	const platformConflicts = await detectConflicts(
-		agentsBase,
-		platforms,
-		scope,
-		root,
-	)
-	const conflicts = mergeConflicts(platformConflicts, preExisting)
+	const conflicts = await detectConflicts(agentsBase, platforms, scope, root)
 	if (conflicts.length === 0) return "ok"
 
 	const overwrite = await multiselect<string>({
 		message:
-			"These entries already exist (in .agents and/or the selected agent dirs). Choose which to OVERWRITE (unselected entries are dropped from .agents):",
+			"These entries already exist in the selected agent dirs. Choose which to OVERWRITE (unselected entries are dropped from .agents):",
 		options: conflicts.map((c) => ({ label: c.entry, value: c.entry })),
 		required: false,
 	})
