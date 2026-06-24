@@ -23,26 +23,36 @@ pnpm run format           # Auto-fix lint issues
 ### Entry Point & Commands
 
 - `bin/cli.ts` — CLI entry using Commander. No-arg launches interactive mode; subcommands: `add`, `list`, `import`, `remove`.
-- `src/commands/add.ts` — Core install flow: select type → select items (local or GitHub URL) → select platforms → copy/transform to platform paths.
+- `src/commands/add.ts` — Core install flow: select type → select items (local or GitHub URL) → choose scope → copy into the canonical `.agents/` dir → optionally wire per-platform session-start hooks.
 - `src/commands/import.ts` — Fetches from GitHub into the local repo's `skills/`, `agents/`, or `workflows/` dirs.
-- `src/commands/list.ts` — Lists available items (repo) or installed items (local platform dirs).
-- `src/commands/remove.ts` — Removes installed items from platform dirs.
+- `src/commands/list.ts` — Lists available items (repo) or installed items under the canonical `.agents/` dir.
+- `src/commands/remove.ts` — Removes installed entries from `.agents/` and prunes any dangling platform symlinks pointing at them.
 
-### Platform Handler System
+### Canonical `.agents/` Model
 
-Each target platform has a handler implementing `PlatformHandler` (`src/utils/platforms/types.ts`):
+Items install into a single canonical directory rather than per-platform paths:
 
-- `getTargetFileName(itemName, type)` — Determines output filename (e.g., Gemini workflows become `.toml`).
-- `transform(content, type, itemName)` — Transforms content for the platform (e.g., Copilot agents get specific YAML frontmatter with `target: github-copilot`; Codex agents/workflows get wrapped in skill format with `x-ai-agents-type` metadata).
+- **Global scope** → `~/.agents/{skills,agents,commands}`
+- **Project scope** → `<root>/.agents/{skills,agents,commands}`
 
-Handlers are registered in `src/utils/platforms/index.ts` via `registerHandler()`. To add a new platform: create a handler class, register it, and add paths to `src/utils/paths.ts`.
+`getAgentsBase(scope, root)` resolves the base; `TYPE_SUBDIRS` maps each item type to its subdir (`skill→skills`, `agent→agents`, `workflow→commands`).
+
+### Hook Wiring (`src/utils/agent-setup.ts`)
+
+After install, `add` can wire each platform to the canonical dir:
+
+- Generates a session-start hook script (`agent-setup.sh`/`.ps1`) under `.agents/hooks/`, parameterized with a link map of `subdir|platform-dir` destinations.
+- Merges a `SessionStart` hook entry into each platform's config (Claude Code/Gemini/Copilot JSON, Codex TOML) so the script runs at session start and symlinks `.agents/` entries back into each platform's directories.
+- `PLATFORM_PATHS_SKILLS/AGENTS/WORKFLOWS` (and the `getProjectPlatformPaths*` project variants) supply the per-platform destination dirs used to build the link map.
 
 ### Path Resolution (`src/utils/paths.ts`)
 
 - `Platform` type — Union of supported platform names.
-- `PLATFORM_PATHS_SKILLS/AGENTS/WORKFLOWS` — Maps each platform to its install directory (under `~`).
+- `PLATFORM_PATHS_SKILLS/AGENTS/WORKFLOWS` — Per-platform install dirs (under `~`); used as symlink destinations by the hook scripts.
+- `getProjectPlatformPaths{Skills,Agents,Workflows}(root)` — Project-relative variants of the above.
+- `getAgentsBase(scope, root)` — Resolves the canonical `.agents` base for a scope.
 - `TYPE_DIRS` — Maps item types to bundled source dirs relative to `PROJECT_ROOT`.
-- `getTargetPaths(type)` — Returns the correct platform→path map for a given type.
+- `TYPE_SUBDIRS` — Maps item types to canonical `.agents` subdirs.
 - `resolveProjectRoot()` — Handles both dev (source) and installed (dist/) layouts by checking for bundled asset dirs.
 
 ### GitHub Fetching (`src/utils/github.ts`)
@@ -59,6 +69,8 @@ Handlers are registered in `src/utils/platforms/index.ts` via `registerHandler()
 
 ## Content Types
 
-- **Skills** — Directories containing a `SKILL.md` and optional reference files. Copied as-is to most platforms.
-- **Agents** — Single `.md` files with optional YAML frontmatter. Transformed per-platform (Copilot gets specific tools/target, Gemini gets tool lists, Codex wraps as skill).
-- **Workflows** — Single `.md` files. Gemini converts to TOML format; Copilot installs to `~/.copilot/prompts`.
+All types install into the canonical `.agents/` dir as-is; platforms consume them via the symlinks created by the session-start hook.
+
+- **Skills** — Directories containing a `SKILL.md` and optional reference files. Install into `.agents/skills`.
+- **Agents** — Single `.md` files with optional YAML frontmatter. Install into `.agents/agents`.
+- **Workflows** — Single `.md` files. Install into `.agents/commands`.

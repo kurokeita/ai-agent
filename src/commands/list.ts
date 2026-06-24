@@ -1,94 +1,62 @@
 import os from "node:os"
+import path from "node:path"
 import { cancel, intro, isCancel, outro, select } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import { getTargetPaths, type Scope, TYPE_DIRS } from "@/utils/paths"
-import { codexEntryMatchesType } from "@/utils/platforms/codex"
+import {
+	getAgentsBase,
+	type Scope,
+	TYPE_DIRS,
+	TYPE_SUBDIRS,
+} from "@/utils/paths"
 import { chooseListRemoveScope, type ScopeChoice } from "@/utils/scope-prompt"
 
 interface ScopedSection {
 	scope: Scope
-	root: string
-	paths: Partial<Record<string, string>>
+	base: string
 }
 
-async function collectItemsForPlatform(
-	platform: string,
-	fullPath: string,
-	normalizedType: string,
-): Promise<string[]> {
-	const items: string[] = []
-	const entries = await fs.readdir(fullPath, { withFileTypes: true })
-
-	for (const entry of entries) {
-		if (platform === "codex") {
-			if (await codexEntryMatchesType(fullPath, entry, normalizedType)) {
-				items.push(entry.name)
-			}
-			continue
-		}
-
-		if (entry.isDirectory() || (entry.isFile() && entry.name.endsWith(".md"))) {
-			items.push(entry.name)
-		}
-	}
-
-	items.sort()
-	return items
+async function collectEntries(subdirPath: string): Promise<string[]> {
+	const entries = await fs.readdir(subdirPath, { withFileTypes: true })
+	return entries
+		.filter(
+			(entry) =>
+				entry.isDirectory() || (entry.isFile() && entry.name.endsWith(".md")),
+		)
+		.map((entry) => entry.name)
+		.sort()
 }
 
-function displayPath(absolute: string, root: string, scope: Scope): string {
-	if (scope === "global") return absolute.replace(os.homedir(), "~")
-	const rel = absolute.startsWith(root)
-		? `.${absolute.slice(root.length)}`
-		: absolute
-	return rel
+function displayBase(base: string, scope: Scope): string {
+	if (scope === "global") return base.replace(os.homedir(), "~")
+	return base
 }
 
 async function listLocalForScopes(
 	normalizedType: string,
 	sections: ScopedSection[],
 ) {
+	const subdir = TYPE_SUBDIRS[normalizedType]
 	console.log(pc.bold(pc.blue(`Installed ${normalizedType}s (Local):`)))
 	let foundAny = false
 
-	const platformsByOrder: string[] = []
 	for (const section of sections) {
-		for (const platform of Object.keys(section.paths)) {
-			if (!platformsByOrder.includes(platform)) platformsByOrder.push(platform)
-		}
-	}
+		const subdirPath = path.join(section.base, subdir)
+		if (!(await fs.pathExists(subdirPath))) continue
+		const items = await collectEntries(subdirPath)
+		if (items.length === 0) continue
 
-	for (const platform of platformsByOrder) {
-		let printedHeader = false
-		for (const section of sections) {
-			const fullPath = section.paths[platform]
-			if (!fullPath) continue
-			if (!(await fs.pathExists(fullPath))) continue
-			const items = await collectItemsForPlatform(
-				platform,
-				fullPath,
-				normalizedType,
-			)
-			if (items.length === 0) continue
-
-			foundAny = true
-			if (!printedHeader) {
-				console.log(pc.cyan(`  ${platform}:`))
-				printedHeader = true
+		foundAny = true
+		if (sections.length > 1) {
+			const scopeLabel = section.scope === "global" ? "Global" : "Project"
+			const display = displayBase(section.base, section.scope)
+			console.log(pc.cyan(`  ${scopeLabel} (${display}):`))
+			for (const item of items) {
+				console.log(`    - ${item}`)
 			}
-
-			if (sections.length > 1) {
-				const scopeLabel = section.scope === "global" ? "Global" : "Project"
-				const display = displayPath(fullPath, section.root, section.scope)
-				console.log(pc.dim(`    ${scopeLabel} (${display}):`))
-				for (const item of items) {
-					console.log(`      - ${item}`)
-				}
-			} else {
-				for (const item of items) {
-					console.log(`    - ${item}`)
-				}
+		} else {
+			for (const item of items) {
+				console.log(`  - ${item}`)
 			}
 		}
 	}
@@ -100,41 +68,26 @@ async function listLocalForScopes(
 }
 
 function buildSections(
-	normalizedType: string,
 	scope: ScopeChoice,
-	homedir: string,
 	projectRoot: string | undefined,
 ): ScopedSection[] {
 	const sections: ScopedSection[] = []
 	if (scope === "global" || scope === "both") {
-		sections.push({
-			scope: "global",
-			root: homedir,
-			paths: getTargetPaths(normalizedType, "global"),
-		})
+		sections.push({ scope: "global", base: getAgentsBase("global") })
 	}
-	if (scope === "project" || scope === "both") {
-		if (projectRoot) {
-			sections.push({
-				scope: "project",
-				root: projectRoot,
-				paths: getTargetPaths(normalizedType, "project", projectRoot),
-			})
-		}
+	if ((scope === "project" || scope === "both") && projectRoot) {
+		sections.push({
+			scope: "project",
+			base: getAgentsBase("project", projectRoot),
+		})
 	}
 	return sections
 }
 
-async function performListing(type: string, local: boolean) {
+async function performListing(type: string) {
 	const normalizedType = type.toLowerCase().endsWith("s")
 		? type.slice(0, -1)
 		: type.toLowerCase()
-
-	if (local) {
-		throw new Error(
-			"performListing should not be called for local mode; use listLocalForScopes",
-		)
-	}
 
 	if (!TYPE_DIRS[normalizedType]) {
 		console.error(
@@ -245,16 +198,14 @@ export async function list(type?: string, options?: ListOptions) {
 						? t.slice(0, -1)
 						: t.toLowerCase()
 					const sections = buildSections(
-						normalizedType,
 						scopeChoice.scope,
-						scopeChoice.homedir,
 						scopeChoice.projectRoot,
 					)
 					await listLocalForScopes(normalizedType, sections)
 				}
 			} else {
 				for (const t of typesToList) {
-					await performListing(t, false)
+					await performListing(t)
 				}
 			}
 

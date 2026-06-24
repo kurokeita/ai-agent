@@ -1,8 +1,13 @@
 import os from "node:os"
+import path from "node:path"
 import * as prompts from "@clack/prompts"
 import fs from "fs-extra"
 import { beforeEach, describe, expect, it, type MockInstance, vi } from "vitest"
-import { getTargetPaths, PLATFORM_LABELS } from "../../utils/paths.js"
+import {
+	getAgentsBase,
+	getProjectPlatformPathsSkills,
+	PLATFORM_PATHS_SKILLS,
+} from "../../utils/paths.js"
 import { chooseListRemoveScope } from "../../utils/scope-prompt.js"
 import { remove } from "../remove.js"
 
@@ -10,6 +15,9 @@ vi.mock("fs-extra")
 vi.mock("@clack/prompts")
 vi.mock("../../utils/paths.js")
 vi.mock("../../utils/scope-prompt.js")
+vi.mock("../../utils/prompts.js", () => ({
+	enableAutocompleteMultiSelectShiftAToggle: vi.fn(),
+}))
 
 describe("src/commands/remove.ts", () => {
 	let _mockExit: MockInstance
@@ -36,39 +44,89 @@ describe("src/commands/remove.ts", () => {
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{ name: "item1", isDirectory: () => true, isFile: () => false },
 		] as never)
+		vi.mocked(fs.lstat).mockResolvedValue({
+			isSymbolicLink: () => false,
+		} as never)
 
-		vi.mocked(getTargetPaths).mockReturnValue({
-			gemini: "/mock/install/gemini",
-		})
-		vi.mocked(PLATFORM_LABELS).gemini = "Gemini CLI"
+		const home = os.homedir()
+		vi.mocked(getAgentsBase).mockImplementation((scope, root) =>
+			scope === "project"
+				? path.join(root ?? "/proj", ".agents")
+				: path.join(home, ".agents"),
+		)
+		vi.mocked(PLATFORM_PATHS_SKILLS).gemini = "/global/.gemini/skills"
+		vi.mocked(getProjectPlatformPathsSkills).mockReturnValue({
+			gemini: "/proj/.gemini/skills",
+		} as never)
 
-		vi.mocked(prompts.multiselect).mockResolvedValue(["item1"])
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
 		vi.mocked(prompts.select).mockResolvedValue("exit")
 
 		vi.mocked(chooseListRemoveScope).mockResolvedValue({
 			cancelled: false,
 			scope: "global",
-			homedir: os.homedir(),
+			homedir: home,
 		})
 	})
 
-	it("should return if no items are found", async () => {
+	it("returns if no items are found", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([] as never)
 		await remove("skill")
-		expect(prompts.outro).toHaveBeenCalledWith("Done!")
+		expect(prompts.note).toHaveBeenCalledWith(
+			expect.stringContaining("No installed skills found."),
+			"Information",
+		)
 	})
 
-	it("should handle item selection and removal", async () => {
+	it("removes the selected entry from the canonical .agents path", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 		await remove("skill")
 
-		expect(fs.remove).toHaveBeenCalledWith(expect.stringContaining("item1"))
+		const expected = path.join(os.homedir(), ".agents", "skills", "item1")
+		expect(fs.remove).toHaveBeenCalledWith(expected)
 	})
 
-	it("should return on cancel during item selection", async () => {
+	it("maps workflow type to the commands subdir", async () => {
+		vi.mocked(fs.readdir).mockResolvedValue([
+			{ name: "wf.md", isDirectory: () => false, isFile: () => true },
+		] as never)
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["wf.md"])
+
+		await remove("workflow")
+
+		const expected = path.join(os.homedir(), ".agents", "commands", "wf.md")
+		expect(fs.remove).toHaveBeenCalledWith(expected)
+	})
+
+	it("prunes a dangling platform symlink that points at the removed entry", async () => {
+		const agentsPath = path.join(os.homedir(), ".agents", "skills", "item1")
+		const link = "/global/.gemini/skills/item1"
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(fs.lstat).mockImplementation((p) =>
+			Promise.resolve({
+				isSymbolicLink: () => p === link,
+			} as never),
+		)
+		vi.mocked(fs.realpath).mockResolvedValue(agentsPath as never)
+
+		await remove("skill")
+
+		expect(fs.remove).toHaveBeenCalledWith(link)
+	})
+
+	it("does not prune a non-symlink platform entry", async () => {
+		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
+		vi.mocked(fs.lstat).mockResolvedValue({
+			isSymbolicLink: () => false,
+		} as never)
+
+		await remove("skill")
+
+		expect(fs.remove).not.toHaveBeenCalledWith("/global/.gemini/skills/item1")
+	})
+
+	it("returns on cancel during item selection", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(
 			Symbol("cancel"),
 		)
@@ -78,111 +136,34 @@ describe("src/commands/remove.ts", () => {
 		expect(fs.remove).not.toHaveBeenCalled()
 	})
 
-	it("should return on cancel during platform selection", async () => {
+	it("declining confirmation skips removal", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true)
-
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
 	})
 
-	it("should handle items not found on specific platforms", async () => {
+	it("cancelling confirmation skips removal", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-
-		vi.mocked(fs.pathExists).mockResolvedValueOnce(true as never) // scanning
-		vi.mocked(fs.pathExists).mockResolvedValueOnce(false as never) // removal check
-
+		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
+		vi.mocked(prompts.isCancel).mockImplementation((v) => typeof v === "symbol")
 		await remove("skill")
 		expect(fs.remove).not.toHaveBeenCalled()
 	})
 
-	it("should handle removal errors (Error object)", async () => {
+	it("reports not-found when the entry path is absent at deletion", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		vi.mocked(fs.remove).mockRejectedValue(new Error("Delete failed") as never)
-
+		vi.mocked(fs.pathExists).mockImplementation((p) =>
+			Promise.resolve(!String(p).endsWith(path.join("skills", "item1"))),
+		)
 		await remove("skill")
-		expect(mockConsoleError).toHaveBeenCalled()
+		expect(fs.remove).not.toHaveBeenCalledWith(
+			path.join(os.homedir(), ".agents", "skills", "item1"),
+		)
 	})
 
-	it("should handle removal errors (string error)", async () => {
+	it("reports removal errors", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		vi.mocked(fs.remove).mockRejectedValue("Delete failed string" as never)
-
-		await remove("skill")
-		expect(mockConsoleError).toHaveBeenCalledWith(
-			expect.stringContaining("Delete failed string"),
-		)
-	})
-
-	it("should filter items correctly for agents/workflows and cover all branch parts", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{ name: "agent.md", isDirectory: () => false, isFile: () => true },
-			{ name: "not-md.txt", isDirectory: () => false, isFile: () => true },
-			{ name: "sub-dir", isDirectory: () => true, isFile: () => false },
-			{ name: "not-file", isDirectory: () => false, isFile: () => false },
-		] as never)
-
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"agent.md",
-			"sub-dir",
-		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-
-		await remove("agent")
-		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
-			expect.objectContaining({
-				options: expect.arrayContaining([
-					{ value: "agent.md", label: "agent.md" },
-					{ value: "sub-dir", label: "sub-dir" },
-				]),
-			}),
-		)
-	})
-
-	it("should normalize plural type", async () => {
-		await remove("skills")
-		expect(prompts.intro).toHaveBeenCalledWith(
-			expect.stringContaining(" AI Manager : Remove "),
-		)
-	})
-
-	it("should support interactive loop starting from no type", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill") // First iteration: pick skill
-			.mockResolvedValueOnce("exit") // Second iteration: exit
-
-		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{ name: "item1", isDirectory: () => true, isFile: () => false },
-		] as never)
-
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-
-		await remove()
-
-		expect(prompts.select).toHaveBeenCalledWith(
-			expect.objectContaining({
-				message: "What would you like to remove?",
-			}),
-		)
-		expect(fs.remove).toHaveBeenCalled()
-	})
-
-	it("should skip intro and outro if skipIntro option is true", async () => {
-		await remove("skill", { skipIntro: true })
-		expect(prompts.intro).not.toHaveBeenCalled()
-		expect(prompts.outro).not.toHaveBeenCalled()
-	})
-
-	it("should handle error during deletion", async () => {
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 		vi.mocked(fs.remove).mockRejectedValueOnce(new Error("Delete failed"))
 		await remove("skill")
 		expect(mockConsoleError).toHaveBeenCalledWith(
@@ -190,152 +171,43 @@ describe("src/commands/remove.ts", () => {
 		)
 	})
 
-	it("should break loop if single shot and cancelled", async () => {
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValue(
-			Symbol("cancel"),
-		)
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-		await remove("skill")
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle interactive cancellation of item selection", async () => {
-		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(
-			Symbol("cancel"),
-		)
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true)
-		vi.mocked(prompts.select).mockResolvedValueOnce("exit") // loop back
-
-		await remove()
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle declining delete confirmation", async () => {
+	it("reports string removal errors", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+		vi.mocked(fs.remove).mockRejectedValueOnce("boom" as never)
 		await remove("skill")
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle cancel during delete confirmation", async () => {
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockImplementation((v) => typeof v === "symbol")
-		await remove("skill")
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle no items found in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(fs.readdir).mockResolvedValue([] as never)
-
-		await remove()
-		expect(prompts.note).toHaveBeenCalledWith(
-			expect.stringContaining("No installed skills found."),
-			"Information",
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("boom"),
 		)
 	})
 
-	it("should handle cancel during platform selection in interactive mode", async () => {
+	it("normalizes a plural type", async () => {
+		await remove("skills")
+		expect(prompts.intro).toHaveBeenCalledWith(
+			expect.stringContaining(" AI Manager : Remove "),
+		)
+	})
+
+	it("supports the interactive loop starting from no type", async () => {
 		vi.mocked(prompts.select)
 			.mockResolvedValueOnce("skill")
 			.mockResolvedValueOnce("exit")
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"]) // Items
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel")) // Platforms
-
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false) // item selection not cancelled
-			.mockReturnValueOnce(true) // platform selection cancelled
-
-		await remove()
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle cancel during confirmation in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"]) // Items
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"]) // Platforms
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false) // item
-			.mockReturnValueOnce(false) // platform
-			.mockReturnValueOnce(true) // confirm
-
-		await remove()
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle declining confirmation in interactive mode", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"]) // Items
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"]) // Platforms
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
-		vi.mocked(prompts.isCancel).mockReturnValue(false)
-
-		await remove()
-		expect(fs.remove).not.toHaveBeenCalled()
-	})
-
-	it("should handle some paths not existing during scan", async () => {
-		vi.mocked(getTargetPaths).mockReturnValueOnce({
-			gemini: "/mock/install/gemini",
-			copilot: "/mock/install/copilot",
-		})
-		vi.mocked(fs.pathExists).mockResolvedValueOnce(true as never) // gemini exists
-		vi.mocked(fs.pathExists).mockResolvedValueOnce(false as never) // copilot doesn't exist
-
 		vi.mocked(fs.readdir).mockResolvedValueOnce([
 			{ name: "item1", isDirectory: () => true, isFile: () => false },
 		] as never)
-
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
-		await remove("skill")
-		expect(fs.readdir).toHaveBeenCalledTimes(1) // Only called for gemini
-	})
+		await remove()
 
-	it("should handle workflow type correctly", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{ name: "workflow.md", isDirectory: () => false, isFile: () => true },
-		] as never)
-
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"workflow.md",
-		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
-
-		await remove("workflow")
-		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
-			expect.objectContaining({
-				options: [{ value: "workflow.md", label: "workflow.md" }],
-			}),
+		expect(prompts.select).toHaveBeenCalledWith(
+			expect.objectContaining({ message: "What would you like to remove?" }),
 		)
+		expect(fs.remove).toHaveBeenCalled()
 	})
 
-	it("should continue if targetBase is missing (sanity check)", async () => {
-		vi.mocked(getTargetPaths).mockReturnValueOnce({
-			gemini: "/mock/install/gemini",
-		})
-		// We mock multiselect to return a platform that is NOT gemini
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce([
-			"nonexistent" as unknown as string,
-		])
-
-		await remove("skill")
-		expect(fs.remove).not.toHaveBeenCalled()
+	it("skips intro and outro when skipIntro is set", async () => {
+		await remove("skill", { skipIntro: true })
+		expect(prompts.intro).not.toHaveBeenCalled()
+		expect(prompts.outro).not.toHaveBeenCalled()
 	})
 
 	describe("scope handling", () => {
@@ -353,7 +225,16 @@ describe("src/commands/remove.ts", () => {
 			)
 		})
 
-		it("bails out when scope choice is cancelled", async () => {
+		it("exits when the scope choice is rejected", async () => {
+			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
+				rejected: true,
+				reason: "outside repo",
+			})
+			await remove("skill", { scope: "project" })
+			expect(_mockExit).toHaveBeenCalledWith(1)
+		})
+
+		it("bails when the scope choice is cancelled", async () => {
 			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
 				cancelled: true,
 			})
@@ -361,30 +242,21 @@ describe("src/commands/remove.ts", () => {
 			expect(fs.remove).not.toHaveBeenCalled()
 		})
 
-		it("scopes path lookup to the project root for project scope", async () => {
+		it("scopes removal to the project .agents for project scope", async () => {
 			vi.mocked(chooseListRemoveScope).mockResolvedValueOnce({
 				cancelled: false,
 				scope: "project",
 				homedir: "/home/me",
 				projectRoot: "/home/me/dev/myrepo",
 			})
-			vi.mocked(getTargetPaths).mockReturnValueOnce({
-				gemini: "/home/me/dev/myrepo/.gemini/skills",
-			})
 			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
 				"item1",
 			])
-			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 			await remove("skill")
 
-			expect(getTargetPaths).toHaveBeenCalledWith(
-				"skill",
-				"project",
-				"/home/me/dev/myrepo",
-			)
 			expect(fs.remove).toHaveBeenCalledWith(
-				"/home/me/dev/myrepo/.gemini/skills/item1",
+				path.join("/home/me/dev/myrepo", ".agents", "skills", "item1"),
 			)
 		})
 
@@ -395,24 +267,17 @@ describe("src/commands/remove.ts", () => {
 				homedir: "/home/me",
 				projectRoot: "/home/me/dev/myrepo",
 			})
-			vi.mocked(getTargetPaths).mockImplementation(((
-				_t: string,
-				scope?: string,
-				root?: string,
-			) => {
-				if (scope === "project") {
-					return { gemini: `${root}/.gemini/skills` }
-				}
-				return { gemini: "/home/me/.gemini/skills" }
-			}) as typeof getTargetPaths)
+			vi.mocked(getAgentsBase).mockImplementation((scope, root) =>
+				scope === "project"
+					? path.join(root ?? "/proj", ".agents")
+					: "/home/me/.agents",
+			)
 			vi.mocked(fs.readdir).mockResolvedValue([
 				{ name: "item1", isDirectory: () => true, isFile: () => false },
 			] as never)
-
 			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
 				"global:item1",
 			])
-			vi.mocked(prompts.multiselect).mockResolvedValueOnce(["gemini"])
 
 			await remove("skill")
 
@@ -424,47 +289,10 @@ describe("src/commands/remove.ts", () => {
 					]),
 				}),
 			)
-			expect(fs.remove).toHaveBeenCalledWith("/home/me/.gemini/skills/item1")
+			expect(fs.remove).toHaveBeenCalledWith("/home/me/.agents/skills/item1")
 			expect(fs.remove).not.toHaveBeenCalledWith(
-				"/home/me/dev/myrepo/.gemini/skills/item1",
+				path.join("/home/me/dev/myrepo", ".agents", "skills", "item1"),
 			)
 		})
-	})
-
-	it("should remove Codex converted directories", async () => {
-		vi.mocked(getTargetPaths).mockReturnValueOnce({
-			codex: "/mock/install/codex",
-		})
-		vi.mocked(PLATFORM_LABELS).codex = "Codex"
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{ name: "converted-agent", isDirectory: () => true, isFile: () => false },
-			{ name: "native-skill", isDirectory: () => true, isFile: () => false },
-		] as never)
-		vi.mocked(fs.readFile).mockImplementation((targetPath) => {
-			if (targetPath === "/mock/install/codex/converted-agent/SKILL.md") {
-				return Promise.resolve(
-					"---\nname: converted-agent\nx-ai-agents-type: agent\n---\n",
-				)
-			}
-			if (targetPath === "/mock/install/codex/native-skill/SKILL.md") {
-				return Promise.resolve("---\nname: native-skill\n---\n")
-			}
-			return Promise.reject(new Error(`Unexpected read: ${targetPath}`))
-		})
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"converted-agent",
-		])
-		vi.mocked(prompts.multiselect).mockResolvedValueOnce(["codex"])
-
-		await remove("agent")
-
-		expect(prompts.autocompleteMultiselect).toHaveBeenCalledWith(
-			expect.objectContaining({
-				options: [{ value: "converted-agent", label: "converted-agent" }],
-			}),
-		)
-		expect(fs.remove).toHaveBeenCalledWith(
-			"/mock/install/codex/converted-agent",
-		)
 	})
 })
