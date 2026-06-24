@@ -1,0 +1,10 @@
+# VERIFIED (developers.openai.com/codex/hooks). Append these tables into the
+# existing .codex/config.toml; keep other tables. Replace <COMMAND> with the
+# absolute path to <base>/.agents/hooks/agent-setup.sh. Codex prompts for a
+# trust review of project hooks on first use.
+[[hooks.SessionStart]]
+matcher = "startup"
+
+[[hooks.SessionStart.hooks]]
+type = "command"
+command = "<COMMAND>"

@@ -1,0 +1,9 @@
+{
+	"_comment": "VERIFIED (docs.github.com hooks-configuration). Write to .github/hooks/agent-setup.json (project) or ~/.copilot/hooks/agent-setup.json (global). Replace <COMMAND> with the absolute path to <base>/.agents/hooks/agent-setup.sh; use the powershell field instead of bash on Windows.",
+	"version": 1,
+	"hooks": {
+		"sessionStart": [
+			{ "type": "command", "bash": "<COMMAND>", "timeoutSec": 30 }
+		]
+	}
+}

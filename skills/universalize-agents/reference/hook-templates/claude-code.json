@@ -1,0 +1,15 @@
+{
+	"_comment": "VERIFIED. Claude Code SessionStart hook. Merge the SessionStart entry into the existing settings.json hooks object; do not overwrite sibling keys. Replace the command path with the absolute path to <base>/.agents/hooks/agent-setup.sh.",
+	"hooks": {
+		"SessionStart": [
+			{
+				"hooks": [
+					{
+						"type": "command",
+						"command": "<base>/.agents/hooks/agent-setup.sh"
+					}
+				]
+			}
+		]
+	}
+}

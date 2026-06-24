@@ -1,0 +1,11 @@
+{
+	"_comment": "VERIFIED (gemini-cli docs/hooks/reference.md). Merge the SessionStart entry into the existing .gemini/settings.json hooks object; keep sibling keys. Replace <COMMAND> with the absolute path to <base>/.agents/hooks/agent-setup.sh (agent-setup.ps1 on Windows). Same schema for Antigravity.",
+	"hooks": {
+		"SessionStart": [
+			{
+				"matcher": "startup",
+				"hooks": [{ "type": "command", "command": "<COMMAND>" }]
+			}
+		]
+	}
+}
