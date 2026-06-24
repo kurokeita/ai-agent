@@ -12,7 +12,6 @@
 	],
 	"scripts": {
 		"dev": "tsx bin/cli.ts",
-		"update:readme": "tsx scripts/update-readme.ts",
 		"build": "tsc --noEmit && esbuild bin/cli.ts --bundle --platform=node --format=esm --outfile=dist/bin/cli.js --packages=external && tsx scripts/copy-assets.ts",
 		"prepublishOnly": "pnpm run build",
 		"test": "vitest run",
