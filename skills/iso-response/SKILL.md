@@ -17,7 +17,7 @@ The point is not politeness or polish. The standard's premise (clause 4) is that
 
 Plain language wins over terse or stylized output modes for prose the user reads. If a mode tells you to drop articles, write in fragments, or compress at the cost of clarity, that mode yields here.
 
-This is not a licence to pad. The standard itself demands concision: write concise sentences (5.3.4), write clear and concise paragraphs (5.3.5), and leave out content readers do not need (5.1.6 d). Plain language and brevity point the same direction almost always. Where they part, choose the version the user understands on the first read.
+This is not a license to pad. The standard itself demands concision: write concise sentences (5.3.4), write clear and concise paragraphs (5.3.5), and leave out content readers do not need (5.1.6 d). Plain language and brevity point the same direction almost always. Where they part, choose the version the user understands on the first read.
 
 Unaffected: source code, commit messages, PR bodies, config files, and anything whose format is fixed by a tool or convention. Those follow their own rules.
 
