@@ -22,7 +22,7 @@ Install a Claude Code or Gemini/Antigravity statusline that renders two side-by-
 
 1. **cwd** — 24-bit ANSI `#5EFFFF` (`38;2;94;255;255`), shown at **full length**; only `$HOME` / `%USERPROFILE%` is replaced with `~`. No component abbreviation.
 2. **git branch** — 24-bit ANSI `#C24870` (`38;2;194;72;112`), bare name with no parentheses. Detached HEAD renders `detached@<short-sha>`.
-3. **working-tree state** — `+<staged> ~<modified> ?<untracked>` in bright green `#4eba65`, followed by `↑<ahead> ↓<behind>` in dim `#787e8a`. A clean tree renders a dim `clean`.
+3. **working-tree state** — `+<staged> ~<modified> -<deleted> ?<untracked>` in bright green `#4eba65`, followed by `↑<ahead> ↓<behind>` in dim `#787e8a`. A clean tree renders a dim `clean`. Each counter is omitted when zero.
 4. **last commit** — `%h %s` in dim `#787e8a`, truncated to 80 characters with a trailing `…`.
 
 Rows 2-4 appear only inside a git repo.
@@ -116,7 +116,8 @@ Read **all** git state from a single `git -C "$cwd" status -b --porcelain` call,
 
 - The `##` header line carries `branch...upstream [ahead N, behind M]`, or the literal `HEAD (no branch)` when detached — fall back to `git -C "$cwd" rev-parse --short HEAD` for that case.
 - `??` entries are untracked.
-- For every other entry, a non-space in column 1 is staged and a non-space in column 2 is modified; one file can count as both.
+- For every other entry, column 1 is the index and column 2 the working tree. A `D` in either column counts as deleted; any other non-space counts as staged (column 1) or modified (column 2). One file can count in several buckets.
+- Deletions get their own `-N` counter so a staged removal does not read as `+N`, which looks like an addition.
 
 The last-commit row needs one further call: `git -C "$cwd" log -1 --format='%h %s'`.
 
@@ -346,7 +347,7 @@ fi
 
 # One `status -b --porcelain` call yields branch, dirty counts and ahead/behind.
 # Must use git -C "$cwd", never PWD.
-branch=""; staged=0; modified=0; untracked=0; ahead=0; behind=0
+branch=""; staged=0; modified=0; deleted=0; untracked=0; ahead=0; behind=0
 if [[ -n "$cwd" ]]; then
   while IFS= read -r line; do
     if [[ "$line" == '## '* ]]; then
@@ -362,8 +363,16 @@ if [[ -n "$cwd" ]]; then
     elif [[ "$line" == '??'* ]]; then
       (( ++untracked ))
     else
-      [[ "${line:0:1}" != ' ' ]] && (( ++staged ))
-      [[ "${line:1:1}" != ' ' ]] && (( ++modified ))
+      case "${line:0:1}" in
+        ' ') ;;
+        'D') (( ++deleted )) ;;
+        *)   (( ++staged )) ;;
+      esac
+      case "${line:1:1}" in
+        ' ') ;;
+        'D') (( ++deleted )) ;;
+        *)   (( ++modified )) ;;
+      esac
     fi
   done < <(git -C "$cwd" status -b --porcelain 2>/dev/null)
 fi
@@ -371,10 +380,11 @@ fi
 if [[ -n "$branch" ]]; then
   repo_plain+=("$branch"); repo_color+=("${C_BRANCH}${branch}${RESET}")
 
-  if (( staged || modified || untracked )); then
+  if (( staged || modified || deleted || untracked )); then
     dirty=""
     (( staged ))    && dirty+="+${staged} "
     (( modified ))  && dirty+="~${modified} "
+    (( deleted ))   && dirty+="-${deleted} "
     (( untracked )) && dirty+="?${untracked} "
     dirty=${dirty% }
     dirty_c="${GREEN}${dirty}${RESET}"
@@ -634,7 +644,7 @@ if ($cwd) {
 
 # One `status -b --porcelain` call yields branch, dirty counts and ahead/behind.
 # Must use git -C "$cwd", never PWD.
-$branch = ""; $staged = 0; $modified = 0; $untracked = 0; $ahead = 0; $behind = 0
+$branch = ""; $staged = 0; $modified = 0; $deleted = 0; $untracked = 0; $ahead = 0; $behind = 0
 if ($cwd) {
   $statusLines = & git -C "$cwd" status -b --porcelain 2>$null
   if ($LASTEXITCODE -eq 0 -and $statusLines) {
@@ -652,8 +662,10 @@ if ($cwd) {
       } elseif ($line.StartsWith("??")) {
         $untracked++
       } else {
-        if ($line.Substring(0, 1) -ne " ") { $staged++ }
-        if ($line.Substring(1, 1) -ne " ") { $modified++ }
+        $idx = $line.Substring(0, 1)
+        if ($idx -eq "D") { $deleted++ } elseif ($idx -ne " ") { $staged++ }
+        $wt = $line.Substring(1, 1)
+        if ($wt -eq "D") { $deleted++ } elseif ($wt -ne " ") { $modified++ }
       }
     }
   }
@@ -662,10 +674,11 @@ if ($cwd) {
 if ($branch) {
   $repoPlain += $branch; $repoColor += "$C_BRANCH$branch$RESET"
 
-  if ($staged -gt 0 -or $modified -gt 0 -or $untracked -gt 0) {
+  if ($staged -gt 0 -or $modified -gt 0 -or $deleted -gt 0 -or $untracked -gt 0) {
     $parts = @()
     if ($staged -gt 0)    { $parts += "+$staged" }
     if ($modified -gt 0)  { $parts += "~$modified" }
+    if ($deleted -gt 0)   { $parts += "-$deleted" }
     if ($untracked -gt 0) { $parts += "?$untracked" }
     $dirty = [string]::Join(" ", $parts)
     $dirtyColored = "$GREEN$dirty$RESET"
@@ -843,6 +856,7 @@ After installing, pipe a fake payload into the script and confirm:
 - **Every rendered line has the same character count** — this is the alignment check, and it fails first when width is measured off a colored string or the locale is not UTF-8.
 - Both boxes show the same number of rows, framed top and bottom on the same lines.
 - Inside a repo the repo box shows 4 rows: full cwd, branch, working-tree state, last commit.
+- Staging a deletion (`git rm`) renders `-N`, not `+N`.
 - 5h renders **orange** at 80% used, 7d renders **amber** at 50% used.
 - The tokens sum matches the fixture and sits on the `ctx` row.
 - Omitting `transcript_path` leaves the `ctx` row as a bare `ctx N%` — no `↑0 ↓0`, no stray spacing.
