@@ -1,3 +1,7 @@
+import { execFileSync } from "node:child_process"
+import { readFileSync } from "node:fs"
+import path from "node:path"
+import { fileURLToPath } from "node:url"
 import * as prompts from "@clack/prompts"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -168,5 +172,25 @@ describe("bin/cli.ts", () => {
 		await import("../cli.js")
 
 		expect(prompts.outro).toHaveBeenCalledWith("Goodbye!")
+	})
+})
+
+describe("bin/cli.ts --version", () => {
+	const root = path.resolve(
+		path.dirname(fileURLToPath(import.meta.url)),
+		"../..",
+	)
+
+	it("should report the version from package.json", () => {
+		const { version } = JSON.parse(
+			readFileSync(path.join(root, "package.json"), "utf8"),
+		)
+		const reported = execFileSync(
+			path.join(root, "node_modules/.bin/tsx"),
+			["bin/cli.ts", "--version"],
+			{ cwd: root, encoding: "utf8" },
+		)
+
+		expect(reported.trim()).toBe(version)
 	})
 })

@@ -12,13 +12,14 @@ import {
 	isValidScopeFlag,
 	type ScopeChoice,
 } from "@/utils/scope-prompt"
+import { version } from "../package.json"
 
 const program = new Command()
 
 program
 	.name("ai-agent")
 	.description("CLI to manage AI agents, skills, and workflows")
-	.version("1.4.0")
+	.version(version)
 
 function parseScopeFlag(value: unknown): Scope | undefined {
 	if (value === undefined) return undefined
