@@ -48,3 +48,17 @@ pnpm release         # Trigger semantic-release pipeline (production publishing)
 
 - Be extremely concise. Sacrifice grammar for concision.
 - At the end of each plan, list unresolved questions.
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues on `kurokeita/ai-agent`, via the `gh` CLI. See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+The five canonical labels, unchanged. See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context: `CONTEXT.md` and `docs/adr/` at the repo root. See [docs/agents/domain.md](docs/agents/domain.md).
