@@ -121,6 +121,8 @@ Read **all** git state from a single `git -C "$cwd" status -b --porcelain` call,
 
 The last-commit row needs one further call: `git -C "$cwd" log -1 --format='%h %s'`.
 
+Every git call must skip optional locks: export `GIT_OPTIONAL_LOCKS=0` once at the top of the script. A plain `git status` takes `.git/index.lock` to refresh stat info, and the statusline re-runs on every turn, so it races the user's own `git add`/`commit` and makes them fail with `Unable to create '.git/index.lock': File exists`.
+
 ## Quota Colors (by REMAINING quota = 100 - used%)
 
 | Remaining | Color | 24-bit ANSI |
@@ -194,6 +196,10 @@ JSON parsing rules:
 # Statusline — pure bash + jq. Supports Claude Code & Antigravity payload formats.
 
 set -u
+
+# The statusline re-runs on every Claude turn. A plain `git status` grabs
+# .git/index.lock to refresh stat info, racing the user's own git writes.
+export GIT_OPTIONAL_LOCKS=0
 
 if ! command -v jq >/dev/null 2>&1; then
   printf '%s' "statusline: jq not installed"
@@ -532,6 +538,9 @@ Write `statusline-command.ps1` to the targeted platform directory. Use `ConvertF
 
 ```powershell
 $ErrorActionPreference = 'SilentlyContinue'
+# The statusline re-runs on every Claude turn. A plain `git status` grabs
+# .git/index.lock to refresh stat info, racing the user's own git writes.
+$env:GIT_OPTIONAL_LOCKS = '0'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $ESC = [char]27
