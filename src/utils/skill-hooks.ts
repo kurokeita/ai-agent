@@ -18,25 +18,30 @@ export async function hasSkillHooks(skillDir: string): Promise<boolean> {
 type Hook = { type: "command"; command: string; timeout?: number }
 type HookEntry = { matcher?: string; hooks: Hook[] }
 
-function isControl(char: string): boolean {
-	const code = char.charCodeAt(0)
-	return code < 0x20 || (code >= 0x7f && code <= 0x9f)
+// Control, format (bidi overrides, zero-width) and line/paragraph separator chars.
+const UNSAFE = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u
+
+function isUnsafe(char: string): boolean {
+	return UNSAFE.test(char)
 }
 
-// Escapes control characters so a skill cannot redraw the terminal (ANSI
-// sequences) and spoof what the install prompt shows.
+function escapeChar(char: string): string {
+	const code = char.codePointAt(0) ?? 0
+	return code <= 0xff
+		? `\\x${code.toString(16).padStart(2, "0")}`
+		: `\\u{${code.toString(16)}}`
+}
+
+// Escapes unsafe characters so a skill cannot redraw the terminal (ANSI
+// sequences) or reorder/hide text (bidi, zero-width) in the install prompt.
 export function printable(text: string): string {
 	return [...text]
-		.map((char) =>
-			isControl(char)
-				? `\\x${char.charCodeAt(0).toString(16).padStart(2, "0")}`
-				: char,
-		)
+		.map((char) => (isUnsafe(char) ? escapeChar(char) : char))
 		.join("")
 }
 
 function isText(value: unknown): value is string {
-	return typeof value === "string" && ![...value].some(isControl)
+	return typeof value === "string" && ![...value].some(isUnsafe)
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

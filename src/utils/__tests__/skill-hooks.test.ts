@@ -133,6 +133,9 @@ describe("skill hooks", () => {
 	it("printable escapes control characters", () => {
 		expect(printable("a\u001b[2Jb\u009b")).toBe("a\\x1b[2Jb\\x9b")
 		expect(printable("plain")).toBe("plain")
+		expect(printable("run.py #\u202Eevil\u200B\u2028x")).toBe(
+			"run.py #\\u{202e}evil\\u{200b}\\u{2028}x",
+		)
 	})
 
 	it("refuses hook file names with control characters", async () => {
@@ -169,6 +172,22 @@ describe("skill hooks", () => {
 		[
 			"a control character in a matcher",
 			{ hooks: { Stop: [{ matcher: "Bash\u001b", hooks: [command] }] } },
+		],
+		[
+			"a bidi override in a command",
+			{
+				hooks: {
+					Stop: [{ hooks: [{ ...command, command: "run #\u202Eevil" }] }],
+				},
+			},
+		],
+		[
+			"a zero-width char in a matcher",
+			{ hooks: { Stop: [{ matcher: "Ba\u200Bsh", hooks: [command] }] } },
+		],
+		[
+			"a line separator in a command",
+			{ hooks: { Stop: [{ hooks: [{ ...command, command: "a\u2028b" }] }] } },
 		],
 		[
 			"a non-number timeout",
