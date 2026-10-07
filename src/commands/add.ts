@@ -6,6 +6,7 @@ import {
 	confirm,
 	intro,
 	isCancel,
+	log,
 	multiselect,
 	note,
 	outro,
@@ -33,6 +34,12 @@ import {
 } from "@/utils/paths"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
 import { chooseInstallScope } from "@/utils/scope-prompt"
+import {
+	hasSkillHooks,
+	installSkillHooks,
+	planSkillHooks,
+	printable,
+} from "@/utils/skill-hooks"
 
 enableAutocompleteMultiSelectShiftAToggle()
 
@@ -212,7 +219,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			s.start("Installing...")
 
 			const errors: string[] = []
-			let installedCount = 0
+			const installed: string[] = []
 
 			await fs.ensureDir(targetBase)
 
@@ -238,7 +245,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 					const targetPath = path.join(targetBase, targetName)
 
 					await fs.copy(sourcePath, targetPath, { overwrite: true })
-					installedCount++
+					installed.push(targetPath)
 				} catch (err: unknown) {
 					const errorMessage = err instanceof Error ? err.message : String(err)
 					errors.push(`${item}: ${errorMessage}`)
@@ -253,7 +260,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			if (errors.length > 0) {
 				s.stop(
 					pc.yellow(
-						`Completed with errors. Installed: ${installedCount}, Errors: ${errors.length}`,
+						`Completed with errors. Installed: ${installed.length}, Errors: ${errors.length}`,
 					),
 				)
 				console.error(pc.red("\nErrors encountered:"))
@@ -263,13 +270,17 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			} else {
 				s.stop(
 					pc.green(
-						`Successfully installed ${installedCount} ${normalizedType}s.`,
+						`Successfully installed ${installed.length} ${normalizedType}s.`,
 					),
 				)
 			}
 
-			if (installedCount > 0) {
+			if (installed.length > 0) {
 				await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
+
+				if (normalizedType === "skill") {
+					await maybeInstallSkillHooks(installed, chosenScope, scopeRoot, !!url)
+				}
 			}
 		} catch (error) {
 			if (tempDir) await fs.remove(tempDir)
@@ -330,6 +341,41 @@ async function maybeWireAgentSetup(
 	} catch (err: unknown) {
 		const errorMessage = err instanceof Error ? err.message : String(err)
 		s.error(`Failed to wire agent-setup hook: ${errorMessage}`)
+	}
+}
+
+// Hooks run on every matching tool call, so show exactly what gets wired and
+// default to "no" for skills fetched from a URL or that replace an existing hook.
+async function maybeInstallSkillHooks(
+	skillDirs: string[],
+	scope: Scope,
+	root: string,
+	fromUrl: boolean,
+): Promise<void> {
+	for (const dir of skillDirs) {
+		if (!(await hasSkillHooks(dir))) continue
+		const name = printable(path.basename(dir))
+
+		try {
+			const { commands, replaces } = await planSkillHooks(dir, scope, root)
+			note(
+				[...commands, ...replaces.map((file) => `Replaces ${file}`)]
+					.map(printable)
+					.join("\n"),
+				`Claude Code hooks in ${name}`,
+			)
+			const install = await confirm({
+				message: `Install the Claude Code hooks bundled with ${name}?`,
+				initialValue: !fromUrl && replaces.length === 0,
+			})
+			if (isCancel(install) || !install) continue
+
+			const files = await installSkillHooks(dir, scope, root)
+			log.success(`Installed ${name} hooks: ${printable(files.join(", "))}.`)
+		} catch (err: unknown) {
+			const errorMessage = err instanceof Error ? err.message : String(err)
+			log.error(`Failed to install ${name} hooks: ${printable(errorMessage)}`)
+		}
 	}
 }
 

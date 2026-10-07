@@ -103,6 +103,8 @@ pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
 
 Skills go under `skills`, agents under `agents`, and workflows under `commands`. After copying, `add` can optionally wire each platform you select: it installs a session-start hook (under `.agents/hooks/`) and registers it in that platform's config. On each new session the hook symlinks the canonical `.agents/` entries back into the platform's own directories, so every tool sees the same set of items from one source of truth.
 
+A skill can also ship Claude Code hooks in a `hooks/` dir. `hooks/hooks.json` holds the `hooks` object of `.claude/settings.json`, and `${HOOKS_DIR}` in its commands resolves to `.claude/hooks`. When `add` installs a skill that has this manifest, it offers to copy the other files in `hooks/` to `.claude/hooks/` and merge the entries into `.claude/settings.json` (global or project, matching the install scope). `git-commit` uses this to install its `commit-gate.py` hook.
+
 `list` and `remove` operate on the canonical `.agents/` dir. Removing an entry also prunes any platform symlink left pointing at it.
 
 ## Supported Platforms

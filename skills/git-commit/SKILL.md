@@ -29,11 +29,11 @@ The `permissions.ask` rule in `~/.claude/settings.json` will surface a permissio
 
 Every gated command, every time. No exceptions for "tiny" or "obvious" changes. Each commit gets its own gate even within the same session. Plan approval, prior "go ahead" signals, and approvals of earlier commits do NOT carry over.
 
-### Step 1 — STOP
+### Step 1: STOP
 
 Do not retry the command yet. The first attempt is your trigger, not your green light.
 
-### Step 2 — Emit a detailed technical summary
+### Step 2: Emit a detailed technical summary
 
 ```bash
 ### Technical summary
@@ -46,11 +46,11 @@ Do not retry the command yet. The first attempt is your trigger, not your green 
 
 Fill every bullet. "None" is a valid answer; an omitted bullet is not.
 
-### Step 3 — Propose a commit message
+### Step 3: Propose a commit message
 
 Format per the Conventional Commits section below. No `Co-Authored-By: Claude` trailer. Imperative present tense, no trailing period in the subject. When a body is included, it explains the why.
 
-**Match the message size to the change.** For small commits — single file, trivial scope, narrow type change, doc tweak, small revert, one-line config flip, renamed prop — propose a title-only message. No body, no bullets. The subject alone conveys intent and a body adds friction without value.
+**Match the message size to the change.** For small commits (single file, trivial scope, narrow type change, doc tweak, small revert, one-line config flip, renamed prop), propose a title-only message. No body, no bullets. The subject alone conveys intent and a body adds friction without value.
 
 ```bash
 ### Proposed commit message
@@ -69,11 +69,13 @@ Reserve the full proposal format (body + bullets) for commits that touch multipl
 - bullet of notable change
 ```
 
-### Step 4 — Ask the user verbatim
+### Step 4: Ask the user verbatim
 
 Print exactly: **"Commit as-is, edit the message, or skip?"**
 
-### Step 5 — Wait for explicit approval
+Steps 2 and 3 are your final chat message, using the exact headings and bullet labels above. Put the commit message in a code fence directly under its heading. The fence is the message's only boundary, so any note after the fence stays out of the approved message. End the turn there, with no tool call after the proposal. The `~/.claude/hooks/commit-gate.py` Stop hook checks the message and either lists what is missing or records the proposal and sends you back. Then ask through AskUserQuestion with that text as the question and "Commit as-is" as the first option. The preview can hold just the commit message. The same hook denies a commit question with no recorded proposal, and denies `git commit` until the user picks "Commit as-is". Each approval covers one commit. Commit with the approved message verbatim in a quoted heredoc (`-m "$(cat <<'EOF' ... EOF)"`), with no attribution trailers: the hook denies a changed message, `-F`, the editor, `--amend` without `-m`, and any `Co-Authored-By` or "Generated with Claude Code" line.
+
+### Step 5: Wait for explicit approval
 
 Only after the user replies with an affirmative answer may you re-attempt the command. The OS permission prompt will then surface for final confirmation.
 
