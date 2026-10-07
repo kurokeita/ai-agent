@@ -11,6 +11,7 @@ SUBJECT = re.compile(r"^[a-z]+(\([^)]+\))?!?: \S")
 STATE_DIR = os.path.expanduser("~/.cache/commit-gate")
 SHELLS = {"sh", "bash", "zsh", "dash"}
 OPERATORS = set(";&|()")
+GIT_VALUE_OPTIONS = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--super-prefix", "--config-env"}
 HOW = (
     "Write the proposal (### Technical summary with the five bullets, then ### Proposed commit message with the message in a ``` code fence) "
     "as your final chat message and end the turn. The Stop hook records it and sends you back to ask "
@@ -67,12 +68,16 @@ def is_commit_question(question):
 
 
 def git_commit_count(command):
+    command = command.replace("\\\n", "")
+
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
         lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError:
-        return len(re.findall(r"(?<![\w-])git\s+(?:-[Cc]\s+\S+\s+|-\S+\s+)*commit\b", command))
+        unquoted = re.sub(r"[\"'\\\\]", "", command)
+
+        return len(re.findall(r"(?<![\w-])git(?![\w-])\s.*?\bcommit\b", unquoted, re.S))
 
     count = 0
 
@@ -96,7 +101,7 @@ def git_commit_count(command):
             continue
 
         while rest and rest[0].startswith("-"):
-            rest = rest[2:] if rest[0] in ("-C", "-c") else rest[1:]
+            rest = rest[2:] if rest[0] in GIT_VALUE_OPTIONS else rest[1:]
 
         if rest and rest[0] == "commit":
             count += 1
@@ -254,6 +259,10 @@ def self_test():
     assert git_commit_count('eval "git commit -m x"; echo done') == 1
     assert git_commit_count("echo it's the git-commit skill") == 0, "unparseable text naming git-commit is not a commit"
     assert git_commit_count("echo it's; git -C /r commit -m x") == 1, "unparseable fallback still sees a real commit"
+    assert git_commit_count("echo it's; \"git\" commit -m x") == 1, "unparseable fallback ignores quotes"
+    assert git_commit_count("git --git-dir /r/.git commit -m x") == 1
+    assert git_commit_count("git --work-tree /r commit -m x") == 1
+    assert git_commit_count("git \\\ncommit -m x") == 1, "line continuation is joined"
     assert decide({**ask, "tool_input": {"questions": [{"question": "Which branch?", "header": "Branch", "options": [{"label": "Commit to current branch"}]}]}}, path) is None
     print("ok")
 
