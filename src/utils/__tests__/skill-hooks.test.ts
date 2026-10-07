@@ -3,7 +3,11 @@ import path from "node:path"
 import fs from "fs-extra"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { TYPE_DIRS } from "../paths.js"
-import { hasSkillHooks, installSkillHooks } from "../skill-hooks.js"
+import {
+	hasSkillHooks,
+	installSkillHooks,
+	planSkillHooks,
+} from "../skill-hooks.js"
 
 const gitCommit = path.join(TYPE_DIRS.skill, "git-commit")
 
@@ -80,5 +84,48 @@ describe("skill hooks", () => {
 		expect(
 			await fs.pathExists(path.join(tmp, ".claude", "settings.json")),
 		).toBe(false)
+	})
+
+	it("plans the resolved commands without touching disk", async () => {
+		const plan = await planSkillHooks(gitCommit, "project", tmp)
+		const command = 'python3 "$CLAUDE_PROJECT_DIR"/.claude/hooks/commit-gate.py'
+		expect(plan).toEqual({
+			commands: [
+				`PreToolUse [AskUserQuestion|Bash]: ${command}`,
+				`Stop: ${command}`,
+				`PostToolUse [AskUserQuestion]: ${command}`,
+			],
+			replaces: [],
+		})
+		expect(await fs.pathExists(path.join(tmp, ".claude"))).toBe(false)
+	})
+
+	it("flags an existing hook file only when its content differs", async () => {
+		const dest = path.join(tmp, ".claude", "hooks", "commit-gate.py")
+		await fs.copy(path.join(gitCommit, "hooks", "commit-gate.py"), dest)
+		expect((await planSkillHooks(gitCommit, "project", tmp)).replaces).toEqual(
+			[],
+		)
+
+		await fs.writeFile(dest, "# a different hook\n")
+		expect((await planSkillHooks(gitCommit, "project", tmp)).replaces).toEqual([
+			dest,
+		])
+	})
+
+	it("refuses hook entries that are not regular files", async () => {
+		const skill = path.join(tmp, "skill")
+		await fs.outputJson(path.join(skill, "hooks", "hooks.json"), {})
+		await fs.symlink(
+			path.join(tmp, "elsewhere.sh"),
+			path.join(skill, "hooks", "link.sh"),
+		)
+
+		await expect(planSkillHooks(skill, "project", tmp)).rejects.toThrow(
+			"hooks/link.sh is not a regular file",
+		)
+		await expect(installSkillHooks(skill, "project", tmp)).rejects.toThrow(
+			"hooks/link.sh is not a regular file",
+		)
 	})
 })

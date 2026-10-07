@@ -24,7 +24,11 @@ import {
 	TYPE_SUBDIRS,
 } from "../../utils/paths.js"
 import { chooseInstallScope } from "../../utils/scope-prompt.js"
-import { hasSkillHooks, installSkillHooks } from "../../utils/skill-hooks.js"
+import {
+	hasSkillHooks,
+	installSkillHooks,
+	planSkillHooks,
+} from "../../utils/skill-hooks.js"
 import { add } from "../add.js"
 
 vi.mock("fs-extra")
@@ -674,22 +678,71 @@ describe(add.name, () => {
 
 	describe("skill hooks", () => {
 		const skillDir = "/mock/home/.agents/skills/git-commit"
+		const plan = { commands: ["Stop: python3 /h/commit-gate.py"], replaces: [] }
 
-		it("should install hooks bundled with an installed skill when confirmed", async () => {
+		beforeEach(() => {
+			vi.mocked(hasSkillHooks).mockResolvedValue(true)
+			vi.mocked(planSkillHooks).mockResolvedValue(plan)
+			vi.mocked(installSkillHooks).mockResolvedValue(["/h/commit-gate.py"])
+		})
+
+		it("should show the commands and install hooks when confirmed", async () => {
 			mkLocalSkill("git-commit")
 			targetMissing()
-			vi.mocked(hasSkillHooks).mockResolvedValue(true)
-			vi.mocked(installSkillHooks).mockResolvedValue(["/h/commit-gate.py"])
 			vi.mocked(prompts.confirm)
 				.mockResolvedValueOnce(false) // decline agent-setup wiring
 				.mockResolvedValueOnce(true) // install skill hooks
 			await add("skill")
-			expect(hasSkillHooks).toHaveBeenCalledWith(skillDir)
+			expect(prompts.note).toHaveBeenCalledWith(
+				"Stop: python3 /h/commit-gate.py",
+				"Claude Code hooks in git-commit",
+			)
+			expect(prompts.confirm).toHaveBeenLastCalledWith(
+				expect.objectContaining({ initialValue: true }),
+			)
 			expect(installSkillHooks).toHaveBeenCalledWith(
 				skillDir,
 				"global",
 				os.homedir(),
 			)
+		})
+
+		it("should default to no when the hook replaces an existing file", async () => {
+			mkLocalSkill("git-commit")
+			targetMissing()
+			vi.mocked(planSkillHooks).mockResolvedValue({
+				...plan,
+				replaces: ["/h/commit-gate.py"],
+			})
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(false)
+				.mockResolvedValueOnce(false)
+			await add("skill")
+			expect(prompts.note).toHaveBeenCalledWith(
+				"Stop: python3 /h/commit-gate.py\nReplaces /h/commit-gate.py",
+				"Claude Code hooks in git-commit",
+			)
+			expect(prompts.confirm).toHaveBeenLastCalledWith(
+				expect.objectContaining({ initialValue: false }),
+			)
+			expect(installSkillHooks).not.toHaveBeenCalled()
+		})
+
+		it("should default to no for a skill fetched from GitHub", async () => {
+			vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
+				tempDir: "/tmp/git-commit",
+				skillName: "git-commit",
+				isFile: false,
+			})
+			targetMissing()
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(false)
+				.mockResolvedValueOnce(false)
+			await add("skill", "https://github.com/o/r/tree/main/git-commit")
+			expect(prompts.confirm).toHaveBeenLastCalledWith(
+				expect.objectContaining({ initialValue: false }),
+			)
+			expect(installSkillHooks).not.toHaveBeenCalled()
 		})
 
 		it("should not prompt when no installed skill ships hooks", async () => {
@@ -699,18 +752,7 @@ describe(add.name, () => {
 			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 			await add("skill")
 			expect(prompts.confirm).toHaveBeenCalledTimes(1)
-			expect(installSkillHooks).not.toHaveBeenCalled()
-		})
-
-		it("should not install hooks when declined", async () => {
-			mkLocalSkill("git-commit")
-			targetMissing()
-			vi.mocked(hasSkillHooks).mockResolvedValue(true)
-			vi.mocked(prompts.confirm)
-				.mockResolvedValueOnce(false)
-				.mockResolvedValueOnce(false)
-			await add("skill")
-			expect(installSkillHooks).not.toHaveBeenCalled()
+			expect(planSkillHooks).not.toHaveBeenCalled()
 		})
 
 		it("should not look for hooks on agents or workflows", async () => {
@@ -732,14 +774,18 @@ describe(add.name, () => {
 			expect(hasSkillHooks).not.toHaveBeenCalled()
 		})
 
-		it("should surface hook install errors without crashing", async () => {
+		it("should report hook errors without crashing", async () => {
 			mkLocalSkill("git-commit")
 			targetMissing()
-			vi.mocked(hasSkillHooks).mockResolvedValue(true)
 			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
-			vi.mocked(installSkillHooks).mockRejectedValueOnce(new Error("boom"))
+			vi.mocked(planSkillHooks).mockRejectedValueOnce(
+				new Error("hooks/x is not a regular file"),
+			)
 			await add("skill")
-			expect(installSkillHooks).toHaveBeenCalled()
+			expect(prompts.log.error).toHaveBeenCalledWith(
+				"Failed to install git-commit hooks: hooks/x is not a regular file",
+			)
+			expect(installSkillHooks).not.toHaveBeenCalled()
 			expect(prompts.outro).toHaveBeenCalled()
 		})
 	})

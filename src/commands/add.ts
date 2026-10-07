@@ -6,6 +6,7 @@ import {
 	confirm,
 	intro,
 	isCancel,
+	log,
 	multiselect,
 	note,
 	outro,
@@ -33,7 +34,11 @@ import {
 } from "@/utils/paths"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
 import { chooseInstallScope } from "@/utils/scope-prompt"
-import { hasSkillHooks, installSkillHooks } from "@/utils/skill-hooks"
+import {
+	hasSkillHooks,
+	installSkillHooks,
+	planSkillHooks,
+} from "@/utils/skill-hooks"
 
 enableAutocompleteMultiSelectShiftAToggle()
 
@@ -273,7 +278,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 				await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
 
 				if (normalizedType === "skill") {
-					await maybeInstallSkillHooks(installed, chosenScope, scopeRoot)
+					await maybeInstallSkillHooks(installed, chosenScope, scopeRoot, !!url)
 				}
 			}
 		} catch (error) {
@@ -338,35 +343,36 @@ async function maybeWireAgentSetup(
 	}
 }
 
+// Hooks run on every matching tool call, so show exactly what gets wired and
+// default to "no" for skills fetched from a URL or that replace an existing hook.
 async function maybeInstallSkillHooks(
 	skillDirs: string[],
 	scope: Scope,
 	root: string,
+	fromUrl: boolean,
 ): Promise<void> {
-	const withHooks: string[] = []
 	for (const dir of skillDirs) {
-		if (await hasSkillHooks(dir)) withHooks.push(dir)
-	}
-	if (withHooks.length === 0) return
+		if (!(await hasSkillHooks(dir))) continue
+		const name = path.basename(dir)
 
-	const names = withHooks.map((dir) => path.basename(dir)).join(", ")
-	const install = await confirm({
-		message: `Install the Claude Code hooks bundled with: ${names}?`,
-		initialValue: true,
-	})
-	if (isCancel(install) || !install) return
+		try {
+			const { commands, replaces } = await planSkillHooks(dir, scope, root)
+			note(
+				[...commands, ...replaces.map((file) => `Replaces ${file}`)].join("\n"),
+				`Claude Code hooks in ${name}`,
+			)
+			const install = await confirm({
+				message: `Install the Claude Code hooks bundled with ${name}?`,
+				initialValue: !fromUrl && replaces.length === 0,
+			})
+			if (isCancel(install) || !install) continue
 
-	const s = spinner()
-	s.start("Installing Claude Code hooks...")
-	try {
-		const files: string[] = []
-		for (const dir of withHooks) {
-			files.push(...(await installSkillHooks(dir, scope, root)))
+			const files = await installSkillHooks(dir, scope, root)
+			log.success(`Installed ${name} hooks: ${files.join(", ")}.`)
+		} catch (err: unknown) {
+			const errorMessage = err instanceof Error ? err.message : String(err)
+			log.error(`Failed to install ${name} hooks: ${errorMessage}`)
 		}
-		s.stop(pc.green(`Installed Claude Code hooks: ${files.join(", ")}.`))
-	} catch (err: unknown) {
-		const errorMessage = err instanceof Error ? err.message : String(err)
-		s.error(`Failed to install Claude Code hooks: ${errorMessage}`)
 	}
 }
 
