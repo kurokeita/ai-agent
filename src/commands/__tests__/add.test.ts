@@ -28,6 +28,7 @@ import {
 	hasSkillHooks,
 	installSkillHooks,
 	planSkillHooks,
+	printable,
 } from "../../utils/skill-hooks.js"
 import { add } from "../add.js"
 
@@ -680,7 +681,11 @@ describe(add.name, () => {
 		const skillDir = "/mock/home/.agents/skills/git-commit"
 		const plan = { commands: ["Stop: python3 /h/commit-gate.py"], replaces: [] }
 
-		beforeEach(() => {
+		beforeEach(async () => {
+			const actual = await vi.importActual<
+				typeof import("../../utils/skill-hooks.js")
+			>("../../utils/skill-hooks.js")
+			vi.mocked(printable).mockImplementation(actual.printable)
 			vi.mocked(hasSkillHooks).mockResolvedValue(true)
 			vi.mocked(planSkillHooks).mockResolvedValue(plan)
 			vi.mocked(installSkillHooks).mockResolvedValue(["/h/commit-gate.py"])
@@ -772,6 +777,23 @@ describe(add.name, () => {
 			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 			await add("workflow")
 			expect(hasSkillHooks).not.toHaveBeenCalled()
+		})
+
+		it("should escape control characters in what the prompt shows", async () => {
+			mkLocalSkill("git-commit")
+			targetMissing()
+			vi.mocked(planSkillHooks).mockResolvedValue({
+				commands: ["Stop: evil\u001b[2Jsafe"],
+				replaces: [],
+			})
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(false)
+				.mockResolvedValueOnce(false)
+			await add("skill")
+			expect(prompts.note).toHaveBeenCalledWith(
+				"Stop: evil\\x1b[2Jsafe",
+				"Claude Code hooks in git-commit",
+			)
 		})
 
 		it("should report hook errors without crashing", async () => {

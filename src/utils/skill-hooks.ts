@@ -15,7 +15,57 @@ export async function hasSkillHooks(skillDir: string): Promise<boolean> {
 	return fs.pathExists(path.join(skillDir, "hooks", MANIFEST))
 }
 
-type HookEntry = { matcher?: string; hooks?: { command?: string }[] }
+type Hook = { type: "command"; command: string; timeout?: number }
+type HookEntry = { matcher?: string; hooks: Hook[] }
+
+function isControl(char: string): boolean {
+	const code = char.charCodeAt(0)
+	return code < 0x20 || (code >= 0x7f && code <= 0x9f)
+}
+
+// Escapes control characters so a skill cannot redraw the terminal (ANSI
+// sequences) and spoof what the install prompt shows.
+export function printable(text: string): string {
+	return [...text]
+		.map((char) =>
+			isControl(char)
+				? `\\x${char.charCodeAt(0).toString(16).padStart(2, "0")}`
+				: char,
+		)
+		.join("")
+}
+
+function isText(value: unknown): value is string {
+	return typeof value === "string" && ![...value].some(isControl)
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value)
+}
+
+function hasOnlyKeys(value: Record<string, unknown>, keys: string[]): boolean {
+	return Object.keys(value).every((key) => keys.includes(key))
+}
+
+function isHook(value: unknown): value is Hook {
+	return (
+		isRecord(value) &&
+		hasOnlyKeys(value, ["type", "command", "timeout"]) &&
+		value.type === "command" &&
+		isText(value.command) &&
+		(value.timeout === undefined || typeof value.timeout === "number")
+	)
+}
+
+function isHookEntry(value: unknown): value is HookEntry {
+	return (
+		isRecord(value) &&
+		hasOnlyKeys(value, ["matcher", "hooks"]) &&
+		(value.matcher === undefined || isText(value.matcher)) &&
+		Array.isArray(value.hooks) &&
+		value.hooks.every(isHook)
+	)
+}
 
 function hookTarget(scope: Scope, root: string) {
 	const base = scope === "project" ? root : os.homedir()
@@ -29,8 +79,10 @@ function hookTarget(scope: Scope, root: string) {
 async function hookFiles(srcDir: string): Promise<string[]> {
 	const files = (await fs.readdir(srcDir)).filter((file) => file !== MANIFEST)
 	for (const file of files) {
-		if (!(await fs.lstat(path.join(srcDir, file))).isFile()) {
-			throw new Error(`hooks/${file} is not a regular file`)
+		if (!isText(file) || !(await fs.lstat(path.join(srcDir, file))).isFile()) {
+			throw new Error(
+				`hooks/${printable(file)} must be a regular file with a printable name`,
+			)
 		}
 	}
 	return files
@@ -41,10 +93,27 @@ async function readManifest(
 	token: string,
 ): Promise<Record<string, HookEntry[]>> {
 	const raw = await fs.readFile(path.join(srcDir, MANIFEST), "utf-8")
-	const manifest = JSON.parse(
+	const manifest: unknown = JSON.parse(
 		raw.replaceAll(`\${HOOKS_DIR}`, JSON.stringify(token).slice(1, -1)),
-	) as { hooks?: Record<string, HookEntry[]> }
-	return manifest.hooks ?? {}
+	)
+	const hooks = isRecord(manifest) ? (manifest.hooks ?? {}) : undefined
+	if (!isRecord(hooks)) {
+		throw new Error(`hooks/${MANIFEST} must be an object with a "hooks" object`)
+	}
+
+	// Strict shape, so the commands shown before install are all that gets merged.
+	for (const [event, entries] of Object.entries(hooks)) {
+		if (
+			!isText(event) ||
+			!Array.isArray(entries) ||
+			!entries.every(isHookEntry)
+		) {
+			throw new Error(
+				`hooks/${MANIFEST}: "${printable(event)}" must list { matcher?, hooks: [{ type: "command", command, timeout? }] }`,
+			)
+		}
+	}
+	return hooks as Record<string, HookEntry[]>
 }
 
 export interface SkillHooksPlan {
@@ -77,7 +146,7 @@ export async function planSkillHooks(
 	)) {
 		for (const entry of entries) {
 			const matcher = entry.matcher ? ` [${entry.matcher}]` : ""
-			for (const hook of entry.hooks ?? []) {
+			for (const hook of entry.hooks) {
 				commands.push(`${event}${matcher}: ${hook.command}`)
 			}
 		}
@@ -97,6 +166,7 @@ export async function installSkillHooks(
 	const srcDir = path.join(skillDir, "hooks")
 
 	const files = await hookFiles(srcDir)
+	const manifest = await readManifest(srcDir, token)
 	for (const file of files) {
 		await fs.copy(path.join(srcDir, file), path.join(hooksDir, file), {
 			overwrite: true,
@@ -104,9 +174,7 @@ export async function installSkillHooks(
 	}
 
 	const settings = path.join(base, ".claude", "settings.json")
-	for (const [event, entries] of Object.entries(
-		await readManifest(srcDir, token),
-	)) {
+	for (const [event, entries] of Object.entries(manifest)) {
 		for (const entry of entries) {
 			await mergeJsonHookFile(settings, event, entry)
 		}

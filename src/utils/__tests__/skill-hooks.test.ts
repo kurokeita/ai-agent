@@ -7,6 +7,7 @@ import {
 	hasSkillHooks,
 	installSkillHooks,
 	planSkillHooks,
+	printable,
 } from "../skill-hooks.js"
 
 const gitCommit = path.join(TYPE_DIRS.skill, "git-commit")
@@ -122,10 +123,68 @@ describe("skill hooks", () => {
 		)
 
 		await expect(planSkillHooks(skill, "project", tmp)).rejects.toThrow(
-			"hooks/link.sh is not a regular file",
+			"hooks/link.sh must be a regular file with a printable name",
 		)
 		await expect(installSkillHooks(skill, "project", tmp)).rejects.toThrow(
-			"hooks/link.sh is not a regular file",
+			"hooks/link.sh must be a regular file with a printable name",
 		)
+	})
+
+	it("printable escapes control characters", () => {
+		expect(printable("a\u001b[2Jb\u009b")).toBe("a\\x1b[2Jb\\x9b")
+		expect(printable("plain")).toBe("plain")
+	})
+
+	it("refuses hook file names with control characters", async () => {
+		const skill = path.join(tmp, "skill")
+		await fs.outputJson(path.join(skill, "hooks", "hooks.json"), {})
+		await fs.outputFile(path.join(skill, "hooks", "x\u001b.sh"), "")
+
+		await expect(planSkillHooks(skill, "project", tmp)).rejects.toThrow(
+			"hooks/x\\x1b.sh must be a regular file with a printable name",
+		)
+	})
+
+	const command = { type: "command", command: "run.sh" }
+	it.each([
+		["a non-object manifest", []],
+		["a non-object hooks key", { hooks: [] }],
+		["an event that is not a list", { hooks: { Stop: {} } }],
+		[
+			"an entry key other than matcher/hooks",
+			{ hooks: { Stop: [{ hooks: [command], extra: 1 }] } },
+		],
+		[
+			"a non-command hook type",
+			{ hooks: { Stop: [{ hooks: [{ type: "prompt", prompt: "x" }] }] } },
+		],
+		[
+			"an extra hook key",
+			{ hooks: { Stop: [{ hooks: [{ ...command, env: "x" }] }] } },
+		],
+		[
+			"a control character in a command",
+			{ hooks: { Stop: [{ hooks: [{ ...command, command: "a\u001b[2J" }] }] } },
+		],
+		[
+			"a control character in a matcher",
+			{ hooks: { Stop: [{ matcher: "Bash\u001b", hooks: [command] }] } },
+		],
+		[
+			"a non-number timeout",
+			{ hooks: { Stop: [{ hooks: [{ ...command, timeout: "10" }] }] } },
+		],
+	])("rejects a manifest with %s and copies nothing", async (_, manifest) => {
+		const skill = path.join(tmp, "skill")
+		await fs.outputJson(path.join(skill, "hooks", "hooks.json"), manifest)
+		await fs.outputFile(path.join(skill, "hooks", "run.sh"), "")
+
+		await expect(planSkillHooks(skill, "project", tmp)).rejects.toThrow(
+			"hooks/hooks.json",
+		)
+		await expect(installSkillHooks(skill, "project", tmp)).rejects.toThrow(
+			"hooks/hooks.json",
+		)
+		expect(await fs.pathExists(path.join(tmp, ".claude"))).toBe(false)
 	})
 })

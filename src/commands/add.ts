@@ -38,6 +38,7 @@ import {
 	hasSkillHooks,
 	installSkillHooks,
 	planSkillHooks,
+	printable,
 } from "@/utils/skill-hooks"
 
 enableAutocompleteMultiSelectShiftAToggle()
@@ -353,12 +354,14 @@ async function maybeInstallSkillHooks(
 ): Promise<void> {
 	for (const dir of skillDirs) {
 		if (!(await hasSkillHooks(dir))) continue
-		const name = path.basename(dir)
+		const name = printable(path.basename(dir))
 
 		try {
 			const { commands, replaces } = await planSkillHooks(dir, scope, root)
 			note(
-				[...commands, ...replaces.map((file) => `Replaces ${file}`)].join("\n"),
+				[...commands, ...replaces.map((file) => `Replaces ${file}`)]
+					.map(printable)
+					.join("\n"),
 				`Claude Code hooks in ${name}`,
 			)
 			const install = await confirm({
@@ -368,10 +371,10 @@ async function maybeInstallSkillHooks(
 			if (isCancel(install) || !install) continue
 
 			const files = await installSkillHooks(dir, scope, root)
-			log.success(`Installed ${name} hooks: ${files.join(", ")}.`)
+			log.success(`Installed ${name} hooks: ${printable(files.join(", "))}.`)
 		} catch (err: unknown) {
 			const errorMessage = err instanceof Error ? err.message : String(err)
-			log.error(`Failed to install ${name} hooks: ${errorMessage}`)
+			log.error(`Failed to install ${name} hooks: ${printable(errorMessage)}`)
 		}
 	}
 }
