@@ -9,6 +9,8 @@ ASK = "Commit as-is, edit the message, or skip?"
 BULLETS = ["Scope", "Behavior change", "Architecture/contract impact", "Tests", "Risk notes"]
 SUBJECT = re.compile(r"^[a-z]+(\([^)]+\))?!?: \S")
 STATE_DIR = os.path.expanduser("~/.cache/commit-gate")
+SHELLS = {"sh", "bash", "zsh", "dash"}
+OPERATORS = set(";&|()")
 HOW = (
     "Write the proposal (### Technical summary with the five bullets, then ### Proposed commit message with the message in a ``` code fence) "
     "as your final chat message and end the turn. The Stop hook records it and sends you back to ask "
@@ -64,27 +66,42 @@ def is_commit_question(question):
     return any(re.match(r"\s*commit as-is\b", label, re.I) for label in labels) or "commit" in question.get("header", "").lower()
 
 
-def is_git_commit(command):
+def git_commit_count(command):
     try:
         lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|()")
         lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError:
-        return bool(re.search(r"\bgit\b.*\bcommit\b", command))
+        return len(re.findall(r"(?<![\w-])git\s+(?:-[Cc]\s+\S+\s+|-\S+\s+)*commit\b", command))
+
+    count = 0
 
     for i, token in enumerate(tokens):
-        if os.path.basename(token) != "git":
-            continue
-
+        name = os.path.basename(token)
         rest = tokens[i + 1:]
+        words = []
+
+        for word in rest:
+            if set(word) <= OPERATORS:
+                break
+
+            words.append(word)
+
+        if name == "eval" and words:
+            count += git_commit_count(" ".join(words))
+        elif name in SHELLS and len(words) > 1 and words[0] == "-c":
+            count += git_commit_count(words[1])
+
+        if name != "git":
+            continue
 
         while rest and rest[0].startswith("-"):
             rest = rest[2:] if rest[0] in ("-C", "-c") else rest[1:]
 
         if rest and rest[0] == "commit":
-            return True
+            count += 1
 
-    return False
+    return count
 
 
 def load(path):
@@ -149,9 +166,14 @@ def decide(payload, path):
 
         return None
 
-    if event == "PreToolUse" and payload.get("tool_name") == "Bash" and is_git_commit(tool_input.get("command", "")):
+    commits = git_commit_count(tool_input.get("command", "")) if payload.get("tool_name") == "Bash" else 0
+
+    if event == "PreToolUse" and commits:
         if not state or not state.get("approved"):
             return deny("git commit needs an approved proposal. " + HOW)
+
+        if commits > 1:
+            return deny("Run exactly one git commit per command; each approval covers one commit.")
 
         problem = commit_command_problems(tool_input["command"], state.get("message", ""))
 
@@ -209,6 +231,7 @@ def self_test():
     assert "attribution" in run(heredoc.replace("\nEOF", "\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF"))["hookSpecificOutput"]["permissionDecisionReason"]
     assert "-F" in run("git commit -F msg.txt")["hookSpecificOutput"]["permissionDecisionReason"]
     assert run("git commit --amend --no-edit"), "bare amend is denied"
+    assert "exactly one" in run(heredoc + ' && git commit --allow-empty -m "other"')["hookSpecificOutput"]["permissionDecisionReason"]
     assert decide(commit, path) is None, "approved commit with the proposed message runs"
     assert decide(commit, path), "approval is single use"
     unfenced = good.replace("```\nfix(api-access)", "fix(api-access)").replace("403.\n```", "403.")
@@ -224,8 +247,13 @@ def self_test():
     decide({"hook_event_name": "Stop", "last_assistant_message": good}, path)
     decide(answered("Skip"), path)
     assert decide(commit, path), "skip cancels the proposal"
-    assert not is_git_commit("git log --grep commit")
-    assert is_git_commit("cd x && git commit --amend")
+    assert git_commit_count("git log --grep commit") == 0
+    assert git_commit_count("cd x && git commit --amend") == 1
+    assert git_commit_count('sh -c "git commit -m x"') == 1
+    assert git_commit_count("bash -c 'git -C /r commit -m x'") == 1
+    assert git_commit_count('eval "git commit -m x"; echo done') == 1
+    assert git_commit_count("echo it's the git-commit skill") == 0, "unparseable text naming git-commit is not a commit"
+    assert git_commit_count("echo it's; git -C /r commit -m x") == 1, "unparseable fallback still sees a real commit"
     assert decide({**ask, "tool_input": {"questions": [{"question": "Which branch?", "header": "Branch", "options": [{"label": "Commit to current branch"}]}]}}, path) is None
     print("ok")
 
