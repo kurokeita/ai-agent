@@ -33,6 +33,7 @@ import {
 } from "@/utils/paths"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
 import { chooseInstallScope } from "@/utils/scope-prompt"
+import { hasSkillHooks, installSkillHooks } from "@/utils/skill-hooks"
 
 enableAutocompleteMultiSelectShiftAToggle()
 
@@ -212,7 +213,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			s.start("Installing...")
 
 			const errors: string[] = []
-			let installedCount = 0
+			const installed: string[] = []
 
 			await fs.ensureDir(targetBase)
 
@@ -238,7 +239,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 					const targetPath = path.join(targetBase, targetName)
 
 					await fs.copy(sourcePath, targetPath, { overwrite: true })
-					installedCount++
+					installed.push(targetPath)
 				} catch (err: unknown) {
 					const errorMessage = err instanceof Error ? err.message : String(err)
 					errors.push(`${item}: ${errorMessage}`)
@@ -253,7 +254,7 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			if (errors.length > 0) {
 				s.stop(
 					pc.yellow(
-						`Completed with errors. Installed: ${installedCount}, Errors: ${errors.length}`,
+						`Completed with errors. Installed: ${installed.length}, Errors: ${errors.length}`,
 					),
 				)
 				console.error(pc.red("\nErrors encountered:"))
@@ -263,13 +264,17 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 			} else {
 				s.stop(
 					pc.green(
-						`Successfully installed ${installedCount} ${normalizedType}s.`,
+						`Successfully installed ${installed.length} ${normalizedType}s.`,
 					),
 				)
 			}
 
-			if (installedCount > 0) {
+			if (installed.length > 0) {
 				await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
+
+				if (normalizedType === "skill") {
+					await maybeInstallSkillHooks(installed, chosenScope, scopeRoot)
+				}
 			}
 		} catch (error) {
 			if (tempDir) await fs.remove(tempDir)
@@ -330,6 +335,38 @@ async function maybeWireAgentSetup(
 	} catch (err: unknown) {
 		const errorMessage = err instanceof Error ? err.message : String(err)
 		s.error(`Failed to wire agent-setup hook: ${errorMessage}`)
+	}
+}
+
+async function maybeInstallSkillHooks(
+	skillDirs: string[],
+	scope: Scope,
+	root: string,
+): Promise<void> {
+	const withHooks: string[] = []
+	for (const dir of skillDirs) {
+		if (await hasSkillHooks(dir)) withHooks.push(dir)
+	}
+	if (withHooks.length === 0) return
+
+	const names = withHooks.map((dir) => path.basename(dir)).join(", ")
+	const install = await confirm({
+		message: `Install the Claude Code hooks bundled with: ${names}?`,
+		initialValue: true,
+	})
+	if (isCancel(install) || !install) return
+
+	const s = spinner()
+	s.start("Installing Claude Code hooks...")
+	try {
+		const files: string[] = []
+		for (const dir of withHooks) {
+			files.push(...(await installSkillHooks(dir, scope, root)))
+		}
+		s.stop(pc.green(`Installed Claude Code hooks: ${files.join(", ")}.`))
+	} catch (err: unknown) {
+		const errorMessage = err instanceof Error ? err.message : String(err)
+		s.error(`Failed to install Claude Code hooks: ${errorMessage}`)
 	}
 }
 

@@ -24,6 +24,7 @@ import {
 	TYPE_SUBDIRS,
 } from "../../utils/paths.js"
 import { chooseInstallScope } from "../../utils/scope-prompt.js"
+import { hasSkillHooks, installSkillHooks } from "../../utils/skill-hooks.js"
 import { add } from "../add.js"
 
 vi.mock("fs-extra")
@@ -32,6 +33,7 @@ vi.mock("../../utils/github.js")
 vi.mock("../../utils/paths.js")
 vi.mock("../../utils/scope-prompt.js")
 vi.mock("../../utils/agent-setup.js")
+vi.mock("../../utils/skill-hooks.js")
 
 describe(add.name, () => {
 	let mockExit: MockInstance
@@ -666,6 +668,78 @@ describe(add.name, () => {
 			targetMissing()
 			vi.mocked(wireAgentSetup).mockRejectedValueOnce(new Error("wire boom"))
 			await add("skill")
+			expect(prompts.outro).toHaveBeenCalled()
+		})
+	})
+
+	describe("skill hooks", () => {
+		const skillDir = "/mock/home/.agents/skills/git-commit"
+
+		it("should install hooks bundled with an installed skill when confirmed", async () => {
+			mkLocalSkill("git-commit")
+			targetMissing()
+			vi.mocked(hasSkillHooks).mockResolvedValue(true)
+			vi.mocked(installSkillHooks).mockResolvedValue(["/h/commit-gate.py"])
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(false) // decline agent-setup wiring
+				.mockResolvedValueOnce(true) // install skill hooks
+			await add("skill")
+			expect(hasSkillHooks).toHaveBeenCalledWith(skillDir)
+			expect(installSkillHooks).toHaveBeenCalledWith(
+				skillDir,
+				"global",
+				os.homedir(),
+			)
+		})
+
+		it("should not prompt when no installed skill ships hooks", async () => {
+			mkLocalSkill()
+			targetMissing()
+			vi.mocked(hasSkillHooks).mockResolvedValue(false)
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+			await add("skill")
+			expect(prompts.confirm).toHaveBeenCalledTimes(1)
+			expect(installSkillHooks).not.toHaveBeenCalled()
+		})
+
+		it("should not install hooks when declined", async () => {
+			mkLocalSkill("git-commit")
+			targetMissing()
+			vi.mocked(hasSkillHooks).mockResolvedValue(true)
+			vi.mocked(prompts.confirm)
+				.mockResolvedValueOnce(false)
+				.mockResolvedValueOnce(false)
+			await add("skill")
+			expect(installSkillHooks).not.toHaveBeenCalled()
+		})
+
+		it("should not look for hooks on agents or workflows", async () => {
+			vi.mocked(
+				fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
+			).mockResolvedValueOnce([
+				{
+					name: "flow.md",
+					isDirectory: () => false,
+					isFile: () => true,
+				} as fs.Dirent,
+			])
+			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
+				"flow.md",
+			])
+			targetMissing()
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+			await add("workflow")
+			expect(hasSkillHooks).not.toHaveBeenCalled()
+		})
+
+		it("should surface hook install errors without crashing", async () => {
+			mkLocalSkill("git-commit")
+			targetMissing()
+			vi.mocked(hasSkillHooks).mockResolvedValue(true)
+			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
+			vi.mocked(installSkillHooks).mockRejectedValueOnce(new Error("boom"))
+			await add("skill")
+			expect(installSkillHooks).toHaveBeenCalled()
 			expect(prompts.outro).toHaveBeenCalled()
 		})
 	})
