@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+# Protocol guard, not a sandbox. It reads Bash command text to keep the model from
+# committing without an approved proposal. Shell expansions ($'...', $VAR, backticks),
+# git options it does not know, xargs, or a script file can still run a commit it
+# never sees; only a hook inside git itself could close that.
 import json
 import os
 import re
