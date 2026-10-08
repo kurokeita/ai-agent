@@ -27,7 +27,7 @@ The `permissions.ask` rule in `~/.claude/settings.json` will surface a permissio
 
 ## Pre-Commit Protocol (HARD RULE)
 
-Every gated command, every time. No exceptions for "tiny" or "obvious" changes. Each commit gets its own gate even within the same session. Plan approval, prior "go ahead" signals, and approvals of earlier commits do NOT carry over.
+Every gated command, every time. No exceptions for "tiny" or "obvious" changes. Each commit gets its own gate even within the same session. Plan approval, prior "go ahead" signals, and approvals of earlier commits do NOT carry over. The only exception is the standing approval described at the end of Step 4.
 
 ### Step 1: STOP
 
@@ -74,6 +74,10 @@ Reserve the full proposal format (body + bullets) for commits that touch multipl
 Print exactly: **"Commit as-is, edit the message, or skip?"**
 
 Steps 2 and 3 are your final chat message, using the exact headings and bullet labels above. Put the commit message in a code fence directly under its heading. The fence is the message's only boundary, so any note after the fence stays out of the approved message. End the turn there, with no tool call after the proposal. The `~/.claude/hooks/commit-gate.py` Stop hook checks the message and either lists what is missing or records the proposal and sends you back. Then ask through AskUserQuestion with that text as the question and "Commit as-is" as the first option. The preview can hold just the commit message. The same hook denies a commit question with no recorded proposal, and denies `git commit` until the user picks "Commit as-is". Each approval covers one commit. Commit with the approved message verbatim in a quoted heredoc (`-m "$(cat <<'EOF' ... EOF)"`), with no attribution trailers: the hook denies a changed message, `-F`, the editor, `--amend` without `-m`, and any `Co-Authored-By` or "Generated with Claude Code" line.
+
+**When the commit-gate hook is disabled**, the Stop hook never sends you back, so ending the turn would leave the user with no question. To turn the hook off for one session, the user starts Claude Code with `COMMIT_GATE_OFF=1` set. Before emitting the proposal, run `printenv COMMIT_GATE_OFF; grep -s 'commit-gate.py\|"disableAllHooks": true' ~/.claude/settings.json .claude/settings.json .claude/settings.local.json`. The hook is disabled when `COMMIT_GATE_OFF` prints a value, when no line names `commit-gate.py`, or when a line sets `"disableAllHooks": true`. In that case, emit the proposal, then call AskUserQuestion right away in the same turn with the same question, options, and preview. Every other rule still holds: one approval per commit, the approved message verbatim in a quoted heredoc, no attribution trailers. Nothing enforces them, so apply them yourself.
+
+**Standing approval.** The user can tell you in this session to commit without asking, for example so they can step away. That approval applies only while the hook is disabled. For each commit, still emit the proposal so the user can review it later, then skip AskUserQuestion and commit with that message. Standing approval covers new commits only, made with `git commit -m`. Every other gated command (`--amend`, force push, `--tags`, `reset --hard`, `rebase`, `gh pr create`, `gh pr merge`) still needs its own approval. Never infer standing approval from a plan approval or an earlier "go ahead".
 
 ### Step 5: Wait for explicit approval
 
