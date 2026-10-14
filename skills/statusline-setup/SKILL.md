@@ -1256,7 +1256,7 @@ The work box shows a few rows. The work pane is its scrollable companion: a Clau
 
 What it shows, in a side pane:
 
-- **Summary and Steps** of the session, written by a Haiku call. It runs when the pane first opens and on **Refresh**, never per turn.
+- **Summary and Steps** of the session, written by a Haiku call. It runs when the pane first opens, at the end of each turn while the pane is open, and on **Refresh**.
 - **Pull requests**: the current branch's, those of branches this session committed to, and any PR of this repository linked in the conversation. Each shows its state, review, checks and comment count.
 - **Work items**: the PRs' linked issues or work items or, for a branch without a PR, the same branch refs the work box uses.
 

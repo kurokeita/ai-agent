@@ -152,7 +152,15 @@ function fakeWorld(
 		opened.push(e.id)
 		return { value: { isPlaced: true } }
 	})
-	on("ui.panes", () => ({ value: [] }))
+	on("ui.panes", () => ({
+		value: opened.map((id) => ({
+			id,
+			title: "Work",
+			isShown: true,
+			isFocused: false,
+			isPlaced: true,
+		})),
+	}))
 	on("command.register", (_$, e) => ({ value: { command: e.name } }))
 	on("session.start", (_$, e) => ({ cwd: e.cwd }))
 	return prompts
@@ -303,4 +311,26 @@ test("the picker and /resume open the pane once the resumed turns load", async (
 	session.turns = 6
 	await clock.advance(5_000)
 	expect(opened).toEqual(["work-items"])
+})
+
+test("each turn summarizes again while the pane is open, not once it closes", async ($, on) => {
+	const clock = mock.clock(on)
+	const opened = ["work-items"]
+	const prompts = fakeWorld(on, opened)
+	on("turn.complete", (_$, e) => ({ text: e.answer }))
+	const turn = {
+		answer: "",
+		durationMs: 1,
+		isAborted: false,
+		reason: "answer",
+	} as const
+	await $.turn.complete({ ...turn, turnId: "t1" })
+	await clock.settle()
+	await $.turn.complete({ ...turn, turnId: "t2" })
+	await clock.settle()
+	expect(prompts.length).toBe(2)
+	opened.length = 0
+	await $.turn.complete({ ...turn, turnId: "t3" })
+	await clock.settle()
+	expect(prompts.length).toBe(2)
 })
