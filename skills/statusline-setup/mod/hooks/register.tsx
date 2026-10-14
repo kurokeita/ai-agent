@@ -232,11 +232,12 @@ export const register: Register = (on) => {
 	on("turn.complete", async ($, e, next) => {
 		const result = await next(e)
 		if (e.agentId) return result
-		// A main-conversation turn is when the session pushes branches and opens PRs.
+		// A main-conversation turn is when the session pushes branches and opens PRs,
+		// and moves its goal and steps on.
 		void (async () => {
 			await noteBranch($)
 			if (isAutoOpenWanted && !isAutoOpened) return autoOpen($)
-			if (await isPaneOpen($)) await refreshWork($)
+			if (await isPaneOpen($)) await Promise.all([refreshWork($), summarize($)])
 		})()
 
 		return result
@@ -249,6 +250,8 @@ export const register: Register = (on) => {
 	})
 
 	on("command.run", { command: "work" }, async ($) => {
+		// Opened by hand: auto-open has nothing left to do, so turns refresh the pane.
+		isAutoOpened = true
 		void refreshWork($)
 		await $.ui.open({
 			id: PANE,
