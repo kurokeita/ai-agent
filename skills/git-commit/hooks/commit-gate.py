@@ -199,7 +199,7 @@ def deny(reason):
 
 
 def main():
-    if os.environ.get("COMMIT_GATE_OFF"):
+    if os.environ.get("COMMIT_GATE_OFF") in ("1", "true"):
         return
     payload = json.load(sys.stdin)
     path = os.path.join(STATE_DIR, f"{payload.get('session_id', 'unknown')}.json")
