@@ -1,5 +1,5 @@
 import path from "node:path"
-import { defineConfig } from "vitest/config"
+import { configDefaults, defineConfig } from "vitest/config"
 
 export default defineConfig({
 	resolve: {
@@ -11,6 +11,8 @@ export default defineConfig({
 		globals: true,
 		environment: "node",
 		include: ["**/*.test.ts"],
+		// The statusline work pane's tests run under `claude plugin test`.
+		exclude: [...configDefaults.exclude, "skills/statusline-setup/mod/**"],
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],
