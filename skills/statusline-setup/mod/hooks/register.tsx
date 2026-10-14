@@ -250,6 +250,8 @@ export const register: Register = (on) => {
 	})
 
 	on("command.run", { command: "work" }, async ($) => {
+		// Opened by hand: auto-open has nothing left to do, so turns refresh the pane.
+		isAutoOpened = true
 		void refreshWork($)
 		await $.ui.open({
 			id: PANE,

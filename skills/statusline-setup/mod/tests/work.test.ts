@@ -334,3 +334,28 @@ test("each turn summarizes again while the pane is open, not once it closes", as
 	await clock.settle()
 	expect(prompts.length).toBe(2)
 })
+
+test("a resumed session with nothing to show still summarizes each turn once /work opens the pane", async ($, on) => {
+	const clock = mock.clock(on)
+	const opened: string[] = []
+	const prompts = fakeWorld(on, opened, [message("hello")], (argv) =>
+		argv[0] === "gh" ? '{"data":{"repository":{}}}' : undefined,
+	)
+	on("turn.complete", (_$, e) => ({ text: e.answer }))
+	fakeSession(on, { id: "a", turns: 4 })
+	await $.session.start(START)
+	await clock.settle()
+	expect(opened).toEqual([])
+	await $.command.run({ command: "work", args: "" })
+	await clock.settle()
+	const before = prompts.length
+	await $.turn.complete({
+		answer: "",
+		durationMs: 1,
+		isAborted: false,
+		reason: "answer",
+		turnId: "t1",
+	})
+	await clock.settle()
+	expect(prompts.length).toBe(before + 1)
+})
