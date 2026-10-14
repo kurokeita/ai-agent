@@ -39,3 +39,6 @@ temp/
 .sisyphus/
 .prd
 .claude/settings.local.json
+
+# Claude Code writes these when it loads a skill-bundled mod
+skills/*/.claude-plugin/types/
