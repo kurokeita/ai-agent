@@ -359,3 +359,20 @@ test("a resumed session with nothing to show still summarizes each turn once /wo
 	await clock.settle()
 	expect(prompts.length).toBe(before + 1)
 })
+
+test("/clear neither opens the pane nor summarizes the cleared conversation", async ($, on) => {
+	const clock = mock.clock(on)
+	const opened: string[] = []
+	const prompts = fakeWorld(on, opened, [message("/clear")])
+	on("session.end", (_$, e) => ({ sessionId: e.sessionId }))
+	const session = fakeSession(on, { id: "a", turns: 0 })
+	await $.session.start(START)
+	await clock.settle()
+	await $.session.end({ reason: "clear", sessionId: "a", resume: { id: "a" } })
+	// The cleared transcript opens with the /clear command row, a user turn.
+	session.id = "b"
+	session.turns = 1
+	await clock.advance(10_000)
+	expect(opened).toEqual([])
+	expect(prompts).toEqual([])
+})
