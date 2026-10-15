@@ -1,6 +1,6 @@
 ---
 name: statusline-setup
-description: 'Set up the Claude Code or Gemini/Antigravity CLI statusline as side-by-side bordered boxes: a repo box (cwd, git branch, working-tree state, last commit), a session box (model, context % + token totals, 5h/7d quota with ETA), and a work box (the current branch's pull request and its linked issues or work items, fetched from GitHub with gh or Azure DevOps with az). Use when asked to "set up my statusline", "install statusline", "configure statusline", or to add a colored multi-line status line showing rate limits, token usage, or the PR and work items for the current branch. Detects OS and installs the appropriate variant (bash + jq on Linux/macOS, PowerShell on Windows).'
+description: 'Set up the Claude Code or Gemini/Antigravity CLI statusline as side-by-side bordered boxes: a repo box (cwd, git branch, working-tree state, last commit), a session box (model, context % + token totals, 5h/7d quota with ETA), and a work box (the current branch''s pull request and its linked issues or work items, fetched from GitHub with gh or Azure DevOps with az). Use when asked to "set up my statusline", "install statusline", "configure statusline", or to add a colored multi-line status line showing rate limits, token usage, or the PR and work items for the current branch. Detects OS and installs the appropriate variant (bash + jq on Linux/macOS, PowerShell on Windows).'
 ---
 
 # Statusline Setup
