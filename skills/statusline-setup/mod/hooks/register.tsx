@@ -32,6 +32,7 @@ let isAutoOpened = false
 // Which conversation this process shows, and whether a prompt was sent in it here.
 let watchedId = ""
 let hasPromptedHere = false
+let isClearPending = false
 let sessionStartedAt = Date.now()
 
 const runner =
@@ -168,7 +169,9 @@ async function checkResumed($: EngineInterface) {
 	const id = await $.session.id()
 	if (id !== watchedId) {
 		watchedId = id
-		hasPromptedHere = false
+		// A /clear starts its conversation here, though the transcript's /clear row counts as a turn.
+		hasPromptedHere = isClearPending
+		isClearPending = false
 		isAutoOpenWanted = false
 		isAutoOpened = false
 		// Another conversation now: its branches start over from here.
@@ -241,6 +244,12 @@ export const register: Register = (on) => {
 		})()
 
 		return result
+	})
+
+	on("session.end", async (_$, e, next) => {
+		if (e.reason === "clear") isClearPending = true
+
+		return next(e)
 	})
 
 	on("prompt.submit", async (_$, e, next) => {
