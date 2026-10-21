@@ -58,6 +58,8 @@ The box is left out entirely when it has no rows: detached HEAD, a remote that i
 
 Build **two parallel arrays** per box: one holding the plain text, one holding the same text wrapped in color escapes. Measure padding from the plain array only — measuring the colored string counts the escape bytes and destroys alignment.
 
+Widths are **terminal columns**, not characters. Emoji and CJK take two columns, so a commit subject with `📝` pushes its row one column past the border when measured with `${#str}`. The bash variant measures every plain row in one `perl -CS` call: per grapheme cluster (`\X`), 2 columns when it holds an East Asian Wide or Fullwidth character or `U+FE0F`, else 1. Without perl it falls back to character counts.
+
 ### UTF-8 locale guard (bash only)
 
 `${#str}` counts **bytes**, not characters, unless the shell is in a UTF-8 locale. The rows contain `↑`, `↓` and `…`, so under `LC_ALL=C` every such row is padded 2 characters short. Guard at the top of the script with a subprocess-free probe:
@@ -255,7 +257,7 @@ The input schema depends on the platform:
 
 ## Linux / macOS Implementation
 
-Write `statusline-command.sh` (chmod +x) to the targeted platform directory. Pure bash + `jq` — no Python. `jq` must be installed; if missing, the script prints a one-line hint and exits 0.
+Write `statusline-command.sh` (chmod +x) to the targeted platform directory. Pure bash + `jq` — no Python. `jq` must be installed; if missing, the script prints a one-line hint and exits 0. `perl`, which macOS and most Linux systems ship, measures row widths; without it the boxes still render but misalign on emoji.
 
 JSON parsing rules:
 
@@ -711,18 +713,30 @@ if (( work_rows )); then
 fi
 
 # Width comes from the plain rows; the parallel colored rows carry ANSI escapes
-# that would otherwise be counted as visible characters. Arrays are passed
-# positionally because bash 3.2 (macOS) has no `local -n` nameref.
+# that would otherwise be counted as visible characters. ${#s} counts characters,
+# but emoji and CJK take two terminal columns, so one perl call measures every
+# row by grapheme. Each box holds `rows` rows, so box N's widths start at N*rows.
+all=("${repo_plain[@]}" "${sess_plain[@]}")
+# An empty array trips `set -u` on bash 3.2, so only expand it when it has rows.
+(( work_rows )) && all+=("${work_plain[@]}")
+cols=()
+while IFS= read -r n; do cols+=("$n"); done < <(printf '%s\n' "${all[@]}" \
+  | perl -CS -ne 'chomp; my $w = 0; $w += /[\p{Ea=W}\p{Ea=F}\x{FE0F}]/ ? 2 : 1 for /\X/g; print "$w\n"' 2>/dev/null)
+# Without perl (or its Unicode tables) fall back to character counts.
+if (( ${#cols[@]} != ${#all[@]} )); then
+  cols=(); for s in "${all[@]}"; do cols+=("${#s}"); done
+fi
+
+# Widths are passed positionally because bash 3.2 (macOS) has no `local -n` nameref.
 box_width() {
   local title="$1"; shift
-  local w=$(( ${#title} + 2 )) s
-  for s in "$@"; do (( ${#s} > w )) && w=${#s}; done
+  local w=$(( ${#title} + 2 )) n
+  for n in "$@"; do (( n > w )) && w=$n; done
   printf '%d' "$w"
 }
-rw=$(box_width "repo" "${repo_plain[@]}")
-sw=$(box_width "session" "${sess_plain[@]}")
-# An empty array trips `set -u` on bash 3.2, so only expand it when it has rows.
-(( work_rows )) && ww=$(box_width "work" "${work_plain[@]}")
+rw=$(box_width "repo" "${cols[@]:0:rows}")
+sw=$(box_width "session" "${cols[@]:rows:rows}")
+(( work_rows )) && ww=$(box_width "work" "${cols[@]:2*rows:rows}")
 
 box_top() {
   local title="$1" w="$2"
@@ -733,18 +747,18 @@ box_bottom() {
   printf '%s╰%s╯%s' "$C_BOX" "$(repeat_char '─' $(( $1 + 2 )))" "$RESET"
 }
 box_row() {
-  local colored="$1" w="$2" plain="$3"
+  local colored="$1" w="$2" used="$3"
   printf '%s│%s %s%s %s│%s' "$C_BOX" "$RESET" "$colored" \
-    "$(repeat_char ' ' $(( w - ${#plain} )))" "$C_BOX" "$RESET"
+    "$(repeat_char ' ' $(( w - used )))" "$C_BOX" "$RESET"
 }
 
 out="$(box_top repo "$rw") $(box_top session "$sw")"
 (( work_rows )) && out+=" $(box_top work "$ww")"
 for (( i = 0; i < rows; i++ )); do
   out+=$'\n'
-  out+="$(box_row "${repo_color[$i]}" "$rw" "${repo_plain[$i]}")"
-  out+=" $(box_row "${sess_color[$i]}" "$sw" "${sess_plain[$i]}")"
-  (( work_rows )) && out+=" $(box_row "${work_color[$i]}" "$ww" "${work_plain[$i]}")"
+  out+="$(box_row "${repo_color[$i]}" "$rw" "${cols[$i]}")"
+  out+=" $(box_row "${sess_color[$i]}" "$sw" "${cols[rows + i]}")"
+  (( work_rows )) && out+=" $(box_row "${work_color[$i]}" "$ww" "${cols[2 * rows + i]}")"
 done
 out+=$'\n'"$(box_bottom "$rw") $(box_bottom "$sw")"
 (( work_rows )) && out+=" $(box_bottom "$ww")"
@@ -1271,7 +1285,8 @@ It needs the same `gh` or `az` login as the work box. It fetches by itself and d
 
 After installing, pipe a fake payload into the script and confirm:
 
-- **Every rendered line has the same character count** — this is the alignment check, and it fails first when width is measured off a colored string or the locale is not UTF-8.
+- **Every rendered line has the same width in terminal columns** — this is the alignment check, and it fails first when width is measured off a colored string, by characters instead of columns, or the locale is not UTF-8.
+- A last commit whose subject holds an emoji such as `📝` or `♻️` still passes the width check.
 - Both boxes show the same number of rows, framed top and bottom on the same lines.
 - Inside a repo the repo box shows 4 rows: full cwd, branch, working-tree state, last commit.
 - Staging a deletion (`git rm`) renders `-N`, not `+N`.
@@ -1309,12 +1324,12 @@ Assert equal line widths mechanically:
 ```bash
 printf '{"cwd":"%s","transcript_path":"/tmp/statusline-smoke/transcript.jsonl","model":{"display_name":"Opus 4.7"},"context_window":{"used_percentage":42}}' "$PWD" \
   | bash ~/.claude/statusline-command.sh \
-  | perl -CSD -pe 's/\e\[[0-9;]*m//g' \
-  | perl -CSD -ne 'chomp; print length($_), "\n"' \
+  | perl -CSD -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;[^\a]*\a//g' \
+  | perl -CSD -ne 'chomp; my $w = 0; $w += /[\p{Ea=W}\p{Ea=F}\x{FE0F}]/ ? 2 : 1 for /\X/g; print "$w\n"' \
   | sort -u
 ```
 
-That must print exactly one number. Re-run the same pipeline wrapped in `env -i PATH="$PATH" HOME="$HOME" bash -c '...'` to confirm the locale guard holds with no `LANG` set.
+That must print exactly one number. Counting with `length` instead would pass on a row an emoji pushes out of line. Re-run the same pipeline wrapped in `env -i PATH="$PATH" HOME="$HOME" bash -c '...'` to confirm the locale guard holds with no `LANG` set.
 
 Work box from a fixture cache, run inside a GitHub or Azure DevOps repo. The fresh `.at` stamp stops a network refresh, so this stays offline:
 
