@@ -1,22 +1,22 @@
 ---
 name: statusline-setup
-description: 'Set up the Claude Code or Gemini/Antigravity CLI statusline as side-by-side bordered boxes: a repo box (cwd, git branch, working-tree state, last commit), a session box (model, context % + token totals, 5h/7d quota with ETA), and a work box (the current branch''s pull request and its linked issues or work items, fetched from GitHub with gh or Azure DevOps with az). Use when asked to "set up my statusline", "install statusline", "configure statusline", or to add a colored multi-line status line showing rate limits, token usage, or the PR and work items for the current branch. Detects OS and installs the appropriate variant (bash + jq on Linux/macOS, PowerShell on Windows).'
+description: 'Set up the Claude Code or Gemini/Antigravity CLI statusline as side-by-side bordered boxes: a repo box (cwd, git branch, working-tree state, last commit), a session box (model, context % + token totals, 5h/7d quota with ETA). Also ships the Claude Code work pane (`/work`), which shows the session''s pull requests and work items. Use when asked to "set up my statusline", "install statusline", "configure statusline", or to add a colored multi-line status line showing rate limits or token usage. Detects OS and installs the appropriate variant (bash + jq on Linux/macOS, PowerShell on Windows).'
 ---
 
 # Statusline Setup
 
-Install a Claude Code or Gemini/Antigravity statusline that renders up to three side-by-side bordered boxes:
+Install a Claude Code or Gemini/Antigravity statusline that renders two side-by-side bordered boxes:
 
 ```text
-╭─ repo ──────────────────────────────────────────────────────╮ ╭─ session ─────────────╮ ╭─ work ───────────────────────╮
-│ ~/dev/ai_agents                                             │ │ Opus 5 (high)         │ │ PR #46 open approved         │
-│ feat/statusline-boxed-layout                                │ │ ctx 42%  ↑1.2M ↓18.4k │ │ #45 Show PRs in statusline   │
-│ +2 ~5 ?1 ↑3                                                 │ │ 5h 38%  resets 2h 14m │ │                              │
-│ ffd30ce feat(skills): add iso-response plain language skill │ │ 7d 61%  resets 3d 4h  │ │                              │
-╰─────────────────────────────────────────────────────────────╯ ╰───────────────────────╯ ╰──────────────────────────────╯
+╭─ repo ──────────────────────────────────────────────────────╮ ╭─ session ─────────────╮
+│ ~/dev/ai_agents                                             │ │ Opus 5 (high)         │
+│ feat/statusline-boxed-layout                                │ │ ctx 42%  ↑1.2M ↓18.4k │
+│ +2 ~5 ?1 ↑3                                                 │ │ 5h 38%  resets 2h 14m │
+│ ffd30ce feat(skills): add iso-response plain language skill │ │ 7d 61%  resets 3d 4h  │
+╰─────────────────────────────────────────────────────────────╯ ╰───────────────────────╯
 ```
 
-The work box appears when the current branch has a pull request or related work items. Its rows are clickable links. In Claude Code, `/work` opens the same data in a scrollable pane (see Work Pane).
+In Claude Code, `/work` shows the session's pull requests and work items in a side pane (see Work Pane).
 
 ## Box Contents
 
@@ -36,20 +36,11 @@ Rows 2-4 appear only inside a git repo.
 3. **`5h N%  resets <eta>`** — colored by remaining quota (see below).
 4. **`7d N%  resets <eta>`** — colored independently of the 5h row.
 
-### work box
-
-1. **pull request** in `#009AFB` (`38;2;0;154;251`): `PR #<n> <state>` on GitHub, `PR !<n> <state>` on Azure DevOps, followed by a review word when there is one. See [Work Box Data](#work-box-data) for the state and review words.
-2. **related items**, one per row, in dim `#787e8a`: `#<number> <title>`, truncated to 50 characters with a trailing `…`. With a PR, GitHub lists the issues the PR closes and Azure DevOps lists the work items linked to the PR. Without a PR, the items come from the branch name and the branch's commits (see [Branch refs](#branch-refs)). At most 3 rows; any more collapse into one `+N more` row.
-
-Every row with a URL is wrapped in an OSC 8 hyperlink (`ESC ]8;;<url> BEL` … `ESC ]8;; BEL`), so Cmd+click (macOS) or Ctrl+click opens the PR or item. The escape goes in the colored copy only, never the plain copy used for width. Terminal.app shows the text but cannot click it.
-
-The box is left out entirely when it has no rows: detached HEAD, a remote that is neither GitHub nor Azure DevOps, `gh`/`az` not installed, no PR and no related items, or no data fetched yet.
-
 ## Box Rendering Rules
 
 - Border glyphs `╭ ╮ ╰ ╯ ─ │` in `#5a5f69` (`38;2;90;95;105`); the box title in `#8c929e` (`38;2;140;146;158`).
 - Each box's inner width is the longest of its content rows, or its title + 2, whichever is larger.
-- All rendered boxes are padded to the **same row count** with blank rows, so the frames start and end on the same terminal lines.
+- Both boxes are padded to the **same row count** with blank rows, so the frames start and end on the same terminal lines.
 - The boxes are joined by a single space on every line.
 - Rows are emitted newline-separated; the statusline host renders them as multiple lines.
 - When the repo and session boxes both have zero content rows the script prints nothing and exits 0.
@@ -135,68 +126,6 @@ Read **all** git state from a single `git -C "$cwd" status -b --porcelain` call,
 The last-commit row needs one further call: `git -C "$cwd" log -1 --format='%h %s'`.
 
 Every git call must skip optional locks: export `GIT_OPTIONAL_LOCKS=0` once at the top of the script. A plain `git status` takes `.git/index.lock` to refresh stat info, and the statusline re-runs on every turn, so it races the user's own `git add`/`commit` and makes them fail with `Unable to create '.git/index.lock': File exists`.
-
-## Work Box Data
-
-The statusline payload says nothing about pull requests, so the current branch stands in for the session.
-
-### Platform detection
-
-Read the remote with `git -C "$cwd" remote get-url origin`. This is the one git call outside the single status call.
-
-| Remote matches | Platform | CLI |
-|----------------|----------|-----|
-| `github.com:` or `github.com/` | GitHub | `gh` |
-| `dev.azure.com:`, `dev.azure.com/` or `.visualstudio.com/` | Azure DevOps | `az` with the `azure-devops` extension |
-
-Anything else, or a missing CLI, renders no work box. Both CLIs read the repository from the current directory, so every fetch runs inside `cd "$cwd"` in the background job.
-
-### Branch refs
-
-Without a PR, the related items are the item numbers found locally, in this order, with duplicates and leading zeros removed and at most 10 kept:
-
-1. A 3 to 9 digit segment of the branch name, splitting on anything that is not a letter or digit (`user/minhle/43553/feat/x` → `43553`). On GitHub, also the leading number of a `gh issue develop` name (`41-fix-version` → `41`).
-2. Refs in the messages of commits on the branch but not on the default branch (`git log --format=%B <origin/HEAD>..HEAD`): `AB#<n>` on Azure DevOps, `#<n>` on GitHub. No `refs/remotes/origin/HEAD` means no commit scan.
-
-Ids are capped at 9 digits because both APIs take 32-bit ids, and one out-of-range literal fails the whole query. A number that is not an item is dropped silently.
-
-### Fetch
-
-- **GitHub**: one `gh api graphql` call. `-F owner='{owner}' -F name='{repo}'` lets `gh` fill in the repository; pass the branch with `-f` so a numeric branch name stays a string. Query the newest PR whose head is the branch (`states: [OPEN, MERGED, CLOSED]`) with `number state isDraft reviewDecision url` and `closingIssuesReferences(first: 10) { nodes { number title url } }`. The same query carries one `i<n>: issueOrPullRequest(number: <n>)` alias per branch ref, used only when there is no PR. `gh` exits 1 when a ref does not exist but still prints the rest, so judge success by `.data.repository`, not the exit code.
-- **Azure DevOps**: `az repos pr list --source-branch <branch> --status all --top 1`, then `az repos pr work-item list --id <n>` for the linked work items. Without a PR, one `az boards query --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.Id] IN (<refs>)"` instead. Pass `--only-show-errors -o json` to every call. `--detect` (on by default) scopes them to the repository of the current directory.
-
-### Links
-
-| Row | GitHub | Azure DevOps |
-|-----|--------|--------------|
-| PR | `url` | API `url` with `/_apis/git/repositories/` → `/_git/` and `/pullRequests/` → `/pullrequest/` |
-| item | `url` | API `url` with `/_apis/wit/workItems/` → `/_workitems/edit/` |
-
-Only `https://` URLs without spaces become links; anything else renders as plain text.
-
-### Row vocabulary
-
-| Field | GitHub | Azure DevOps |
-|-------|--------|--------------|
-| state | `draft` when an open PR is a draft, else `open`, `merged`, `closed` | `draft` when an active PR is a draft, else `active` → `open`, `completed` → `merged`, `abandoned` → `closed` |
-| review | `reviewDecision`: `APPROVED` → `approved`, `CHANGES_REQUESTED` → `changes requested`, `REVIEW_REQUIRED` → `review required`, null → nothing | reviewer votes: any `-10` → `rejected`, else any `-5` → `waiting for author`, else any `5` or `10` → `approved`, else nothing |
-| item | `#<issue number> <issue title>` | `#<work item id> <System.Title>` |
-
-Tabs and newlines in titles become spaces, so each row stays one line and the tab before the URL stays unique.
-
-### Cache and background refresh
-
-`gh` takes about 0.7s and the two `az` calls about 5s, and the statusline re-runs on every turn. The render path therefore **never calls `gh` or `az`**:
-
-1. The cache lives in a per-user directory: `${TMPDIR:-/tmp}/statusline-work-$UID` (mode 700) or `%TEMP%\statusline-work`. The file name is a hash of `<remote URL>|<branch>`, so a token embedded in the remote URL never lands in a file name.
-2. `<cache>.at` holds the epoch of the last fetch attempt. When it is missing or older than 60 seconds, the script writes the current epoch to it, starts a detached refresh, and carries on rendering.
-3. The refresh writes the rows to a temporary file, then renames it over `<cache>`, so a half-written cache never renders. A failed fetch (offline, logged out) leaves the previous rows in place; the `.at` stamp stops a retry until the next 60-second window.
-4. The render reads `<cache>`: one `<text><TAB><url>` row per line, the `PR` row first, then the item rows. It strips control characters from the text and the URL first, because titles come from other people and could otherwise inject terminal escape sequences.
-
-Detaching rules, or the host waits for the fetch and the statusline stalls:
-
-- **bash**: run the refresh as `( ... ) </dev/null >/dev/null 2>&1 &` followed by `disown`. No file descriptor may stay attached to the statusline's stdout.
-- **PowerShell**: `Start-Job` dies with its parent, so re-invoke the same script with `Start-Process -WindowStyle Hidden` and a `-Refresh` argument.
 
 ## Quota Colors (by REMAINING quota = 100 - used%)
 
@@ -562,163 +491,17 @@ if [[ -n "$seven_used" ]]; then
   sess_plain+=("$s"); sess_color+=("$(quota_color "$su")${s}${RESET}")
 fi
 
-# --- work box: PR + linked items for the current branch ---
-# gh takes ~0.7s and az ~5s, so rendering only reads a cache; a stale cache
-# starts a detached refresh and this turn shows the previous rows.
-WORK_TTL=60
-
-# Item numbers related to the branch without a PR: a 3-9 digit segment of the
-# branch name (plus gh issue develop's "<n>-slug"), then AB#N (Azure DevOps) or
-# #N (GitHub) in commits not yet on the default branch. Capped at 9 digits
-# because both APIs take 32-bit ids, and one bad literal fails the whole query.
-item_refs() {
-  local platform="$1" branch="$2" base pat
-  {
-    [[ "$platform" == github && "$branch" =~ ^([0-9]{1,9})- ]] && echo "${BASH_REMATCH[1]}"
-    printf '%s\n' "$branch" | tr -c 'A-Za-z0-9' '\n' | grep -Ex '[0-9]{3,9}'
-    base=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)
-    if [[ -n "$base" ]]; then
-      if [[ "$platform" == github ]]; then pat='#[0-9]{1,9}'; else pat='AB#[0-9]{1,9}'; fi
-      git log --format=%B "$base..HEAD" 2>/dev/null | grep -Eo "$pat" | tr -cd '0-9\n'
-    fi
-  } | awk 'NF { n = $0 + 0; if (!seen[n]++) print n }' | head -n 10
-}
-
-# Prints the PR row, then one row per linked item, each as "<text>\t<url>".
-# Without a PR, the items come from item_refs instead. Fails on a CLI error so
-# the caller keeps the previous cache. Runs inside the repo (gh/az detect from PWD).
-fetch_work() {
-  local platform="$1" branch="$2" refs out pr id n q=""
-  local title='gsub("[\t\r\n]"; " ")'
-  refs=$(item_refs "$platform" "$branch")
-  if [[ "$platform" == github ]]; then
-    for n in $refs; do
-      q+=" i$n: issueOrPullRequest(number: $n) {
-            ... on Issue { number title url } ... on PullRequest { number title url } }"
-    done
-    # gh exits 1 when a ref is not an issue but still prints the rest, so
-    # success is judged by .data.repository instead of the exit code.
-    out=$(gh api graphql -F owner='{owner}' -F name='{repo}' -f branch="$branch" -f query='
-      query($owner: String!, $name: String!, $branch: String!) {
-        repository(owner: $owner, name: $name) {
-          pullRequests(headRefName: $branch, first: 1, states: [OPEN, MERGED, CLOSED],
-                       orderBy: {field: CREATED_AT, direction: DESC}) {
-            nodes {
-              number state isDraft reviewDecision url
-              closingIssuesReferences(first: 10) { nodes { number title url } }
-            }
-          }
-          '"$q"'
-        }
-      }')
-    jq -r '.data.repository // error("no repository")
-      | if .pullRequests.nodes[0] then
-          .pullRequests.nodes[0]
-          | "PR #\(.number) \(if .isDraft and .state == "OPEN" then "draft" else (.state | ascii_downcase) end)"
-              + ({"APPROVED": " approved", "CHANGES_REQUESTED": " changes requested",
-                  "REVIEW_REQUIRED": " review required"}[.reviewDecision // ""] // "")
-              + "\t\(.url)",
-            (.closingIssuesReferences.nodes[] | "#\(.number) \(.title | '"$title"')\t\(.url)")
-        else
-          to_entries[] | select(.key | startswith("i")) | .value // empty
-          | "#\(.number) \(.title | '"$title"')\t\(.url)"
-        end' <<<"$out"
-  else
-    local rows='.[] | "#\(.id) \(.fields."System.Title" | '"$title"')\t\(.url | sub("/_apis/wit/workItems/"; "/_workitems/edit/"))"'
-    pr=$(az repos pr list --source-branch "$branch" --status all --top 1 --only-show-errors -o json) || return 1
-    id=$(jq -r '.[0].pullRequestId // empty' <<<"$pr")
-    if [[ -n "$id" ]]; then
-      jq -r '.[0]
-        | "PR !\(.pullRequestId) \(if .isDraft and .status == "active" then "draft"
-            else ({"active": "open", "completed": "merged", "abandoned": "closed"}[.status] // .status) end)"
-            + ([.reviewers[]?.vote] | if any(. == -10) then " rejected"
-                elif any(. == -5) then " waiting for author"
-                elif any(. >= 5) then " approved" else "" end)
-            + "\t\(.url | sub("/_apis/git/repositories/"; "/_git/") | sub("/pullRequests/"; "/pullrequest/"))"' <<<"$pr"
-      az repos pr work-item list --id "$id" --only-show-errors -o json | jq -r "$rows"
-    elif [[ -n "$refs" ]]; then
-      az boards query --only-show-errors -o json \
-        --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.Id] IN (${refs//$'\n'/, })" \
-        | jq -r "$rows"
-    fi
-  fi
-}
-
-work_plain=(); work_color=()
-platform=""
-if [[ -n "$branch" && "$branch" != detached@* ]]; then
-  remote=$(git -C "$cwd" remote get-url origin 2>/dev/null)
-  case "$remote" in
-    *github.com[:/]*)
-      command -v gh >/dev/null 2>&1 && platform=github ;;
-    *dev.azure.com[:/]*|*.visualstudio.com/*)
-      command -v az >/dev/null 2>&1 && platform=azure ;;
-  esac
-fi
-
-if [[ -n "$platform" ]]; then
-  work_dir="${TMPDIR:-/tmp}/statusline-work-${UID}"
-  mkdir -p -m 700 "$work_dir"
-  # Hashed so a token embedded in the remote URL never lands in a file name.
-  read -r key _ < <(printf '%s|%s' "$remote" "$branch" | cksum)
-  cache="$work_dir/$key"
-  now=$(date +%s); at=0
-  [[ -f "$cache.at" ]] && read -r at < "$cache.at"
-  if (( now - ${at:-0} > WORK_TTL )); then
-    printf '%s\n' "$now" > "$cache.at"
-    # Every fd is detached, or the host waits for the fetch to finish.
-    (
-      set -o pipefail
-      cd "$cwd" && rows=$(fetch_work "$platform" "$branch") \
-        && printf '%s\n' "$rows" > "$cache.$$" && mv -f "$cache.$$" "$cache"
-    ) </dev/null >/dev/null 2>&1 &
-    disown
-  fi
-
-  items=0
-  if [[ -f "$cache" ]]; then
-    while IFS=$'\t' read -r line url; do
-      # Titles come from other people; drop escapes before they reach the terminal.
-      line=${line//[[:cntrl:]]/}; url=${url//[[:cntrl:]]/}
-      [[ -z "$line" ]] && continue
-      [[ "$url" == https://* && "$url" != *' '* ]] || url=""
-      if [[ "$line" == 'PR '* ]]; then
-        color="$C_CTX"
-      elif (( ++items <= 3 )); then
-        color="$C_DIM"; line=$(truncate_to "$line" 50)
-      else
-        continue
-      fi
-      # OSC 8 makes the row clickable; it lives only in the colored copy.
-      colored="${color}${line}${RESET}"
-      [[ -n "$url" ]] && colored=$'\033]8;;'"${url}"$'\a'"${colored}"$'\033]8;;\a'
-      work_plain+=("$line"); work_color+=("$colored")
-    done < "$cache"
-  fi
-  if (( items > 3 )); then
-    more="+$(( items - 3 )) more"
-    work_plain+=("$more"); work_color+=("${C_DIM}${more}${RESET}")
-  fi
-fi
-work_rows=${#work_plain[@]}
-
 rows=${#repo_plain[@]}
 (( ${#sess_plain[@]} > rows )) && rows=${#sess_plain[@]}
 if (( rows == 0 )); then printf ''; exit 0; fi
-(( work_rows > rows )) && rows=$work_rows
 for (( i = ${#repo_plain[@]}; i < rows; i++ )); do repo_plain+=(""); repo_color+=(""); done
 for (( i = ${#sess_plain[@]}; i < rows; i++ )); do sess_plain+=(""); sess_color+=(""); done
-if (( work_rows )); then
-  for (( i = work_rows; i < rows; i++ )); do work_plain+=(""); work_color+=(""); done
-fi
 
 # Width comes from the plain rows; the parallel colored rows carry ANSI escapes
 # that would otherwise be counted as visible characters. ${#s} counts characters,
 # but emoji and CJK take two terminal columns, so one perl call measures every
 # row by grapheme. Each box holds `rows` rows, so box N's widths start at N*rows.
 all=("${repo_plain[@]}" "${sess_plain[@]}")
-# An empty array trips `set -u` on bash 3.2, so only expand it when it has rows.
-(( work_rows )) && all+=("${work_plain[@]}")
 cols=()
 while IFS= read -r n; do cols+=("$n"); done < <(printf '%s\n' "${all[@]}" \
   | perl -CS -ne 'chomp; my $w = 0; $w += /[\p{Ea=W}\p{Ea=F}\x{FE0F}]/ ? 2 : 1 for /\X/g; print "$w\n"' 2>/dev/null)
@@ -736,7 +519,6 @@ box_width() {
 }
 rw=$(box_width "repo" "${cols[@]:0:rows}")
 sw=$(box_width "session" "${cols[@]:rows:rows}")
-(( work_rows )) && ww=$(box_width "work" "${cols[@]:2*rows:rows}")
 
 box_top() {
   local title="$1" w="$2"
@@ -753,15 +535,12 @@ box_row() {
 }
 
 out="$(box_top repo "$rw") $(box_top session "$sw")"
-(( work_rows )) && out+=" $(box_top work "$ww")"
 for (( i = 0; i < rows; i++ )); do
   out+=$'\n'
   out+="$(box_row "${repo_color[$i]}" "$rw" "${cols[$i]}")"
   out+=" $(box_row "${sess_color[$i]}" "$sw" "${cols[rows + i]}")"
-  (( work_rows )) && out+=" $(box_row "${work_color[$i]}" "$ww" "${cols[2 * rows + i]}")"
 done
 out+=$'\n'"$(box_bottom "$rw") $(box_bottom "$sw")"
-(( work_rows )) && out+=" $(box_bottom "$ww")"
 
 printf '%s' "$out"
 ```
@@ -773,9 +552,6 @@ Write `statusline-command.ps1` to the targeted platform directory. Use `ConvertF
 `statusline-command.ps1`:
 
 ```powershell
-# -Refresh is only passed by the script itself, to fetch the work box in the background.
-param([string]$Refresh, [string]$Branch, [string]$Cache)
-
 $ErrorActionPreference = 'SilentlyContinue'
 # The statusline re-runs on every Claude turn. A plain `git status` grabs
 # .git/index.lock to refresh stat info, racing the user's own git writes.
@@ -783,7 +559,6 @@ $env:GIT_OPTIONAL_LOCKS = '0'
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $OutputEncoding = [System.Text.Encoding]::UTF8
 $ESC = [char]27
-$BEL = [char]7
 
 $C_CWD    = "$ESC[38;2;94;255;255m"
 $C_BRANCH = "$ESC[38;2;194;72;112m"
@@ -877,96 +652,6 @@ function SumTokens($path) {
   }
   if (-not $found) { return $null }
   return ,@($sumIn, $sumOut)
-}
-
-$WORK_TTL = 60
-
-# Item numbers related to the branch without a PR: a 3-9 digit segment of the
-# branch name (plus gh issue develop's "<n>-slug"), then AB#N (Azure DevOps) or
-# #N (GitHub) in commits not yet on the default branch. Capped at 9 digits
-# because both APIs take 32-bit ids, and one bad literal fails the whole query.
-function ItemRefs($platform, $branch) {
-  $refs = @()
-  if ($platform -eq "github" -and $branch -match '^(\d{1,9})-') { $refs += $Matches[1] }
-  $refs += @($branch -split '[^A-Za-z0-9]' | Where-Object { $_ -match '^\d{3,9}$' })
-  $base = & git symbolic-ref --short refs/remotes/origin/HEAD 2>$null
-  if ($base) {
-    if ($platform -eq "github") { $pat = '#(\d{1,9})' } else { $pat = 'AB#(\d{1,9})' }
-    $log = (& git log --format=%B "$base..HEAD" 2>$null) -join "`n"
-    foreach ($m in [regex]::Matches($log, $pat)) { $refs += $m.Groups[1].Value }
-  }
-  return @($refs | ForEach-Object { [int]$_ } | Select-Object -Unique | Select-Object -First 10)
-}
-
-function OneLine($s) { return ([string]$s) -replace '[\t\r\n]', ' ' }
-
-# Returns the PR row, then one row per linked item, each as "<text>`t<url>",
-# or $null on a CLI error so the caller keeps the previous cache. Without a PR,
-# the items come from ItemRefs instead. Runs inside the repo (gh/az detect from PWD).
-function FetchWork($platform, $branch) {
-  $rows = @()
-  $refs = ItemRefs $platform $branch
-  if ($platform -eq "github") {
-    $q = ''
-    foreach ($n in $refs) { $q += " i$($n): issueOrPullRequest(number: $n) { ... on Issue { number title url } ... on PullRequest { number title url } }" }
-    # No double quotes: Windows PowerShell 5.1 strips them from native arguments.
-    $query = 'query($owner: String!, $name: String!, $branch: String!) { repository(owner: $owner, name: $name) { pullRequests(headRefName: $branch, first: 1, states: [OPEN, MERGED, CLOSED], orderBy: {field: CREATED_AT, direction: DESC}) { nodes { number state isDraft reviewDecision url closingIssuesReferences(first: 10) { nodes { number title url } } } }' + $q + ' } }'
-    # gh exits 1 when a ref is not an issue but still prints the rest, so
-    # success is judged by .data.repository instead of the exit code.
-    $raw = & gh api graphql -F 'owner={owner}' -F 'name={repo}' -f "branch=$branch" -f "query=$query"
-    $repo = (($raw -join "`n") | ConvertFrom-Json).data.repository
-    if (-not $repo) { return $null }
-    $pr = $repo.pullRequests.nodes | Select-Object -First 1
-    if ($pr) {
-      if ($pr.isDraft -and $pr.state -eq "OPEN") { $state = "draft" } else { $state = $pr.state.ToLower() }
-      $review = @{ APPROVED = " approved"; CHANGES_REQUESTED = " changes requested"; REVIEW_REQUIRED = " review required" }[[string]$pr.reviewDecision]
-      $rows += "PR #$($pr.number) $state$review`t$($pr.url)"
-      foreach ($i in $pr.closingIssuesReferences.nodes) { $rows += "#$($i.number) $(OneLine $i.title)`t$($i.url)" }
-    } else {
-      foreach ($n in $refs) {
-        $i = $repo."i$n"
-        if ($i) { $rows += "#$($i.number) $(OneLine $i.title)`t$($i.url)" }
-      }
-    }
-  } else {
-    $raw = & az repos pr list --source-branch $branch --status all --top 1 --only-show-errors -o json
-    if ($LASTEXITCODE -ne 0) { return $null }
-    $pr = @(($raw -join "`n") | ConvertFrom-Json) | Select-Object -First 1
-    if ($pr) {
-      if ($pr.isDraft -and $pr.status -eq "active") {
-        $state = "draft"
-      } else {
-        $state = @{ active = "open"; completed = "merged"; abandoned = "closed" }[[string]$pr.status]
-        if (-not $state) { $state = $pr.status }
-      }
-      $votes = @($pr.reviewers | ForEach-Object { $_.vote })
-      $review = ""
-      if ($votes -contains -10) { $review = " rejected" }
-      elseif ($votes -contains -5) { $review = " waiting for author" }
-      elseif (@($votes | Where-Object { $_ -ge 5 }).Count -gt 0) { $review = " approved" }
-      $url = $pr.url -replace '/_apis/git/repositories/', '/_git/' -replace '/pullRequests/', '/pullrequest/'
-      $rows += "PR !$($pr.pullRequestId) $state$review`t$url"
-      $raw = & az repos pr work-item list --id $pr.pullRequestId --only-show-errors -o json
-    } elseif ($refs.Count -gt 0) {
-      $raw = & az boards query --only-show-errors -o json --wiql "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.Id] IN ($($refs -join ', '))"
-    } else {
-      return ,$rows
-    }
-    if ($LASTEXITCODE -ne 0) { return $null }
-    foreach ($w in @(($raw -join "`n") | ConvertFrom-Json)) {
-      $rows += "#$($w.id) $(OneLine $w.fields.'System.Title')`t$($w.url -replace '/_apis/wit/workItems/', '/_workitems/edit/')"
-    }
-  }
-  return ,$rows
-}
-
-if ($Refresh) {
-  $rows = FetchWork $Refresh $Branch
-  if ($null -ne $rows) {
-    [System.IO.File]::WriteAllLines("$Cache.$PID", [string[]]$rows)
-    Move-Item -LiteralPath "$Cache.$PID" -Destination $Cache -Force
-  }
-  exit 0
 }
 
 $raw = [Console]::In.ReadToEnd()
@@ -1118,76 +803,10 @@ if ($null -ne $seven_used) {
   $sessPlain += $s; $sessColor += "$(QuotaColor $seven_used)$s$RESET"
 }
 
-# --- work box: PR + linked items for the current branch ---
-# gh takes ~0.7s and az ~5s, so rendering only reads a cache; a stale cache
-# starts a detached refresh and this turn shows the previous rows.
-$workPlain = @(); $workColor = @()
-$platform = ""
-if ($branch -and -not $branch.StartsWith("detached@")) {
-  $remote = & git -C "$cwd" remote get-url origin 2>$null
-  if ($remote -match 'github\.com[:/]') {
-    if (Get-Command gh) { $platform = "github" }
-  } elseif ($remote -match 'dev\.azure\.com[:/]|\.visualstudio\.com/') {
-    if (Get-Command az) { $platform = "azure" }
-  }
-}
-
-if ($platform) {
-  $workDir = Join-Path $env:TEMP "statusline-work"
-  New-Item -ItemType Directory -Force -Path $workDir | Out-Null
-  # Hashed so a token embedded in the remote URL never lands in a file name.
-  $hash = [System.Security.Cryptography.MD5]::Create().ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$remote|$branch"))
-  $cache = Join-Path $workDir ([BitConverter]::ToString($hash) -replace '-', '')
-  $now = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-  $at = 0
-  if (Test-Path -LiteralPath "$cache.at") { $at = [int64](Get-Content -LiteralPath "$cache.at" -TotalCount 1) }
-  if ($now - $at -gt $WORK_TTL) {
-    Set-Content -LiteralPath "$cache.at" -Value $now
-    # Start-Job dies with this process, so re-run the script detached instead.
-    $self = (Get-Process -Id $PID).Path
-    Start-Process -FilePath $self -WindowStyle Hidden -WorkingDirectory $cwd -ArgumentList @(
-      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$PSCommandPath`"",
-      '-Refresh', $platform, '-Branch', $branch, '-Cache', "`"$cache`"")
-  }
-
-  $items = 0
-  if (Test-Path -LiteralPath $cache) {
-    foreach ($row in [System.IO.File]::ReadAllLines($cache)) {
-      $parts = $row.Split("`t")
-      # Titles come from other people; drop escapes before they reach the terminal.
-      $line = $parts[0] -replace '[\x00-\x1f\x7f-\x9f]', ''
-      $url = ""
-      if ($parts.Count -gt 1) { $url = $parts[1] -replace '[\x00-\x1f\x7f-\x9f]', '' }
-      if (-not $line) { continue }
-      if (-not ($url.StartsWith("https://") -and -not $url.Contains(" "))) { $url = "" }
-      if ($line.StartsWith("PR ")) {
-        $color = $C_CTX
-      } else {
-        $items++
-        if ($items -gt 3) { continue }
-        $color = $C_DIM; $line = TruncateTo $line 50
-      }
-      # OSC 8 makes the row clickable; it lives only in the colored copy.
-      $colored = "$color$line$RESET"
-      if ($url) { $colored = "$ESC]8;;$url$BEL$colored$ESC]8;;$BEL" }
-      $workPlain += $line; $workColor += $colored
-    }
-  }
-  if ($items -gt 3) {
-    $more = "+$($items - 3) more"
-    $workPlain += $more; $workColor += "$C_DIM$more$RESET"
-  }
-}
-$workRows = $workPlain.Count
-
 $rows = [math]::Max($repoPlain.Count, $sessPlain.Count)
 if ($rows -eq 0) { exit 0 }
-$rows = [math]::Max($rows, $workRows)
 while ($repoPlain.Count -lt $rows) { $repoPlain += ""; $repoColor += "" }
 while ($sessPlain.Count -lt $rows) { $sessPlain += ""; $sessColor += "" }
-if ($workRows -gt 0) {
-  while ($workPlain.Count -lt $rows) { $workPlain += ""; $workColor += "" }
-}
 
 # Width comes from the plain rows; the parallel colored rows carry ANSI escapes
 # that would otherwise be counted as visible characters.
@@ -1198,7 +817,6 @@ function BoxWidth($title, $plainRows) {
 }
 $rw = BoxWidth "repo" $repoPlain
 $sw = BoxWidth "session" $sessPlain
-$ww = BoxWidth "work" $workPlain
 
 function BoxTop($title, [int]$w) {
   $dashes = [string]$HZ * ($w - $title.Length - 1)
@@ -1213,17 +831,11 @@ function BoxRow($colored, [int]$w, $plain) {
 }
 
 $lines = @()
-$line = (BoxTop "repo" $rw) + " " + (BoxTop "session" $sw)
-if ($workRows -gt 0) { $line += " " + (BoxTop "work" $ww) }
-$lines += $line
+$lines += (BoxTop "repo" $rw) + " " + (BoxTop "session" $sw)
 for ($i = 0; $i -lt $rows; $i++) {
-  $line = (BoxRow $repoColor[$i] $rw $repoPlain[$i]) + " " + (BoxRow $sessColor[$i] $sw $sessPlain[$i])
-  if ($workRows -gt 0) { $line += " " + (BoxRow $workColor[$i] $ww $workPlain[$i]) }
-  $lines += $line
+  $lines += (BoxRow $repoColor[$i] $rw $repoPlain[$i]) + " " + (BoxRow $sessColor[$i] $sw $sessPlain[$i])
 }
-$line = (BoxBottom $rw) + " " + (BoxBottom $sw)
-if ($workRows -gt 0) { $line += " " + (BoxBottom $ww) }
-$lines += $line
+$lines += (BoxBottom $rw) + " " + (BoxBottom $sw)
 
 [Console]::Out.Write([string]::Join("`n", $lines))
 ```
@@ -1238,15 +850,12 @@ Wire into `~/.claude/settings.json` (or `%USERPROFILE%\.claude\settings.json` on
 {
   "statusLine": {
     "type": "command",
-    "command": "bash ~/.claude/statusline-command.sh",
-    "refreshInterval": 10
+    "command": "bash ~/.claude/statusline-command.sh"
   }
 }
 ```
 
 (Or the `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%USERPROFILE%\.claude\statusline-command.ps1"` variant on Windows).
-
-`refreshInterval` re-runs the script every 10 seconds on top of the event triggers. Claude Code renders the statusline once at startup, which only starts the background work-box fetch; without the timer the box would stay empty until the first assistant message. The cache stamp still limits `gh`/`az` to one call per 60 seconds.
 
 ### Antigravity CLI
 
@@ -1266,20 +875,20 @@ Wire into `~/.gemini/antigravity-cli/settings.json` (or `%USERPROFILE%\.gemini\a
 
 ## Work Pane (Claude Code)
 
-The work box shows a few rows. The work pane is its scrollable companion: a Claude Code mod that ships inside this skill folder, in `.claude-plugin/plugin.json` and `mod/`. Claude Code loads a plugin from any folder under `~/.claude/skills/` (or a project's `.claude/skills/`), so installing this skill installs the pane. **Do not write any settings for it**, in particular not `CLAUDE_CODE_PLUGIN_DIRS`: that would load it a second time.
+The work pane is a Claude Code mod that ships inside this skill folder, in `.claude-plugin/plugin.json` and `mod/`. Claude Code loads a plugin from any folder under `~/.claude/skills/` (or a project's `.claude/skills/`), so installing this skill installs the pane. **Do not write any settings for it**, in particular not `CLAUDE_CODE_PLUGIN_DIRS`: that would load it a second time.
 
 What it shows, in a side pane:
 
 - **Summary and Steps** of the session, written by a Haiku call. It runs when the pane first opens, at the end of each turn while the pane is open, and on **Refresh**.
 - **Pull requests**: the current branch's, those of branches this session committed to, and any PR of this repository linked in the conversation. Each shows its state, review, checks and comment count.
-- **Work items**: the PRs' linked issues or work items or, for a branch without a PR, the same branch refs the work box uses.
+- **Work items**: the PRs' linked issues or work items. For a branch without a PR, the item numbers in the branch name (a 3 to 9 digit segment, or a `gh issue develop` `<n>-` prefix) and in commits not yet on the default branch (`#<n>` on GitHub, `AB#<n>` on Azure DevOps).
 
 How it opens:
 
 - `/work` opens and focuses it. Up/Down or PgUp/PgDn scroll, `r` refreshes, Esc closes.
 - A resumed session (`--resume`, `--continue`, the picker or `/resume`) opens it by itself, unfocused, once it has a PR or item to show. A new session never does.
 
-It needs the same `gh` or `az` login as the work box. It fetches by itself and does not read the statusline's cache. Its tests run with `claude plugin test <skill folder>`.
+It fetches with `gh` (GitHub) or `az` with the `azure-devops` extension (Azure DevOps), so it needs that CLI logged in. Its tests run with `claude plugin test <skill folder>`.
 
 ## Smoke Test
 
@@ -1294,10 +903,6 @@ After installing, pipe a fake payload into the script and confirm:
 - The tokens sum matches the fixture and sits on the `ctx` row.
 - Omitting `transcript_path` leaves the `ctx` row as a bare `ctx N%` — no `↑0 ↓0`, no stray spacing.
 - Outside a repo the repo box collapses to the cwd row alone and the session box pads with blank rows.
-- With a fixture work cache, a third `work` box shows the PR row and item rows, and every line still has the same width.
-- Work rows with an `https://` URL carry an OSC 8 link; strip `\e]8;;[^\a]*\a` along with the color codes before measuring widths.
-- With an empty work cache, only the repo and session boxes render.
-- With no work cache at all, the script still returns in well under a second, and the refresh writes the cache a few seconds later.
 - In a new Claude Code session inside a repo, `/work` opens the work pane; `claude plugin validate` and `claude plugin test` on the installed skill folder both pass.
 
 ### Linux/macOS smoke test
@@ -1324,21 +929,12 @@ Assert equal line widths mechanically:
 ```bash
 printf '{"cwd":"%s","transcript_path":"/tmp/statusline-smoke/transcript.jsonl","model":{"display_name":"Opus 4.7"},"context_window":{"used_percentage":42}}' "$PWD" \
   | bash ~/.claude/statusline-command.sh \
-  | perl -CSD -pe 's/\e\[[0-9;]*m//g; s/\e\]8;;[^\a]*\a//g' \
+  | perl -CSD -pe 's/\e\[[0-9;]*m//g' \
   | perl -CSD -ne 'chomp; my $w = 0; $w += /[\p{Ea=W}\p{Ea=F}\x{FE0F}]/ ? 2 : 1 for /\X/g; print "$w\n"' \
   | sort -u
 ```
 
 That must print exactly one number. Counting with `length` instead would pass on a row an emoji pushes out of line. Re-run the same pipeline wrapped in `env -i PATH="$PATH" HOME="$HOME" bash -c '...'` to confirm the locale guard holds with no `LANG` set.
-
-Work box from a fixture cache, run inside a GitHub or Azure DevOps repo. The fresh `.at` stamp stops a network refresh, so this stays offline:
-
-```bash
-d="${TMPDIR:-/tmp}/statusline-work-$UID"; mkdir -p -m 700 "$d"
-read -r key _ < <(printf '%s|%s' "$(git remote get-url origin)" "$(git branch --show-current)" | cksum)
-printf 'PR #46 open approved\thttps://github.com/o/r/pull/46\n#45 Show PRs in statusline\thttps://github.com/o/r/issues/45\n' > "$d/$key"; date +%s > "$d/$key.at"
-printf '{"cwd":"%s","model":{"display_name":"Opus 4.7"}}' "$PWD" | bash ~/.claude/statusline-command.sh; echo
-```
 
 ### Windows smoke test (PowerShell)
 
@@ -1369,18 +965,6 @@ $out
 
 The last line must print exactly one number.
 
-Work box from a fixture cache, run inside a GitHub or Azure DevOps repo. The fresh `.at` stamp stops a network refresh, so this stays offline:
-
-```powershell
-$d = "$env:TEMP\statusline-work"; New-Item -ItemType Directory -Force -Path $d | Out-Null
-$md5 = [System.Security.Cryptography.MD5]::Create()
-$key = [BitConverter]::ToString($md5.ComputeHash([System.Text.Encoding]::UTF8.GetBytes("$(git remote get-url origin)|$(git branch --show-current)"))) -replace '-', ''
-"PR #46 open approved`thttps://github.com/o/r/pull/46`n#45 Show PRs in statusline`thttps://github.com/o/r/issues/45" | Set-Content -LiteralPath "$d\$key" -Encoding UTF8
-[DateTimeOffset]::UtcNow.ToUnixTimeSeconds() | Set-Content -LiteralPath "$d\$key.at"
-$payload = @{ cwd = $PWD.Path; model = @{ display_name = "Opus 4.7" } } | ConvertTo-Json -Compress
-$payload | powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.claude\statusline-command.ps1"
-```
-
 ## Color Preview One-Liner
 
 After install, output a one-liner the user can paste to preview all four quota tiers, one tier per line, in the row format the session box uses.
@@ -1403,6 +987,5 @@ $e=[char]27; Write-Host "$e[38;2;78;186;101m5h 20%  resets 2h 30m$e[0m`n$e[38;2;
 - Do not auto-commit any changes.
 - Do not add Co-Authored-By trailers.
 - Read git state with `git -C "$cwd" status -b --porcelain`, never from `PWD`.
-- Never call `gh` or `az` in the render path; only the detached refresh calls them.
 - Never measure padding from a string containing ANSI escapes.
 - When merging into existing `settings.json`, preserve all other keys; only set/replace `statusLine`.
