@@ -23,7 +23,7 @@ export type Summary =
 
 declare module "claude-code" {
 	interface PluginState {
-		"work-items": {
+		"work-pane": {
 			branches: string[]
 			work: Work | null
 			isFetching: boolean

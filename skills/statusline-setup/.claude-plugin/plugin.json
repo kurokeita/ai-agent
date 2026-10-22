@@ -1,5 +1,5 @@
 {
-	"name": "work-items",
+	"name": "work-pane",
 	"version": "0.1.0",
 	"description": "Work pane: this session's PRs, work items, summary and steps, fetched with gh or az",
 	"hooks": "./mod/hooks/hooks.json",

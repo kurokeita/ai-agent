@@ -886,7 +886,7 @@ What it shows, in a side pane:
 How it opens:
 
 - `/work` opens and focuses it. Up/Down or PgUp/PgDn scroll, `r` refreshes, Esc closes.
-- A resumed session (`--resume`, `--continue`, the picker or `/resume`) opens it by itself, unfocused, once it has a PR or item to show. A new session never does.
+- A resumed session (`--resume`, `--continue`, the picker or `/resume`) opens it by itself, unfocused, inside a repo or not, and with or without a PR or item. A new session and `/clear` never do.
 
 It fetches with `gh` (GitHub) or `az` with the `azure-devops` extension (Azure DevOps), so it needs that CLI logged in. Its tests run with `claude plugin test <skill folder>`.
 
