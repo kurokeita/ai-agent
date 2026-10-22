@@ -3,13 +3,13 @@
 ## Purpose & Tech Stack
 
 - **WHAT**: TypeScript CLI manager using Node.js, Commander.js ([bin/cli.ts:L16](bin/cli.ts#L16)), fs-extra, and Clack prompts. Bundled with Esbuild, tested with Vitest, and formatted/linted via Biome.
-- **WHY**: A command-line utility to install, list, remove, and import agentic AI skills, assistant configurations, and workflows centrally across multiple environments (Antigravity, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf) by organizing local directories and symlinking.
+- **WHY**: A command-line utility to install, list, remove, and import AI agent skills centrally across multiple environments (Antigravity, Claude Code, Codex, Gemini CLI, GitHub Copilot, Windsurf) by organizing local directories and symlinking.
 
 ## Commands
 
 ```bash
 pnpm dev             # Run interactive local CLI in development mode (using tsx)
-pnpm build           # Bundle CLI and copy asset files (skills, agents, workflows) to dist/
+pnpm build           # Bundle CLI and copy the skills catalog to dist/
 pnpm test            # Run unit tests using Vitest
 pnpm test:coverage   # Run unit tests with code coverage report
 pnpm lint            # Check files with Biome formatter/linter and Markdownlint
@@ -36,7 +36,7 @@ pnpm release         # Trigger semantic-release pipeline (production publishing)
 
 1. Ensure TypeScript compilation passes: `tsc --noEmit`.
 2. Bundle the CLI application to single ESM output: `esbuild bin/cli.ts --bundle --platform=node --format=esm --outfile=dist/bin/cli.js --packages=external`.
-3. Copy static asset files (the database of skills, agents, workflows) to the build distribution directory: `tsx scripts/copy-assets.ts`.
+3. Copy the skills catalog to the build distribution directory: `tsx scripts/copy-assets.ts`.
 4. Note: The complete build flow is automated in a single script: `pnpm build`.
 
 ### 3. Publishing & Releasing

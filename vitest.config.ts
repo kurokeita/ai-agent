@@ -12,7 +12,11 @@ export default defineConfig({
 		environment: "node",
 		include: ["**/*.test.ts"],
 		// The statusline work pane's tests run under `claude plugin test`.
-		exclude: [...configDefaults.exclude, "skills/statusline-setup/mod/**"],
+		exclude: [
+			...configDefaults.exclude,
+			"dist/**",
+			"skills/statusline-setup/mod/**",
+		],
 		coverage: {
 			provider: "v8",
 			reporter: ["text", "json", "html"],

@@ -100,28 +100,9 @@ describe("agent-setup merge helpers", () => {
 			expect(lines.some((l) => l.includes(".claude/skills"))).toBe(true)
 		})
 
-		it("only includes present subdirs", () => {
-			const map = buildLinkMap("global", os.homedir(), ["commands"])
-			expect(map).not.toContain("skills|")
-			expect(map).toContain("commands|")
-		})
-
 		it("uses project-relative dest dirs for project scope", () => {
-			const map = buildLinkMap("project", "/repo", ["agents"])
-			expect(map).toContain("agents|.claude/agents")
-		})
-
-		it("dedupes collapsed dest dirs (codex)", () => {
-			const map = buildLinkMap("global", os.homedir(), [
-				"skills",
-				"agents",
-				"commands",
-			])
-			const codexLines = map
-				.split("\n")
-				.filter((l) => l.includes(".codex/skills"))
-			const unique = new Set(codexLines)
-			expect(unique.size).toBe(codexLines.length)
+			const map = buildLinkMap("project", "/repo", ["skills"])
+			expect(map).toContain("skills|.claude/skills")
 		})
 
 		it("returns an empty string when no subdirs are present", () => {
@@ -152,9 +133,9 @@ describe("agent-setup merge helpers", () => {
 		})
 
 		it("adds a pre-existing-only entry with empty targetPaths", () => {
-			const merged = mergeConflicts([], [{ entry: "b", subdir: "agents" }])
+			const merged = mergeConflicts([], [{ entry: "b", subdir: "skills" }])
 			expect(merged).toEqual([
-				{ entry: "b", subdir: "agents", targetPaths: [] },
+				{ entry: "b", subdir: "skills", targetPaths: [] },
 			])
 		})
 
@@ -166,17 +147,6 @@ describe("agent-setup merge helpers", () => {
 			expect(merged).toEqual([
 				{ entry: "c", subdir: "skills", targetPaths: ["/p/c"] },
 			])
-		})
-
-		it("keys by subdir+entry so same name in different subdirs stays separate", () => {
-			const merged = mergeConflicts(
-				[],
-				[
-					{ entry: "x", subdir: "skills" },
-					{ entry: "x", subdir: "commands" },
-				],
-			)
-			expect(merged).toHaveLength(2)
 		})
 	})
 })
@@ -193,11 +163,12 @@ describe("agent-setup filesystem helpers", () => {
 		vi.restoreAllMocks()
 	})
 
-	it("presentLinkSubdirs detects which canonical dirs exist", async () => {
+	it("presentLinkSubdirs reports skills only, ignoring legacy hub dirs", async () => {
 		await fs.ensureDir(path.join(tmp, "skills"))
+		await fs.ensureDir(path.join(tmp, "agents"))
 		await fs.ensureDir(path.join(tmp, "commands"))
 		const present = await presentLinkSubdirs(tmp)
-		expect(present).toEqual(["skills", "commands"])
+		expect(present).toEqual(["skills"])
 	})
 
 	it("installs scripts with placeholders filled for project scope", async () => {

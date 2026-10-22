@@ -167,9 +167,9 @@ function fakeWorld(
 }
 
 const PANE = {
-	plugin: "work-items",
+	plugin: "work-pane",
 	component: "Pane",
-	requestId: "work-items",
+	requestId: "work-pane",
 	props: {
 		title: "Work",
 		isFocused: true,
@@ -231,6 +231,23 @@ test("Refresh skips the model while the session has no messages", async ($, on) 
 	await ui.unmount()
 })
 
+test("a remote that is neither GitHub nor Azure DevOps hides PRs and work items", async ($, on) => {
+	fakeWorld(on, [], [message("hello")], (argv) =>
+		argv[0] === "git" && argv[1] === "remote"
+			? "git@gitlab.com:o/repo.git\n"
+			: undefined,
+	)
+	const ui = await $.ui.mount({ ...PANE, surface: "terminal" })
+	await ui.press({ key: "refresh" })
+	expect(
+		await ui.find({ type: "Text", text: /Ship the thing\./ }),
+	).toBeDefined()
+	for (const text of [/Pull requests/, /Work items/, /neither/, /^PRs /])
+		expect(await ui.find({ type: "Text", text })).toBeUndefined()
+	expect(await ui.find({ type: "Button", label: "Refresh" })).toBeDefined()
+	await ui.unmount()
+})
+
 function fakeSession(on: On, start: { id: string; turns: number }) {
 	const session = { ...start }
 	on("session.id", () => ({ value: session.id }))
@@ -284,6 +301,9 @@ test("a new session never opens the pane by itself, even after its own turns", a
 	session.turns = 1
 	await clock.advance(10_000)
 	expect(opened).toEqual([])
+	await $.command.run({ command: "work", args: "" })
+	await clock.settle()
+	expect(opened).toEqual(["work-pane"])
 })
 
 test("--resume opens the pane at start and summarizes once", async ($, on) => {
@@ -293,10 +313,10 @@ test("--resume opens the pane at start and summarizes once", async ($, on) => {
 	fakeSession(on, { id: "a", turns: 4 })
 	await $.session.start(START)
 	await clock.settle()
-	expect(opened).toEqual(["work-items"])
+	expect(opened).toEqual(["work-pane"])
 	expect(prompts.length).toBe(1)
 	await clock.advance(10_000)
-	expect(opened).toEqual(["work-items"])
+	expect(opened).toEqual(["work-pane"])
 })
 
 test("the picker and /resume open the pane once the resumed turns load", async ($, on) => {
@@ -310,12 +330,12 @@ test("the picker and /resume open the pane once the resumed turns load", async (
 	session.id = "resumed"
 	session.turns = 6
 	await clock.advance(5_000)
-	expect(opened).toEqual(["work-items"])
+	expect(opened).toEqual(["work-pane"])
 })
 
 test("each turn summarizes again while the pane is open, not once it closes", async ($, on) => {
 	const clock = mock.clock(on)
-	const opened = ["work-items"]
+	const opened = ["work-pane"]
 	const prompts = fakeWorld(on, opened)
 	on("turn.complete", (_$, e) => ({ text: e.answer }))
 	const turn = {
@@ -335,7 +355,7 @@ test("each turn summarizes again while the pane is open, not once it closes", as
 	expect(prompts.length).toBe(2)
 })
 
-test("a resumed session with nothing to show still summarizes each turn once /work opens the pane", async ($, on) => {
+test("a resumed session with nothing to show still opens the pane and summarizes each turn", async ($, on) => {
 	const clock = mock.clock(on)
 	const opened: string[] = []
 	const prompts = fakeWorld(on, opened, [message("hello")], (argv) =>
@@ -345,9 +365,7 @@ test("a resumed session with nothing to show still summarizes each turn once /wo
 	fakeSession(on, { id: "a", turns: 4 })
 	await $.session.start(START)
 	await clock.settle()
-	expect(opened).toEqual([])
-	await $.command.run({ command: "work", args: "" })
-	await clock.settle()
+	expect(opened).toEqual(["work-pane"])
 	const before = prompts.length
 	await $.turn.complete({
 		answer: "",

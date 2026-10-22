@@ -7,6 +7,7 @@ import {
 	getAgentsBase,
 	getProjectPlatformPathsSkills,
 	PLATFORM_PATHS_SKILLS,
+	TYPE_DIRS,
 } from "../../utils/paths.js"
 import { chooseListRemoveScope } from "../../utils/scope-prompt.js"
 import { remove } from "../remove.js"
@@ -60,7 +61,7 @@ describe("src/commands/remove.ts", () => {
 		} as never)
 
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
-		vi.mocked(prompts.select).mockResolvedValue("exit")
+		vi.mocked(TYPE_DIRS).skill = "/mock/skills"
 
 		vi.mocked(chooseListRemoveScope).mockResolvedValue({
 			cancelled: false,
@@ -87,16 +88,24 @@ describe("src/commands/remove.ts", () => {
 		expect(fs.remove).toHaveBeenCalledWith(expected)
 	})
 
-	it("maps workflow type to the commands subdir", async () => {
+	it("rejects a removed type", async () => {
+		await remove("agent")
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			"Unknown type: agent. Supported: skill",
+		)
+		expect(_mockExit).toHaveBeenCalledWith(1)
+		expect(chooseListRemoveScope).not.toHaveBeenCalled()
+	})
+
+	it("ignores non-directory entries", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([
-			{ name: "wf.md", isDirectory: () => false, isFile: () => true },
+			{ name: "notes.md", isDirectory: () => false, isFile: () => true },
 		] as never)
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["wf.md"])
-
-		await remove("workflow")
-
-		const expected = path.join(os.homedir(), ".agents", "commands", "wf.md")
-		expect(fs.remove).toHaveBeenCalledWith(expected)
+		await remove("skill")
+		expect(prompts.note).toHaveBeenCalledWith(
+			"No installed skills found.",
+			"Information",
+		)
 	})
 
 	it("prunes a dangling platform symlink that points at the removed entry", async () => {
@@ -187,21 +196,16 @@ describe("src/commands/remove.ts", () => {
 		)
 	})
 
-	it("supports the interactive loop starting from no type", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
-		vi.mocked(fs.readdir).mockResolvedValueOnce([
-			{ name: "item1", isDirectory: () => true, isFile: () => false },
-		] as never)
+	it("goes straight to the skill picker when no type is given", async () => {
 		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce(["item1"])
 
 		await remove()
 
-		expect(prompts.select).toHaveBeenCalledWith(
-			expect.objectContaining({ message: "What would you like to remove?" }),
+		expect(prompts.select).not.toHaveBeenCalled()
+		expect(fs.remove).toHaveBeenCalledWith(
+			path.join(os.homedir(), ".agents", "skills", "item1"),
 		)
-		expect(fs.remove).toHaveBeenCalled()
+		expect(prompts.outro).toHaveBeenCalled()
 	})
 
 	it("skips intro and outro when skipIntro is set", async () => {

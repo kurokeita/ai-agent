@@ -35,9 +35,14 @@ describe("scripts/copy-assets.ts", () => {
 		await import("../copy-assets.js")
 
 		expect(fs.ensureDir).toHaveBeenCalledWith(expect.stringContaining("dist"))
-		expect(fs.copy).toHaveBeenCalledTimes(3)
+		expect(fs.copy).toHaveBeenCalledTimes(1)
+		expect(fs.copy).toHaveBeenCalledWith(
+			expect.stringMatching(/skills$/),
+			expect.stringMatching(/dist[\\/]skills$/),
+			{ overwrite: true },
+		)
 		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Assets copied to dist"),
+			expect.stringContaining("Assets copied to dist/skills"),
 		)
 	})
 

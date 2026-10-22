@@ -1,7 +1,8 @@
 # Platform mapping reference
 
-Reverse map used by the `universalize-agents` skill. Source of truth is
-`src/utils/paths.ts` in this repository — keep this file in sync with it.
+Reverse map used by the `universalize-agents` skill. The Skills rows come from
+`src/utils/paths.ts` in this repository; keep them in sync with it. The Agents
+and Commands rows are maintained here only.
 
 ## Source directories (discover from / symlink to)
 

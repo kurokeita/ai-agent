@@ -12,22 +12,21 @@ import {
 } from "./discover"
 import { fetchAzure, fetchGitHub, git, type Run } from "./fetch"
 
-const PANE = "work-items"
-const branches = atom({ plugin: "work-items", key: "branches" } as const, [])
-const work = atom({ plugin: "work-items", key: "work" } as const, null)
+const PANE = "work-pane"
+const branches = atom({ plugin: "work-pane", key: "branches" } as const, [])
+const work = atom({ plugin: "work-pane", key: "work" } as const, null)
 const isFetching = atom(
-	{ plugin: "work-items", key: "isFetching" } as const,
+	{ plugin: "work-pane", key: "isFetching" } as const,
 	false,
 )
-const summary = atom({ plugin: "work-items", key: "summary" } as const, null)
+const summary = atom({ plugin: "work-pane", key: "summary" } as const, null)
 const isSummarizing = atom(
-	{ plugin: "work-items", key: "isSummarizing" } as const,
+	{ plugin: "work-pane", key: "isSummarizing" } as const,
 	false,
 )
-const collapsed = atom({ plugin: "work-items", key: "collapsed" } as const, [])
+const collapsed = atom({ plugin: "work-pane", key: "collapsed" } as const, [])
 
 let isFetchRunning = false
-let isAutoOpenWanted = false
 let isAutoOpened = false
 // Which conversation this process shows, and whether a prompt was sent in it here.
 let watchedId = ""
@@ -83,7 +82,7 @@ async function refreshWork($: EngineInterface) {
 				prs: [],
 				items: [],
 				fetchedAt: Date.now(),
-				error: "origin is neither GitHub nor Azure DevOps.",
+				isUnsupported: true,
 			}))
 			return
 		}
@@ -145,26 +144,10 @@ async function summarizeIfMissing($: EngineInterface) {
 	if (!current || "error" in current) await summarize($)
 }
 
-// Opens the pane once in a resumed session, the first time it has a PR or item.
-async function autoOpen($: EngineInterface) {
-	if (!isAutoOpenWanted || isAutoOpened) return
-	await refreshWork($)
-	const current = await read($, work)
-	if (
-		isAutoOpened ||
-		!current ||
-		current.prs.length + current.items.length === 0
-	)
-		return
-	isAutoOpened = true
-	// No focus: the prompt keeps the keyboard. Ctrl+X Tab or a click focuses it to scroll.
-	await $.ui.open({ id: PANE, title: "Work", columns: 64 })
-	await summarizeIfMissing($)
-}
-
 // A conversation is resumed when it has turns no prompt of this process made:
 // --resume and --continue load them before session.start, while the picker and
 // an in-session /resume load them later, under a new session id.
+// A resumed conversation opens the pane once, whether or not it has a PR or item.
 async function checkResumed($: EngineInterface) {
 	const id = await $.session.id()
 	if (id !== watchedId) {
@@ -172,16 +155,17 @@ async function checkResumed($: EngineInterface) {
 		// A /clear starts its conversation here, though the transcript's /clear row counts as a turn.
 		hasPromptedHere = isClearPending
 		isClearPending = false
-		isAutoOpenWanted = false
 		isAutoOpened = false
 		// Another conversation now: its branches start over from here.
 		sessionStartedAt = Date.now()
 		await update($, branches, () => [])
 	}
-	if (isAutoOpenWanted || hasPromptedHere || (await $.session.turns()) === 0)
-		return
-	isAutoOpenWanted = true
-	await autoOpen($)
+	if (isAutoOpened || hasPromptedHere || (await $.session.turns()) === 0) return
+	isAutoOpened = true
+	void refreshWork($)
+	// No focus: the prompt keeps the keyboard. Ctrl+X Tab or a click focuses it to scroll.
+	await $.ui.open({ id: PANE, title: "Work", columns: 64 })
+	await summarizeIfMissing($)
 }
 
 function ago(at: number): string {
@@ -239,7 +223,6 @@ export const register: Register = (on) => {
 		// and moves its goal and steps on.
 		void (async () => {
 			await noteBranch($)
-			if (isAutoOpenWanted && !isAutoOpened) return autoOpen($)
 			if (await isPaneOpen($)) await Promise.all([refreshWork($), summarize($)])
 		})()
 
@@ -292,6 +275,7 @@ export const register: Register = (on) => {
 			)
 		const prs = current?.prs ?? []
 		const items = current?.items ?? []
+		const hasWork = !current?.isUnsupported
 
 		return (
 			<Box flexDirection="column" rowGap={1}>
@@ -331,78 +315,82 @@ export const register: Register = (on) => {
 					</Box>
 				)}
 
-				<Box flexDirection="column">
-					<Text>
-						<Text bold color="planMode">
-							Pull requests
-						</Text>
-						<Text dimColor>
-							{" "}
-							{prs.length}
-							{fetching ? " · updating…" : ""}
-						</Text>
-					</Text>
-					{current?.error && <Text color="error">{current.error}</Text>}
-					{prs.length === 0 && !current?.error && (
-						<Text dimColor>None found for this session yet.</Text>
-					)}
-					{prs.map((pr) => (
-						<Box flexDirection="column">
-							<Box flexDirection="row" columnGap={1}>
-								<Button
-									key={`toggle-${pr.number}`}
-									plain
-									label={shut.includes(pr.number) ? "▸" : "▾"}
-									onPress={() => void toggle(pr)}
-								/>
-								<Text wrap="truncate-end">
-									<Link href={pr.url}>#{pr.number}</Link>
-									<Text color={STATE_COLOR[pr.state] ?? "text"}>
-										{" "}
-										{pr.state}
-									</Text>
-									<Text dimColor> [{pr.branch}]</Text> {pr.title}
-								</Text>
-							</Box>
-							{!shut.includes(pr.number) && (
-								<Text>
-									{"  "}
-									{pr.review && (
-										<Text
-											color={pr.review === "approved" ? "success" : "warning"}
-										>
-											{pr.review}{" "}
-										</Text>
-									)}
-									<Text color={CHECKS[pr.checks].color}>
-										{CHECKS[pr.checks].text}
-									</Text>
-									<Text dimColor> {pr.comments} comments</Text>
-								</Text>
-							)}
-						</Box>
-					))}
-				</Box>
-
-				<Box flexDirection="column">
-					<Text>
-						<Text bold color="planMode">
-							Work items
-						</Text>
-						<Text dimColor> {items.length}</Text>
-					</Text>
-					{items.length === 0 && <Text dimColor>None linked yet.</Text>}
-					{items.map((item) => (
-						<Text wrap="truncate-end">
-							<Link href={item.url}>#{item.id}</Link>
-							<Text color={STATE_COLOR[item.state] ?? "text"}>
+				{hasWork && (
+					<Box flexDirection="column">
+						<Text>
+							<Text bold color="planMode">
+								Pull requests
+							</Text>
+							<Text dimColor>
 								{" "}
-								{item.state}
-							</Text>{" "}
-							{item.title}
+								{prs.length}
+								{fetching ? " · updating…" : ""}
+							</Text>
 						</Text>
-					))}
-				</Box>
+						{current?.error && <Text color="error">{current.error}</Text>}
+						{prs.length === 0 && !current?.error && (
+							<Text dimColor>None found for this session yet.</Text>
+						)}
+						{prs.map((pr) => (
+							<Box flexDirection="column">
+								<Box flexDirection="row" columnGap={1}>
+									<Button
+										key={`toggle-${pr.number}`}
+										plain
+										label={shut.includes(pr.number) ? "▸" : "▾"}
+										onPress={() => void toggle(pr)}
+									/>
+									<Text wrap="truncate-end">
+										<Link href={pr.url}>#{pr.number}</Link>
+										<Text color={STATE_COLOR[pr.state] ?? "text"}>
+											{" "}
+											{pr.state}
+										</Text>
+										<Text dimColor> [{pr.branch}]</Text> {pr.title}
+									</Text>
+								</Box>
+								{!shut.includes(pr.number) && (
+									<Text>
+										{"  "}
+										{pr.review && (
+											<Text
+												color={pr.review === "approved" ? "success" : "warning"}
+											>
+												{pr.review}{" "}
+											</Text>
+										)}
+										<Text color={CHECKS[pr.checks].color}>
+											{CHECKS[pr.checks].text}
+										</Text>
+										<Text dimColor> {pr.comments} comments</Text>
+									</Text>
+								)}
+							</Box>
+						))}
+					</Box>
+				)}
+
+				{hasWork && (
+					<Box flexDirection="column">
+						<Text>
+							<Text bold color="planMode">
+								Work items
+							</Text>
+							<Text dimColor> {items.length}</Text>
+						</Text>
+						{items.length === 0 && <Text dimColor>None linked yet.</Text>}
+						{items.map((item) => (
+							<Text wrap="truncate-end">
+								<Link href={item.url}>#{item.id}</Link>
+								<Text color={STATE_COLOR[item.state] ?? "text"}>
+									{" "}
+									{item.state}
+								</Text>{" "}
+								{item.title}
+							</Text>
+						))}
+					</Box>
+				)}
 
 				<Box flexDirection="row" columnGap={1}>
 					<Button
@@ -411,11 +399,13 @@ export const register: Register = (on) => {
 						hotkey="r"
 						onPress={() => void Promise.all([refreshWork($), summarize($)])}
 					/>
-					<Text dimColor>
-						{current
-							? `PRs updated ${ago(current.fetchedAt)}`
-							: "PRs not fetched yet"}
-					</Text>
+					{hasWork && (
+						<Text dimColor>
+							{current
+								? `PRs updated ${ago(current.fetchedAt)}`
+								: "PRs not fetched yet"}
+						</Text>
+					)}
 				</Box>
 			</Box>
 		)

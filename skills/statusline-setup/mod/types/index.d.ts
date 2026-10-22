@@ -15,6 +15,7 @@ export type Work = {
 	items: Item[]
 	fetchedAt: number
 	error?: string
+	isUnsupported?: boolean
 }
 export type Step = { text: string; status: "done" | "current" | "todo" }
 export type Summary =
@@ -23,7 +24,7 @@ export type Summary =
 
 declare module "claude-code" {
 	interface PluginState {
-		"work-items": {
+		"work-pane": {
 			branches: string[]
 			work: Work | null
 			isFetching: boolean

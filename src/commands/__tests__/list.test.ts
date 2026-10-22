@@ -31,8 +31,6 @@ describe("src/commands/list.ts", () => {
 		vi.mocked(fs.readdir).mockResolvedValue([] as never)
 
 		vi.mocked(TYPE_DIRS).skill = "/mock/repo/skills"
-		vi.mocked(TYPE_DIRS).agent = "/mock/repo/agents"
-		vi.mocked(TYPE_DIRS).workflow = "/mock/repo/workflows"
 
 		const home = os.homedir()
 		vi.mocked(getAgentsBase).mockImplementation((scope, root) =>
@@ -97,7 +95,7 @@ describe("src/commands/list.ts", () => {
 		)
 	})
 
-	it("filters repository items by type", async () => {
+	it("lists only skill directories", async () => {
 		vi.mocked(fs.readdir).mockResolvedValue([
 			{ name: "dir", isDirectory: () => true, isFile: () => false },
 			{ name: "file.md", isDirectory: () => false, isFile: () => true },
@@ -111,31 +109,22 @@ describe("src/commands/list.ts", () => {
 		expect(mockConsoleLog).not.toHaveBeenCalledWith(
 			expect.stringContaining("- file.md"),
 		)
+	})
 
-		mockConsoleLog.mockClear()
+	it("rejects a removed type", async () => {
 		await list("agent")
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("- dir"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("- file.md"),
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Supported types: skill"),
 		)
 	})
 
-	it("lists all repository types", async () => {
-		vi.mocked(fs.readdir).mockResolvedValue([
-			{ name: "item1", isDirectory: () => true, isFile: () => false },
-		] as never)
-		await list("all")
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available skills"),
+	it("rejects a removed type in the local view", async () => {
+		await list("agent", { local: true })
+		expect(mockConsoleError).toHaveBeenCalledWith(
+			expect.stringContaining("Supported types: skill"),
 		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available agents"),
-		)
-		expect(mockConsoleLog).toHaveBeenCalledWith(
-			expect.stringContaining("Available workflows"),
-		)
+		expect(chooseListRemoveScope).not.toHaveBeenCalled()
+		expect(fs.readdir).not.toHaveBeenCalled()
 	})
 
 	it("handles errors during listing", async () => {
@@ -206,24 +195,6 @@ describe("src/commands/list.ts", () => {
 			expect(mockConsoleLog).toHaveBeenCalledWith(
 				expect.stringContaining("No installed skills found"),
 			)
-		})
-
-		it("maps agent type to the agents subdir", async () => {
-			vi.mocked(fs.readdir).mockResolvedValue([
-				{ name: "an-agent", isDirectory: () => true, isFile: () => false },
-			] as never)
-			await list("agent", { local: true })
-			const agentsDir = path.join(os.homedir(), ".agents", "agents")
-			expect(fs.readdir).toHaveBeenCalledWith(agentsDir, expect.anything())
-		})
-
-		it("maps workflow type to the commands subdir", async () => {
-			vi.mocked(fs.readdir).mockResolvedValue([
-				{ name: "a-command.md", isDirectory: () => false, isFile: () => true },
-			] as never)
-			await list("workflow", { local: true })
-			const commandsDir = path.join(os.homedir(), ".agents", "commands")
-			expect(fs.readdir).toHaveBeenCalledWith(commandsDir, expect.anything())
 		})
 
 		it("calls chooseListRemoveScope for local listings", async () => {

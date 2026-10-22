@@ -10,7 +10,6 @@ import {
 	multiselect,
 	note,
 	outro,
-	select,
 	spinner,
 } from "@clack/prompts"
 import fs from "fs-extra"
@@ -18,7 +17,6 @@ import pc from "picocolors"
 import {
 	detectConflicts,
 	dropAgentsEntry,
-	type LinkSubdir,
 	type PreExistingEntry,
 	removeAgentDirEntries,
 	wireAgentSetup,
@@ -30,7 +28,6 @@ import {
 	type Platform,
 	type Scope,
 	TYPE_DIRS,
-	TYPE_SUBDIRS,
 } from "@/utils/paths"
 import { enableAutocompleteMultiSelectShiftAToggle } from "@/utils/prompts"
 import { chooseInstallScope } from "@/utils/scope-prompt"
@@ -53,248 +50,203 @@ export async function add(type?: string, url?: string, options?: AddOptions) {
 		intro(pc.bgCyan(pc.black(" AI Manager : Add ")))
 	}
 
-	let currentType = type
-	const isSingleShot = !!type || !!url
-
-	while (true) {
-		if (!currentType && !url) {
-			const selectedType = await select({
-				message: "What would you like to add?",
-				options: [
-					{ label: "Skills", value: "skill" },
-					{ label: "Agents", value: "agent" },
-					{ label: "Workflows", value: "workflow" },
-					{ label: "Exit", value: "exit" },
-				],
-			})
-
-			if (isCancel(selectedType) || selectedType === "exit") {
-				break
-			}
-			currentType = selectedType as string
-		}
-
-		const normalizedType =
-			currentType?.toLowerCase().endsWith("s") && currentType.length > 1
-				? currentType.slice(0, -1)
-				: (currentType ?? "")
-
-		if (!TYPE_DIRS[normalizedType] && !url) {
-			cancel(`Unknown type: ${currentType}. Supported: skill, agent, workflow`)
-			process.exit(1)
-			return
-		}
-
-		let tempDir: string | null = null
-		let isGitHubFile = false
-		let selectedItems: string[] = []
-
-		try {
-			if (url) {
-				const s = spinner()
-				s.start(`Fetching ${normalizedType} from GitHub...`)
-				try {
-					const result = await fetchSkillFromGitHub(url)
-					tempDir = result.tempDir
-					isGitHubFile = result.isFile
-					selectedItems = [result.skillName]
-					s.stop(pc.green(`Fetched ${normalizedType}: ${result.skillName}`))
-				} catch (e) {
-					s.error("Failed to fetch")
-					throw e
-				}
-			} else {
-				const sourceDir = TYPE_DIRS[normalizedType]
-				if (!(await fs.pathExists(sourceDir))) {
-					cancel(`${normalizedType} directory not found!`)
-					process.exit(1)
-					return
-				}
-
-				const entries = await fs.readdir(sourceDir, { withFileTypes: true })
-				const availableItems = entries
-					.filter(
-						(entry) =>
-							entry.isDirectory() ||
-							((normalizedType === "workflow" || normalizedType === "agent") &&
-								entry.isFile() &&
-								entry.name.endsWith(".md")),
-					)
-					.map((entry) => ({ label: entry.name, value: entry.name }))
-					.sort((a, b) => a.label.localeCompare(b.label))
-
-				if (availableItems.length === 0) {
-					note(`No ${normalizedType}s found in directory.`, "Information")
-					if (isSingleShot) break
-					currentType = undefined
-					continue
-				}
-
-				const items = await autocompleteMultiselect({
-					message: `Select ${normalizedType}s to install:`,
-					options: availableItems,
-				})
-
-				if (isCancel(items)) {
-					if (isSingleShot) break
-					currentType = undefined
-					continue
-				}
-				selectedItems = items as string[]
-			}
-
-			const scopeChoice = await chooseInstallScope({ flag: options?.scope })
-			if ("rejected" in scopeChoice) {
-				if (tempDir) await fs.remove(tempDir)
-				cancel(
-					`Scope --scope=${options?.scope} unavailable: ${scopeChoice.reason}`,
-				)
-				process.exit(1)
-				return
-			}
-			if (scopeChoice.cancelled) {
-				if (tempDir) await fs.remove(tempDir)
-				if (isSingleShot) break
-				currentType = undefined
-				continue
-			}
-
-			const { scope: chosenScope, root: scopeRoot } = scopeChoice
-			const agentsBase = getAgentsBase(chosenScope, scopeRoot)
-			const subdir = TYPE_SUBDIRS[normalizedType] ?? "skills"
-			const targetBase = path.join(agentsBase, subdir)
-
-			if (chosenScope === "project") {
-				const proceed = await confirm({
-					message: `Install to project scope at ${pc.cyan(scopeRoot)}?`,
-					initialValue: true,
-				})
-				if (isCancel(proceed) || !proceed) {
-					if (tempDir) await fs.remove(tempDir)
-					if (isSingleShot) break
-					currentType = undefined
-					continue
-				}
-			}
-
-			const subdirName = subdir as LinkSubdir
-			const preExisting: PreExistingEntry[] = []
-			for (const item of selectedItems) {
-				const targetName =
-					normalizedType === "skill" ? path.parse(item).name : item
-				if (await fs.pathExists(path.join(targetBase, targetName))) {
-					preExisting.push({ entry: targetName, subdir: subdirName })
-				}
-			}
-
-			// Confirm overwrites of pre-existing .agents entries BEFORE copying, so a
-			// canonical copy is never destroyed without consent. Unselected entries are
-			// kept as-is and skipped from installation.
-			const skipEntries = new Set<string>()
-			if (preExisting.length > 0) {
-				const toOverwrite = await multiselect<string>({
-					message:
-						"These entries already exist in .agents. Choose which to OVERWRITE (unselected entries are kept and skipped):",
-					options: preExisting.map((p) => ({ label: p.entry, value: p.entry })),
-					required: false,
-				})
-				if (isCancel(toOverwrite)) {
-					if (tempDir) await fs.remove(tempDir)
-					if (isSingleShot) break
-					currentType = undefined
-					continue
-				}
-				const keep = new Set(toOverwrite as string[])
-				for (const { entry } of preExisting) {
-					if (!keep.has(entry)) skipEntries.add(entry)
-				}
-			}
-
-			note(
-				`Installing ${selectedItems.length} ${normalizedType}s to ${targetBase} (scope: ${chosenScope})...`,
-				"Summary",
-			)
-
-			const s = spinner()
-			s.start("Installing...")
-
-			const errors: string[] = []
-			const installed: string[] = []
-
-			await fs.ensureDir(targetBase)
-
-			for (const item of selectedItems) {
-				const targetName =
-					normalizedType === "skill" ? path.parse(item).name : item
-				if (skipEntries.has(targetName)) continue
-
-				s.message(`Installing ${pc.bold(item)}...`)
-
-				try {
-					const sourcePath =
-						url && tempDir
-							? isGitHubFile
-								? path.join(tempDir, item)
-								: tempDir
-							: path.join(TYPE_DIRS[normalizedType], item)
-
-					if (!(await fs.pathExists(sourcePath))) {
-						throw new Error(`Item '${item}' not found at ${sourcePath}`)
-					}
-
-					const targetPath = path.join(targetBase, targetName)
-
-					await fs.copy(sourcePath, targetPath, { overwrite: true })
-					installed.push(targetPath)
-				} catch (err: unknown) {
-					const errorMessage = err instanceof Error ? err.message : String(err)
-					errors.push(`${item}: ${errorMessage}`)
-				}
-			}
-
-			if (tempDir) {
-				await fs.remove(tempDir)
-				tempDir = null
-			}
-
-			if (errors.length > 0) {
-				s.stop(
-					pc.yellow(
-						`Completed with errors. Installed: ${installed.length}, Errors: ${errors.length}`,
-					),
-				)
-				console.error(pc.red("\nErrors encountered:"))
-				for (const e of errors) {
-					console.error(pc.red(`- ${e}`))
-				}
-			} else {
-				s.stop(
-					pc.green(
-						`Successfully installed ${installed.length} ${normalizedType}s.`,
-					),
-				)
-			}
-
-			if (installed.length > 0) {
-				await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
-
-				if (normalizedType === "skill") {
-					await maybeInstallSkillHooks(installed, chosenScope, scopeRoot, !!url)
-				}
-			}
-		} catch (error) {
-			if (tempDir) await fs.remove(tempDir)
-			cancel(`An error occurred: ${error}`)
-			process.exit(1)
-			return
-		}
-
-		if (isSingleShot) break
-		currentType = undefined
-	}
+	await installSkills(type, url, options)
 
 	if (!options?.skipIntro) {
 		outro("You're all set!")
+	}
+}
+
+async function installSkills(
+	type: string | undefined,
+	url: string | undefined,
+	options: AddOptions | undefined,
+) {
+	const normalizedType = type
+		? type.toLowerCase().endsWith("s") && type.length > 1
+			? type.slice(0, -1)
+			: type
+		: "skill"
+
+	if (!TYPE_DIRS[normalizedType]) {
+		cancel(`Unknown type: ${type}. Supported: skill`)
+		process.exit(1)
+		return
+	}
+
+	let tempDir: string | null = null
+	let isGitHubFile = false
+	let selectedItems: string[] = []
+
+	try {
+		if (url) {
+			const s = spinner()
+			s.start("Fetching skill from GitHub...")
+			try {
+				const result = await fetchSkillFromGitHub(url)
+				tempDir = result.tempDir
+				isGitHubFile = result.isFile
+				selectedItems = [result.skillName]
+				s.stop(pc.green(`Fetched skill: ${result.skillName}`))
+			} catch (e) {
+				s.error("Failed to fetch")
+				throw e
+			}
+		} else {
+			const sourceDir = TYPE_DIRS.skill
+			if (!(await fs.pathExists(sourceDir))) {
+				cancel("skill directory not found!")
+				process.exit(1)
+				return
+			}
+
+			const entries = await fs.readdir(sourceDir, { withFileTypes: true })
+			const availableItems = entries
+				.filter((entry) => entry.isDirectory())
+				.map((entry) => ({ label: entry.name, value: entry.name }))
+				.sort((a, b) => a.label.localeCompare(b.label))
+
+			if (availableItems.length === 0) {
+				note("No skills found in directory.", "Information")
+				return
+			}
+
+			const items = await autocompleteMultiselect({
+				message: "Select skills to install:",
+				options: availableItems,
+			})
+
+			if (isCancel(items)) return
+			selectedItems = items as string[]
+		}
+
+		const scopeChoice = await chooseInstallScope({ flag: options?.scope })
+		if ("rejected" in scopeChoice) {
+			if (tempDir) await fs.remove(tempDir)
+			cancel(
+				`Scope --scope=${options?.scope} unavailable: ${scopeChoice.reason}`,
+			)
+			process.exit(1)
+			return
+		}
+		if (scopeChoice.cancelled) {
+			if (tempDir) await fs.remove(tempDir)
+			return
+		}
+
+		const { scope: chosenScope, root: scopeRoot } = scopeChoice
+		const agentsBase = getAgentsBase(chosenScope, scopeRoot)
+		const targetBase = path.join(agentsBase, "skills")
+
+		if (chosenScope === "project") {
+			const proceed = await confirm({
+				message: `Install to project scope at ${pc.cyan(scopeRoot)}?`,
+				initialValue: true,
+			})
+			if (isCancel(proceed) || !proceed) {
+				if (tempDir) await fs.remove(tempDir)
+				return
+			}
+		}
+
+		const preExisting: PreExistingEntry[] = []
+		for (const item of selectedItems) {
+			const targetName = path.parse(item).name
+			if (await fs.pathExists(path.join(targetBase, targetName))) {
+				preExisting.push({ entry: targetName, subdir: "skills" })
+			}
+		}
+
+		// Confirm overwrites of pre-existing .agents entries BEFORE copying, so a
+		// canonical copy is never destroyed without consent. Unselected entries are
+		// kept as-is and skipped from installation.
+		const skipEntries = new Set<string>()
+		if (preExisting.length > 0) {
+			const toOverwrite = await multiselect<string>({
+				message:
+					"These entries already exist in .agents. Choose which to OVERWRITE (unselected entries are kept and skipped):",
+				options: preExisting.map((p) => ({ label: p.entry, value: p.entry })),
+				required: false,
+			})
+			if (isCancel(toOverwrite)) {
+				if (tempDir) await fs.remove(tempDir)
+				return
+			}
+			const keep = new Set(toOverwrite as string[])
+			for (const { entry } of preExisting) {
+				if (!keep.has(entry)) skipEntries.add(entry)
+			}
+		}
+
+		note(
+			`Installing ${selectedItems.length} skills to ${targetBase} (scope: ${chosenScope})...`,
+			"Summary",
+		)
+
+		const s = spinner()
+		s.start("Installing...")
+
+		const errors: string[] = []
+		const installed: string[] = []
+
+		await fs.ensureDir(targetBase)
+
+		for (const item of selectedItems) {
+			const targetName = path.parse(item).name
+			if (skipEntries.has(targetName)) continue
+
+			s.message(`Installing ${pc.bold(item)}...`)
+
+			try {
+				const sourcePath =
+					url && tempDir
+						? isGitHubFile
+							? path.join(tempDir, item)
+							: tempDir
+						: path.join(TYPE_DIRS.skill, item)
+
+				if (!(await fs.pathExists(sourcePath))) {
+					throw new Error(`Item '${item}' not found at ${sourcePath}`)
+				}
+
+				const targetPath = path.join(targetBase, targetName)
+
+				await fs.copy(sourcePath, targetPath, { overwrite: true })
+				installed.push(targetPath)
+			} catch (err: unknown) {
+				const errorMessage = err instanceof Error ? err.message : String(err)
+				errors.push(`${item}: ${errorMessage}`)
+			}
+		}
+
+		if (tempDir) {
+			await fs.remove(tempDir)
+			tempDir = null
+		}
+
+		if (errors.length > 0) {
+			s.stop(
+				pc.yellow(
+					`Completed with errors. Installed: ${installed.length}, Errors: ${errors.length}`,
+				),
+			)
+			console.error(pc.red("\nErrors encountered:"))
+			for (const e of errors) {
+				console.error(pc.red(`- ${e}`))
+			}
+		} else {
+			s.stop(pc.green(`Successfully installed ${installed.length} skills.`))
+		}
+
+		if (installed.length > 0) {
+			await maybeWireAgentSetup(agentsBase, chosenScope, scopeRoot)
+			await maybeInstallSkillHooks(installed, chosenScope, scopeRoot, !!url)
+		}
+	} catch (error) {
+		if (tempDir) await fs.remove(tempDir)
+		cancel(`An error occurred: ${error}`)
+		process.exit(1)
+		return
 	}
 }
 

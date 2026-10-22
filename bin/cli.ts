@@ -18,7 +18,7 @@ const program = new Command()
 
 program
 	.name("ai-agent")
-	.description("CLI to manage AI agents, skills, and workflows")
+	.description("CLI to manage AI agent skills")
 	.version(version)
 
 function parseScopeFlag(value: unknown): Scope | undefined {
@@ -48,10 +48,10 @@ async function interactiveMain() {
 		const action = await select({
 			message: "What would you like to do?",
 			options: [
-				{ label: "Add Item (Install)", value: "add" },
-				{ label: "List Items", value: "list" },
+				{ label: "Add Skills (Install)", value: "add" },
+				{ label: "List Skills", value: "list" },
 				{ label: "Import from GitHub", value: "import" },
-				{ label: "Remove Items", value: "remove" },
+				{ label: "Remove Skills", value: "remove" },
 				{ label: "Exit", value: "exit" },
 			],
 		})
@@ -81,7 +81,7 @@ async function interactiveMain() {
 
 program
 	.command("list [type]")
-	.description("List available items (skills, agents, workflows)")
+	.description("List available skills")
 	.option("-l, --local", "List installed items locally")
 	.option(
 		"-s, --scope <scope>",
@@ -94,9 +94,7 @@ program
 
 program
 	.command("add [type] [url]")
-	.description(
-		"Add an item (skill, agent, workflow) to platforms (Interactive or from GitHub URL)",
-	)
+	.description("Add a skill to platforms (Interactive or from GitHub URL)")
 	.option("-s, --scope <scope>", 'Install scope: "global" or "project"')
 	.action(async (type, url, opts) => {
 		const scope = parseScopeFlag(opts?.scope)
@@ -105,14 +103,14 @@ program
 
 program
 	.command("import [type] [url]")
-	.description("Import an item from GitHub to the repo")
+	.description("Import a skill from GitHub to the repo")
 	.action(async (type, url) => {
 		await importItem(type || "", url || "")
 	})
 
 program
 	.command("remove [type]")
-	.description("Remove locally installed items (skills, agents, workflows)")
+	.description("Remove locally installed skills")
 	.option(
 		"-s, --scope <scope>",
 		'Scope to remove from: "global", "project", or "both"',

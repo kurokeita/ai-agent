@@ -5,7 +5,7 @@ This document details the recurring architectural, design, and structural patter
 ## 1. Command Action Separation
 
 - **Intent**: Separate command-line argument parsing and CLI interface definitions from the actual execution business logic.
-- **Location/Example**: [bin/cli.ts:L81-L122](../bin/cli.ts#L81-L122) (Command registration) and [src/commands/add.ts](../src/commands/add.ts) (Command execution logic).
+- **Location/Example**: [bin/cli.ts:L82-L121](../bin/cli.ts#L82-L121) (Command registration) and [src/commands/add.ts](../src/commands/add.ts) (Command execution logic).
 - **Implementation Details**:
   - `bin/cli.ts` configures command signatures and parameters using `commander`.
   - The business logic is isolated in standalone handler functions (e.g., `add`, `list`, `remove`, `importItem`) in the `src/commands/` directory, keeping CLI routing clean and testable.
@@ -28,8 +28,8 @@ This document details the recurring architectural, design, and structural patter
 
 ## 4. Symlink Setup & Platform Mapping
 
-- **Intent**: Standardize mapping of skills, agents, and workflows to platform-specific target directories.
-- **Location/Example**: [src/utils/paths.ts:L45-L68](../src/utils/paths.ts#L45-L68) (Paths configurations) and [src/utils/agent-setup.ts:L45-L73](../src/utils/agent-setup.ts#L45-L73) (Link map generation).
+- **Intent**: Standardize mapping of skills to platform-specific target directories.
+- **Location/Example**: [src/utils/paths.ts:L43-L59](../src/utils/paths.ts#L43-L59) (Paths configurations) and [src/utils/agent-setup.ts:L30-L54](../src/utils/agent-setup.ts#L30-L54) (Link map generation).
 - **Implementation Details**:
-  - Standardizes the subdirectory names (`skills`, `agents`, `commands`) that each AI platform requires.
-  - Generates format-specific configurations to map the centralized `.agents/` source folders to their respective destinations on each supported platform.
+  - Maps the canonical `.agents/skills` folder to the skills directory each AI platform reads, for both global and project scope.
+  - Generates format-specific configurations to link the centralized `.agents/skills` entries to their destinations on each supported platform.

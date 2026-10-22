@@ -3,12 +3,7 @@ import path from "node:path"
 import { cancel, intro, isCancel, outro, select } from "@clack/prompts"
 import fs from "fs-extra"
 import pc from "picocolors"
-import {
-	getAgentsBase,
-	type Scope,
-	TYPE_DIRS,
-	TYPE_SUBDIRS,
-} from "@/utils/paths"
+import { getAgentsBase, type Scope, TYPE_DIRS } from "@/utils/paths"
 import { chooseListRemoveScope, type ScopeChoice } from "@/utils/scope-prompt"
 
 interface ScopedSection {
@@ -32,16 +27,12 @@ function displayBase(base: string, scope: Scope): string {
 	return base
 }
 
-async function listLocalForScopes(
-	normalizedType: string,
-	sections: ScopedSection[],
-) {
-	const subdir = TYPE_SUBDIRS[normalizedType]
-	console.log(pc.bold(pc.blue(`Installed ${normalizedType}s (Local):`)))
+async function listLocalForScopes(sections: ScopedSection[]) {
+	console.log(pc.bold(pc.blue("Installed skills (Local):")))
 	let foundAny = false
 
 	for (const section of sections) {
-		const subdirPath = path.join(section.base, subdir)
+		const subdirPath = path.join(section.base, "skills")
 		if (!(await fs.pathExists(subdirPath))) continue
 		const items = await collectEntries(subdirPath)
 		if (items.length === 0) continue
@@ -62,7 +53,7 @@ async function listLocalForScopes(
 	}
 
 	if (!foundAny) {
-		console.log(pc.dim(`  No installed ${normalizedType}s found.`))
+		console.log(pc.dim("  No installed skills found."))
 	}
 	console.log("")
 }
@@ -84,18 +75,7 @@ function buildSections(
 	return sections
 }
 
-async function performListing(type: string) {
-	const normalizedType = type.toLowerCase().endsWith("s")
-		? type.slice(0, -1)
-		: type.toLowerCase()
-
-	if (!TYPE_DIRS[normalizedType]) {
-		console.error(
-			pc.red(`Unknown type: ${type}. Supported types: skill, agent, workflow`),
-		)
-		return
-	}
-
+async function performListing(normalizedType: string) {
 	const dirPath = TYPE_DIRS[normalizedType]
 
 	if (!(await fs.pathExists(dirPath))) {
@@ -107,13 +87,7 @@ async function performListing(type: string) {
 
 	const entries = await fs.readdir(dirPath, { withFileTypes: true })
 	const items = entries
-		.filter(
-			(entry) =>
-				entry.isDirectory() ||
-				(normalizedType !== "skill" &&
-					entry.isFile() &&
-					entry.name.endsWith(".md")),
-		)
+		.filter((entry) => entry.isDirectory())
 		.map((entry) => entry.name)
 		.sort()
 
@@ -150,8 +124,6 @@ export async function list(type?: string, options?: ListOptions) {
 					message: `What would you like to list? (View: ${isLocal ? "Local" : "Repository"})`,
 					options: [
 						{ label: "All Skills", value: "skill" },
-						{ label: "All Agents", value: "agent" },
-						{ label: "All Workflows", value: "workflow" },
 						{
 							label: `Switch to ${isLocal ? "Repository" : "Local"} View`,
 							value: "toggle",
@@ -172,8 +144,15 @@ export async function list(type?: string, options?: ListOptions) {
 				currentType = selected as string
 			}
 
-			const typesToList =
-				currentType === "all" ? ["skill", "agent", "workflow"] : [currentType]
+			const normalizedType = currentType.toLowerCase().endsWith("s")
+				? currentType.slice(0, -1)
+				: currentType.toLowerCase()
+			if (!TYPE_DIRS[normalizedType]) {
+				console.error(
+					pc.red(`Unknown type: ${currentType}. Supported types: skill`),
+				)
+				break
+			}
 
 			if (isLocal) {
 				const scopeChoice = await chooseListRemoveScope({
@@ -193,20 +172,11 @@ export async function list(type?: string, options?: ListOptions) {
 					continue
 				}
 
-				for (const t of typesToList) {
-					const normalizedType = t.toLowerCase().endsWith("s")
-						? t.slice(0, -1)
-						: t.toLowerCase()
-					const sections = buildSections(
-						scopeChoice.scope,
-						scopeChoice.projectRoot,
-					)
-					await listLocalForScopes(normalizedType, sections)
-				}
+				await listLocalForScopes(
+					buildSections(scopeChoice.scope, scopeChoice.projectRoot),
+				)
 			} else {
-				for (const t of typesToList) {
-					await performListing(t)
-				}
+				await performListing(normalizedType)
 			}
 
 			if (isSingleShot) break
