@@ -5,18 +5,13 @@ import { afterEach, describe, expect, it } from "vitest"
 import {
 	AGENT_SETUP_SCRIPTS_DIR,
 	getAgentsBase,
-	getProjectPlatformPathsAgents,
 	getProjectPlatformPathsSkills,
-	getProjectPlatformPathsWorkflows,
 	HOOK_TEMPLATES_DIR,
 	PLATFORM_LABELS,
-	PLATFORM_PATHS_AGENTS,
 	PLATFORM_PATHS_SKILLS,
-	PLATFORM_PATHS_WORKFLOWS,
 	PROJECT_ROOT,
 	resolveProjectRoot,
 	TYPE_DIRS,
-	TYPE_SUBDIRS,
 } from "../paths.js"
 
 describe("src/utils/paths.ts", () => {
@@ -46,22 +41,8 @@ describe("src/utils/paths.ts", () => {
 		expect(PLATFORM_PATHS_SKILLS.codex).toBe(path.join(home, ".codex/skills"))
 	})
 
-	it("should have Codex agent and workflow paths", () => {
-		const home = os.homedir()
-		expect(PLATFORM_PATHS_AGENTS.codex).toBe(path.join(home, ".codex/skills"))
-		expect(PLATFORM_PATHS_WORKFLOWS.codex).toBe(
-			path.join(home, ".codex/skills"),
-		)
-	})
-
-	it("should have TYPE_DIRS", () => {
-		expect(TYPE_DIRS.skill).toBe(path.join(PROJECT_ROOT, "skills"))
-	})
-
-	it("should map types to canonical .agents subdirs", () => {
-		expect(TYPE_SUBDIRS.skill).toBe("skills")
-		expect(TYPE_SUBDIRS.agent).toBe("agents")
-		expect(TYPE_SUBDIRS.workflow).toBe("commands")
+	it("should have TYPE_DIRS for skills only", () => {
+		expect(TYPE_DIRS).toEqual({ skill: path.join(PROJECT_ROOT, "skills") })
 	})
 
 	it("should resolve bundled script and hook-template dirs under PROJECT_ROOT", () => {
@@ -121,42 +102,6 @@ describe("src/utils/paths.ts", () => {
 			expect(paths.antigravity).toBe(
 				path.join(root, ".gemini/antigravity/skills"),
 			)
-		})
-	})
-
-	describe("getProjectPlatformPathsAgents", () => {
-		const root = "/tmp/myrepo"
-
-		it("maps the supported platforms only", () => {
-			const paths = getProjectPlatformPathsAgents(root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/agents"))
-			expect(paths.codex).toBe(path.join(root, ".codex/skills"))
-			expect(paths.copilot).toBe(path.join(root, ".copilot/agents"))
-			expect(paths.gemini).toBe(path.join(root, ".gemini/agents"))
-			expect(paths.antigravity).toBeUndefined()
-			expect(paths.windsurf).toBeUndefined()
-		})
-	})
-
-	describe("getProjectPlatformPathsWorkflows", () => {
-		const root = "/tmp/myrepo"
-
-		it("drops global_ prefix for antigravity and windsurf", () => {
-			const paths = getProjectPlatformPathsWorkflows(root)
-			expect(paths.antigravity).toBe(
-				path.join(root, ".gemini/antigravity/workflows"),
-			)
-			expect(paths.windsurf).toBe(
-				path.join(root, ".codeium/windsurf/workflows"),
-			)
-		})
-
-		it("maps remaining platforms", () => {
-			const paths = getProjectPlatformPathsWorkflows(root)
-			expect(paths["claude-code"]).toBe(path.join(root, ".claude/commands"))
-			expect(paths.codex).toBe(path.join(root, ".codex/skills"))
-			expect(paths.copilot).toBe(path.join(root, ".copilot/prompts"))
-			expect(paths.gemini).toBe(path.join(root, ".gemini/commands"))
 		})
 	})
 })

@@ -1,14 +1,14 @@
 # @kurokeita/add-skill (AI Manager)
 
-CLI to manage and install AI agent skills, agents, and workflows to various platforms.
+CLI to manage and install AI agent skills to various platforms.
 
 ## Features
 
-- **List Items**: View a list of available AI skills, agents, and workflows.
-- **Local status**: Check which items are installed locally.
-- **Add Items**: Interactively add skills, agents, and workflows with live search/filtering support.
-- **Remove Items**: Remove locally installed items with live search/filtering support.
-- **Import**: Import items directly from GitHub URLs.
+- **List Skills**: View a list of available skills.
+- **Local status**: Check which skills are installed locally.
+- **Add Skills**: Interactively add skills with live search/filtering support.
+- **Remove Skills**: Remove locally installed skills with live search/filtering support.
+- **Import**: Import skills directly from GitHub URLs.
 
 ## Usage
 
@@ -16,45 +16,30 @@ CLI to manage and install AI agent skills, agents, and workflows to various plat
 pnpx @kurokeita/add-skill --help
 ```
 
-### List Items
+### List Skills
 
-List available items in the repository:
+List available skills in the repository:
 
 ```bash
-# List skills (default)
-pnpx @kurokeita/add-skill list
-
-# List agents
-pnpx @kurokeita/add-skill list agent
-
-# List workflows
-pnpx @kurokeita/add-skill list workflow
+pnpx @kurokeita/add-skill list skill
 ```
 
-List locally installed items:
+List locally installed skills:
 
 ```bash
-pnpx @kurokeita/add-skill list --local
-pnpx @kurokeita/add-skill list agent --local
+pnpx @kurokeita/add-skill list skill --local
 
 # Pick a scope non-interactively (default: global)
 pnpx @kurokeita/add-skill list --local --scope project
 pnpx @kurokeita/add-skill list --local --scope both
 ```
 
-### Add Items
+### Add Skills
 
-Starts an interactive session to select and install items. Supports live search/filtering as you type.
+Starts an interactive session to select and install skills. Supports live search/filtering as you type.
 
 ```bash
-# Add skills
 pnpx @kurokeita/add-skill add
-
-# Add agents
-pnpx @kurokeita/add-skill add agent
-
-# Add workflows
-pnpx @kurokeita/add-skill add workflow
 
 # Install at project scope (writes under the current directory's
 # `.<platform>/...` paths instead of `~/...`). Project scope is
@@ -62,80 +47,74 @@ pnpx @kurokeita/add-skill add workflow
 pnpx @kurokeita/add-skill add --scope project
 ```
 
-### Remove Items
+### Remove Skills
 
-Interactively select items and platforms to remove them from. Supports live search/filtering as you type.
+Interactively select installed skills to remove. Supports live search/filtering as you type.
 
 ```bash
-# Remove skills
 pnpx @kurokeita/add-skill remove skill
-
-# Remove agents
-pnpx @kurokeita/add-skill remove agent
 
 # Pick a scope non-interactively
 pnpx @kurokeita/add-skill remove skill --scope project
 pnpx @kurokeita/add-skill remove skill --scope both
 ```
 
-### Add Item from GitHub
+### Add a Skill from GitHub
 
-Install an item directly from a GitHub URL.
+Install a skill directly from a GitHub URL.
 
 ```bash
-pnpx @kurokeita/add-skill add https://github.com/owner/repo/tree/main/skills/skill-name
+pnpx @kurokeita/add-skill add skill https://github.com/owner/repo/tree/main/skills/skill-name
 ```
 
 ### Import to Repository (For Maintainers)
 
-Import a skill, agent, or workflow from GitHub into this repository.
+Import a skill from GitHub into this repository.
 
 ```bash
-pnpm dev import https://github.com/owner/repo/tree/main/skills/skill-name
+pnpm dev import skill https://github.com/owner/repo/tree/main/skills/skill-name
 ```
 
 ## How Installs Work
 
-`add` copies every item into a single canonical directory:
+`add` copies every skill into a single canonical directory:
 
-- **Global scope** → `~/.agents/{skills,agents,commands}`
-- **Project scope** → `<project-root>/.agents/{skills,agents,commands}`
+- **Global scope** → `~/.agents/skills`
+- **Project scope** → `<project-root>/.agents/skills`
 
-Skills go under `skills`, agents under `agents`, and workflows under `commands`. After copying, `add` can optionally wire each platform you select: it installs a session-start hook (under `.agents/hooks/`) and registers it in that platform's config. On each new session the hook symlinks the canonical `.agents/` entries back into the platform's own directories, so every tool sees the same set of items from one source of truth.
+After copying, `add` can optionally wire each platform you select: it installs a session-start hook (under `.agents/hooks/`) and registers it in that platform's config. On each new session the hook symlinks the canonical `.agents/skills` entries back into the platform's own skills directory, so every tool sees the same set of skills from one source of truth.
 
 A skill can also ship Claude Code hooks in a `hooks/` dir. `hooks/hooks.json` holds the `hooks` object of `.claude/settings.json`, and `${HOOKS_DIR}` in its commands resolves to `.claude/hooks`. When `add` installs a skill that has this manifest, it offers to copy the other files in `hooks/` to `.claude/hooks/` and merge the entries into `.claude/settings.json` (global or project, matching the install scope). `git-commit` uses this to install its `commit-gate.py` hook.
 
-`list` and `remove` operate on the canonical `.agents/` dir. Removing an entry also prunes any platform symlink left pointing at it.
+`list` and `remove` operate on the canonical `.agents/skills` dir. Removing a skill also prunes any platform symlink left pointing at it.
 
 ## Supported Platforms
 
-The tables below show where each platform consumes items from — i.e. the symlink destinations the session-start hook creates.
+The tables below show where each platform loads skills from. These are the symlink destinations the session-start hook creates.
 
-| Platform | Agents Path | Skills Path | Workflows Path |
-| :--- | :--- | :--- | :--- |
-| Antigravity | *Not Supported* | `~/.gemini/antigravity/global_skills` | `~/.gemini/antigravity/global_workflows` |
-| Claude Code | `~/.claude/agents` | `~/.claude/skills` | `~/.claude/commands` |
-| Codex | `~/.codex/skills` | `~/.codex/skills` | `~/.codex/skills` |
-| Gemini CLI | `~/.gemini/agents` | `~/.gemini/skills` | `~/.gemini/commands` |
-| GitHub Copilot | `~/.copilot/agents` | `~/.copilot/skills` | `~/.copilot/prompts` |
-| Windsurf | *Not Supported* | `~/.codeium/windsurf/skills` | `~/.codeium/windsurf/global_workflows` |
-
-Codex consumes skills, agents, and workflows from a single `~/.codex/skills` directory, so all three symlink there.
+| Platform | Skills Path |
+| :--- | :--- |
+| Antigravity | `~/.gemini/antigravity/global_skills` |
+| Claude Code | `~/.claude/skills` |
+| Codex | `~/.codex/skills` |
+| Gemini CLI | `~/.gemini/skills` |
+| GitHub Copilot | `~/.copilot/skills` |
+| Windsurf | `~/.codeium/windsurf/skills` |
 
 ### Project-scope paths
 
 When you pick `--scope project`, the canonical `.agents/` dir and the symlink destinations live under the current working directory instead of `~`. The mapping below uses `<project-root>` to mean `process.cwd()` (no git-toplevel relocation: a monorepo subdirectory installs into that subdirectory, not the repo root).
 
-| Platform | Agents Path | Skills Path | Workflows Path |
-| :--- | :--- | :--- | :--- |
-| Antigravity | *Not Supported* | `<project-root>/.gemini/antigravity/skills` | `<project-root>/.gemini/antigravity/workflows` |
-| Claude Code | `<project-root>/.claude/agents` | `<project-root>/.claude/skills` | `<project-root>/.claude/commands` |
-| Codex | `<project-root>/.codex/skills` | `<project-root>/.codex/skills` | `<project-root>/.codex/skills` |
-| Gemini CLI | `<project-root>/.gemini/agents` | `<project-root>/.gemini/skills` | `<project-root>/.gemini/commands` |
-| GitHub Copilot | `<project-root>/.copilot/agents` | `<project-root>/.copilot/skills` | `<project-root>/.copilot/prompts` |
-| Windsurf | *Not Supported* | `<project-root>/.codeium/windsurf/skills` | `<project-root>/.codeium/windsurf/workflows` |
+| Platform | Skills Path |
+| :--- | :--- |
+| Antigravity | `<project-root>/.gemini/antigravity/skills` |
+| Claude Code | `<project-root>/.claude/skills` |
+| Codex | `<project-root>/.codex/skills` |
+| Gemini CLI | `<project-root>/.gemini/skills` |
+| GitHub Copilot | `<project-root>/.copilot/skills` |
+| Windsurf | `<project-root>/.codeium/windsurf/skills` |
 
-Project scope is refused when `cwd` equals your home directory or `cwd` is not inside a git work tree. When refused interactively, you can fall back to global scope without losing your already-selected items and platforms.
+Project scope is refused when `cwd` equals your home directory or `cwd` is not inside a git work tree. When refused interactively, you can fall back to global scope without losing your already-selected skills and platforms.
 
 ## Development
 

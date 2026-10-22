@@ -33,11 +33,8 @@ describe("src/commands/import.ts", () => {
 		vi.mocked(fs.stat).mockResolvedValue({ isFile: () => false } as never)
 
 		vi.mocked(TYPE_DIRS).skill = "/mock/skills"
-		vi.mocked(TYPE_DIRS).agent = "/mock/agents"
-		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows"
 
 		vi.mocked(prompts.confirm).mockResolvedValue(true)
-		vi.mocked(prompts.select).mockResolvedValue("exit")
 		vi.mocked(prompts.text).mockResolvedValue("url")
 	})
 
@@ -104,48 +101,12 @@ describe("src/commands/import.ts", () => {
 		expect(fs.copy).not.toHaveBeenCalled()
 	})
 
-	it("should flatten agent/workflow import", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.readdir).mockResolvedValue(["file1.md"] as never)
-
+	it("should reject a removed type", async () => {
 		await importItem("agent", "url")
-
-		expect(fs.copy).toHaveBeenCalledWith(
-			"/tmp/item",
-			"/mock/agents",
-			expect.anything(),
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			"Unknown type: agent. Supported: skill",
 		)
-	})
-
-	it("should handle conflicts when flattening", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.readdir).mockResolvedValue([
-			"f1",
-			"f2",
-			"f3",
-			"f4",
-			"f5",
-			"f6",
-		] as never)
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(true)
-
-		await importItem("agent", "url")
-
-		expect(prompts.confirm).toHaveBeenCalledWith(
-			expect.objectContaining({
-				message: expect.stringContaining("and 1 others"),
-			}),
-		)
-		expect(fs.copy).toHaveBeenCalled()
+		expect(fetchSkillFromGitHub).not.toHaveBeenCalled()
 	})
 
 	it("should cleanup tempDir on error", async () => {
@@ -189,7 +150,6 @@ describe("src/commands/import.ts", () => {
 	})
 
 	it("should support fully interactive mode (no args)", async () => {
-		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
 		vi.mocked(prompts.text).mockResolvedValueOnce(
 			"https://github.com/owner/repo/tree/main/skill",
 		)
@@ -201,11 +161,7 @@ describe("src/commands/import.ts", () => {
 
 		await importItem()
 
-		expect(prompts.select).toHaveBeenCalledWith(
-			expect.objectContaining({
-				message: "What would you like to import?",
-			}),
-		)
+		expect(prompts.select).not.toHaveBeenCalled()
 		expect(prompts.text).toHaveBeenCalledWith(
 			expect.objectContaining({
 				message: "Enter the GitHub URL:",
@@ -214,20 +170,9 @@ describe("src/commands/import.ts", () => {
 		expect(fs.copy).toHaveBeenCalled()
 	})
 
-	it("should return early if type selection is cancelled", async () => {
-		vi.mocked(prompts.select).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel).mockReturnValue(true)
-
-		await importItem()
-		expect(prompts.text).not.toHaveBeenCalled()
-	})
-
 	it("should return early if URL input is cancelled", async () => {
-		vi.mocked(prompts.select).mockResolvedValue("skill")
 		vi.mocked(prompts.text).mockResolvedValue(Symbol("cancel"))
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true)
+		vi.mocked(prompts.isCancel).mockReturnValueOnce(true)
 
 		await importItem()
 		expect(fetchSkillFromGitHub).not.toHaveBeenCalled()
@@ -245,12 +190,9 @@ describe("src/commands/import.ts", () => {
 	})
 
 	it("should cancel if URL is not provided in interactive mode", async () => {
-		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
 		vi.mocked(prompts.text).mockResolvedValueOnce("") // Empty URL
 		// The validation logic in text() will handle it, but here we just return
-		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true)
+		vi.mocked(prompts.isCancel).mockReturnValueOnce(true)
 
 		await importItem()
 		expect(fetchSkillFromGitHub).not.toHaveBeenCalled()
@@ -263,37 +205,22 @@ describe("src/commands/import.ts", () => {
 		// For unit tests, we'll assume the URL validation logic is simple.
 	})
 
-	it("should return early if flatten overwrite is declined", async () => {
+	it("should handle cancel during overwrite confirmation", async () => {
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
 			skillName: "item",
 			isFile: false,
 		})
-		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never)
-		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
-		vi.mocked(prompts.confirm).mockResolvedValue(false)
-
-		await importItem("agent", "url")
-		expect(fs.copy).not.toHaveBeenCalled()
-	})
-
-	it("should handle cancel during flatten overwrite confirmation", async () => {
-		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
-			tempDir: "/tmp/item",
-			skillName: "item",
-			isFile: false,
-		})
-		vi.mocked(fs.readdir).mockResolvedValue(["f1"] as never)
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
 		vi.mocked(prompts.confirm).mockResolvedValue(Symbol("cancel"))
 		vi.mocked(prompts.isCancel).mockImplementation((v) => typeof v === "symbol")
 
-		await importItem("agent", "url")
+		await importItem("skill", "url")
 		expect(fs.copy).not.toHaveBeenCalled()
+		expect(fs.remove).toHaveBeenCalledWith("/tmp/item")
 	})
 
 	it("should validate GitHub URL correctly", async () => {
-		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
 		let validateFn: (v: string) => string | undefined = () => undefined
 		vi.mocked(prompts.text).mockImplementation((opts: unknown) => {
 			const options = opts as { validate: (v: string) => string | undefined }
@@ -316,15 +243,15 @@ describe("src/commands/import.ts", () => {
 	it("should import single file correctly", async () => {
 		vi.mocked(fetchSkillFromGitHub).mockResolvedValue({
 			tempDir: "/tmp/item",
-			skillName: "agent.md",
+			skillName: "skill.md",
 			isFile: true,
 		})
 
-		await importItem("agent", "url")
+		await importItem("skill", "url")
 
 		expect(fs.copy).toHaveBeenCalledWith(
-			expect.stringContaining("agent.md"),
-			expect.stringContaining("agent.md"),
+			"/tmp/item/skill.md",
+			"/mock/skills/skill.md",
 			expect.anything(),
 		)
 	})

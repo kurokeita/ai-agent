@@ -5,7 +5,6 @@ import {
 	intro,
 	isCancel,
 	outro,
-	select,
 	spinner,
 	text,
 } from "@clack/prompts"
@@ -23,20 +22,7 @@ export async function importItem(
 		intro(pc.bgCyan(pc.black(" AI Manager : Import ")))
 	}
 
-	let currentType = type
-	if (!currentType) {
-		const selectedType = await select({
-			message: "What would you like to import?",
-			options: [
-				{ label: "Skill", value: "skill" },
-				{ label: "Agent", value: "agent" },
-				{ label: "Workflow", value: "workflow" },
-			],
-		})
-
-		if (isCancel(selectedType)) return
-		currentType = selectedType as string
-	}
+	const currentType = type || "skill"
 
 	// Normalize type
 	const normalizedType = currentType.toLowerCase().endsWith("s")
@@ -45,7 +31,7 @@ export async function importItem(
 	const targetBaseDir = TYPE_DIRS[normalizedType]
 
 	if (!targetBaseDir) {
-		cancel(`Unknown type: ${currentType}. Supported: skill, agent, workflow`)
+		cancel(`Unknown type: ${currentType}. Supported: skill`)
 		process.exit(1)
 		return
 	}
@@ -88,42 +74,10 @@ export async function importItem(
 		}
 
 		// 2. Determine Target
-		const shouldFlatten =
-			(normalizedType === "agent" || normalizedType === "workflow") && !isFile
-		const targetPath = shouldFlatten
-			? targetBaseDir
-			: path.join(targetBaseDir, itemName)
+		const targetPath = path.join(targetBaseDir, itemName)
 
 		// 3. Check Existence & Confirm Overwrite
-		if (shouldFlatten) {
-			const srcFiles = await fs.readdir(tempDir)
-			const conflicts: string[] = []
-			for (const file of srcFiles) {
-				if (await fs.pathExists(path.join(targetBaseDir, file))) {
-					conflicts.push(file)
-				}
-			}
-
-			if (conflicts.length > 0) {
-				const limit = 5
-				const displayList = conflicts.slice(0, limit).join(", ")
-				const remainder = conflicts.length - limit
-				const message =
-					remainder > 0
-						? `Files ${displayList} (and ${remainder} others) already exist in ${targetBaseDir}. Overwrite?`
-						: `Files ${displayList} already exist in ${targetBaseDir}. Overwrite?`
-
-				const shouldOverwrite = await confirm({
-					message,
-					initialValue: false,
-				})
-
-				if (isCancel(shouldOverwrite) || !shouldOverwrite) {
-					await fs.remove(tempDir)
-					return
-				}
-			}
-		} else if (await fs.pathExists(targetPath)) {
+		if (await fs.pathExists(targetPath)) {
 			const shouldOverwrite = await confirm({
 				message: `${normalizedType} '${itemName}' already exists in the repo. Overwrite?`,
 				initialValue: false,
@@ -143,11 +97,7 @@ export async function importItem(
 				overwrite: true,
 			})
 		} else {
-			if (shouldFlatten) {
-				await fs.copy(tempDir, targetBaseDir, { overwrite: true })
-			} else {
-				await fs.copy(tempDir, targetPath, { overwrite: true })
-			}
+			await fs.copy(tempDir, targetPath, { overwrite: true })
 		}
 		s.stop(pc.green(`Successfully imported ${itemName}!`))
 

@@ -17,12 +17,7 @@ import {
 	wireAgentSetup,
 } from "../../utils/agent-setup.js"
 import { fetchSkillFromGitHub } from "../../utils/github.js"
-import {
-	getAgentsBase,
-	PLATFORM_LABELS,
-	TYPE_DIRS,
-	TYPE_SUBDIRS,
-} from "../../utils/paths.js"
+import { getAgentsBase, PLATFORM_LABELS, TYPE_DIRS } from "../../utils/paths.js"
 import { chooseInstallScope } from "../../utils/scope-prompt.js"
 import {
 	hasSkillHooks,
@@ -66,11 +61,6 @@ describe(add.name, () => {
 		} as fs.Stats)
 
 		vi.mocked(TYPE_DIRS).skill = "/mock/skills"
-		vi.mocked(TYPE_DIRS).agent = "/mock/agents"
-		vi.mocked(TYPE_DIRS).workflow = "/mock/workflows"
-		vi.mocked(TYPE_SUBDIRS).skill = "skills"
-		vi.mocked(TYPE_SUBDIRS).agent = "agents"
-		vi.mocked(TYPE_SUBDIRS).workflow = "commands"
 		vi.mocked(getAgentsBase).mockReturnValue("/mock/home/.agents")
 		vi.mocked(PLATFORM_LABELS)["claude-code"] = "Claude Code"
 		vi.mocked(PLATFORM_LABELS).gemini = "Gemini CLI"
@@ -126,6 +116,14 @@ describe(add.name, () => {
 		expect(mockExit).toHaveBeenCalledWith(1)
 	})
 
+	it("should reject a removed type even with a URL", async () => {
+		await add("agent", "https://github.com/o/r/tree/main/a")
+		expect(prompts.cancel).toHaveBeenCalledWith(
+			"Unknown type: agent. Supported: skill",
+		)
+		expect(fetchSkillFromGitHub).not.toHaveBeenCalled()
+	})
+
 	it("should install a local skill into .agents/skills", async () => {
 		mkLocalSkill()
 		targetMissing()
@@ -139,56 +137,6 @@ describe(add.name, () => {
 			{ overwrite: true },
 		)
 		expect(prompts.outro).toHaveBeenCalled()
-	})
-
-	it("should install a local agent .md into .agents/agents", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "my-agent.md",
-				isDirectory: () => false,
-				isFile: () => true,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"my-agent.md",
-		])
-		targetMissing()
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
-
-		await add("agent")
-
-		expect(fs.copy).toHaveBeenCalledWith(
-			"/mock/agents/my-agent.md",
-			"/mock/home/.agents/agents/my-agent.md",
-			{ overwrite: true },
-		)
-	})
-
-	it("should install a workflow into .agents/commands", async () => {
-		vi.mocked(
-			fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-		).mockResolvedValueOnce([
-			{
-				name: "flow.md",
-				isDirectory: () => false,
-				isFile: () => true,
-			} as fs.Dirent,
-		])
-		vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-			"flow.md",
-		])
-		targetMissing()
-		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
-
-		await add("workflow")
-
-		expect(fs.copy).toHaveBeenCalledWith(
-			"/mock/workflows/flow.md",
-			"/mock/home/.agents/commands/flow.md",
-			{ overwrite: true },
-		)
 	})
 
 	it("should handle GitHub fetch and installation for a directory (tree)", async () => {
@@ -283,20 +231,19 @@ describe(add.name, () => {
 		)
 	})
 
-	it("should support interactive loop starting from no type", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
+	it("should go straight to the skill picker when no type is given", async () => {
 		mkLocalSkill("skill1")
 		targetMissing()
 		vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
 
 		await add()
 
-		expect(prompts.select).toHaveBeenCalledWith(
-			expect.objectContaining({ message: "What would you like to add?" }),
+		expect(prompts.select).not.toHaveBeenCalled()
+		expect(fs.copy).toHaveBeenCalledWith(
+			"/mock/skills/skill1",
+			"/mock/home/.agents/skills/skill1",
+			{ overwrite: true },
 		)
-		expect(fs.copy).toHaveBeenCalled()
 	})
 
 	it("should skip intro and outro if skipIntro option is true", async () => {
@@ -305,8 +252,7 @@ describe(add.name, () => {
 		expect(prompts.outro).not.toHaveBeenCalled()
 	})
 
-	it("should handle error in loop gracefully", async () => {
-		vi.mocked(prompts.select).mockResolvedValueOnce("skill")
+	it("should handle errors gracefully", async () => {
 		vi.mocked(fs.pathExists as () => Promise<boolean>).mockRejectedValue(
 			new Error("Loop crash"),
 		)
@@ -372,20 +318,17 @@ describe(add.name, () => {
 		expect(dropAgentsEntry).not.toHaveBeenCalled()
 	})
 
-	it("should bail to the loop when the up-front overwrite prompt is cancelled", async () => {
-		vi.mocked(prompts.select)
-			.mockResolvedValueOnce("skill")
-			.mockResolvedValueOnce("exit")
+	it("should bail when the up-front overwrite prompt is cancelled", async () => {
 		mkLocalSkill("item")
 		vi.mocked(fs.pathExists).mockResolvedValue(true as never)
 		vi.mocked(prompts.multiselect).mockResolvedValueOnce(Symbol("cancel"))
 		vi.mocked(prompts.isCancel)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(false)
-			.mockReturnValueOnce(true)
+			.mockReturnValueOnce(false) // autocomplete items
+			.mockReturnValueOnce(true) // overwrite multiselect
 		await add()
 		expect(fs.copy).not.toHaveBeenCalled()
 		expect(wireAgentSetup).not.toHaveBeenCalled()
+		expect(prompts.outro).toHaveBeenCalled()
 	})
 
 	it("should handle non-Error exception during installation", async () => {
@@ -758,25 +701,6 @@ describe(add.name, () => {
 			await add("skill")
 			expect(prompts.confirm).toHaveBeenCalledTimes(1)
 			expect(planSkillHooks).not.toHaveBeenCalled()
-		})
-
-		it("should not look for hooks on agents or workflows", async () => {
-			vi.mocked(
-				fs.readdir as unknown as () => Promise<fs.Dirent<string>[]>,
-			).mockResolvedValueOnce([
-				{
-					name: "flow.md",
-					isDirectory: () => false,
-					isFile: () => true,
-				} as fs.Dirent,
-			])
-			vi.mocked(prompts.autocompleteMultiselect).mockResolvedValueOnce([
-				"flow.md",
-			])
-			targetMissing()
-			vi.mocked(prompts.confirm).mockResolvedValueOnce(false)
-			await add("workflow")
-			expect(hasSkillHooks).not.toHaveBeenCalled()
 		})
 
 		it("should escape control characters in what the prompt shows", async () => {
