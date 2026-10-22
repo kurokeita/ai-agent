@@ -38,4 +38,6 @@ jobs:
       - name: Release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # npm logs a failed trusted-publishing token exchange only at verbose.
+          NPM_CONFIG_LOGLEVEL: verbose
         run: pnpm release
