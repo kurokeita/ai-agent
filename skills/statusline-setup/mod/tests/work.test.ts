@@ -284,6 +284,9 @@ test("a new session never opens the pane by itself, even after its own turns", a
 	session.turns = 1
 	await clock.advance(10_000)
 	expect(opened).toEqual([])
+	await $.command.run({ command: "work", args: "" })
+	await clock.settle()
+	expect(opened).toEqual(["work-pane"])
 })
 
 test("--resume opens the pane at start and summarizes once", async ($, on) => {
