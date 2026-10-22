@@ -82,7 +82,7 @@ async function refreshWork($: EngineInterface) {
 				prs: [],
 				items: [],
 				fetchedAt: Date.now(),
-				error: "origin is neither GitHub nor Azure DevOps.",
+				isUnsupported: true,
 			}))
 			return
 		}
@@ -275,6 +275,7 @@ export const register: Register = (on) => {
 			)
 		const prs = current?.prs ?? []
 		const items = current?.items ?? []
+		const hasWork = !current?.isUnsupported
 
 		return (
 			<Box flexDirection="column" rowGap={1}>
@@ -314,78 +315,82 @@ export const register: Register = (on) => {
 					</Box>
 				)}
 
-				<Box flexDirection="column">
-					<Text>
-						<Text bold color="planMode">
-							Pull requests
-						</Text>
-						<Text dimColor>
-							{" "}
-							{prs.length}
-							{fetching ? " · updating…" : ""}
-						</Text>
-					</Text>
-					{current?.error && <Text color="error">{current.error}</Text>}
-					{prs.length === 0 && !current?.error && (
-						<Text dimColor>None found for this session yet.</Text>
-					)}
-					{prs.map((pr) => (
-						<Box flexDirection="column">
-							<Box flexDirection="row" columnGap={1}>
-								<Button
-									key={`toggle-${pr.number}`}
-									plain
-									label={shut.includes(pr.number) ? "▸" : "▾"}
-									onPress={() => void toggle(pr)}
-								/>
-								<Text wrap="truncate-end">
-									<Link href={pr.url}>#{pr.number}</Link>
-									<Text color={STATE_COLOR[pr.state] ?? "text"}>
-										{" "}
-										{pr.state}
-									</Text>
-									<Text dimColor> [{pr.branch}]</Text> {pr.title}
-								</Text>
-							</Box>
-							{!shut.includes(pr.number) && (
-								<Text>
-									{"  "}
-									{pr.review && (
-										<Text
-											color={pr.review === "approved" ? "success" : "warning"}
-										>
-											{pr.review}{" "}
-										</Text>
-									)}
-									<Text color={CHECKS[pr.checks].color}>
-										{CHECKS[pr.checks].text}
-									</Text>
-									<Text dimColor> {pr.comments} comments</Text>
-								</Text>
-							)}
-						</Box>
-					))}
-				</Box>
-
-				<Box flexDirection="column">
-					<Text>
-						<Text bold color="planMode">
-							Work items
-						</Text>
-						<Text dimColor> {items.length}</Text>
-					</Text>
-					{items.length === 0 && <Text dimColor>None linked yet.</Text>}
-					{items.map((item) => (
-						<Text wrap="truncate-end">
-							<Link href={item.url}>#{item.id}</Link>
-							<Text color={STATE_COLOR[item.state] ?? "text"}>
+				{hasWork && (
+					<Box flexDirection="column">
+						<Text>
+							<Text bold color="planMode">
+								Pull requests
+							</Text>
+							<Text dimColor>
 								{" "}
-								{item.state}
-							</Text>{" "}
-							{item.title}
+								{prs.length}
+								{fetching ? " · updating…" : ""}
+							</Text>
 						</Text>
-					))}
-				</Box>
+						{current?.error && <Text color="error">{current.error}</Text>}
+						{prs.length === 0 && !current?.error && (
+							<Text dimColor>None found for this session yet.</Text>
+						)}
+						{prs.map((pr) => (
+							<Box flexDirection="column">
+								<Box flexDirection="row" columnGap={1}>
+									<Button
+										key={`toggle-${pr.number}`}
+										plain
+										label={shut.includes(pr.number) ? "▸" : "▾"}
+										onPress={() => void toggle(pr)}
+									/>
+									<Text wrap="truncate-end">
+										<Link href={pr.url}>#{pr.number}</Link>
+										<Text color={STATE_COLOR[pr.state] ?? "text"}>
+											{" "}
+											{pr.state}
+										</Text>
+										<Text dimColor> [{pr.branch}]</Text> {pr.title}
+									</Text>
+								</Box>
+								{!shut.includes(pr.number) && (
+									<Text>
+										{"  "}
+										{pr.review && (
+											<Text
+												color={pr.review === "approved" ? "success" : "warning"}
+											>
+												{pr.review}{" "}
+											</Text>
+										)}
+										<Text color={CHECKS[pr.checks].color}>
+											{CHECKS[pr.checks].text}
+										</Text>
+										<Text dimColor> {pr.comments} comments</Text>
+									</Text>
+								)}
+							</Box>
+						))}
+					</Box>
+				)}
+
+				{hasWork && (
+					<Box flexDirection="column">
+						<Text>
+							<Text bold color="planMode">
+								Work items
+							</Text>
+							<Text dimColor> {items.length}</Text>
+						</Text>
+						{items.length === 0 && <Text dimColor>None linked yet.</Text>}
+						{items.map((item) => (
+							<Text wrap="truncate-end">
+								<Link href={item.url}>#{item.id}</Link>
+								<Text color={STATE_COLOR[item.state] ?? "text"}>
+									{" "}
+									{item.state}
+								</Text>{" "}
+								{item.title}
+							</Text>
+						))}
+					</Box>
+				)}
 
 				<Box flexDirection="row" columnGap={1}>
 					<Button
@@ -394,11 +399,13 @@ export const register: Register = (on) => {
 						hotkey="r"
 						onPress={() => void Promise.all([refreshWork($), summarize($)])}
 					/>
-					<Text dimColor>
-						{current
-							? `PRs updated ${ago(current.fetchedAt)}`
-							: "PRs not fetched yet"}
-					</Text>
+					{hasWork && (
+						<Text dimColor>
+							{current
+								? `PRs updated ${ago(current.fetchedAt)}`
+								: "PRs not fetched yet"}
+						</Text>
+					)}
 				</Box>
 			</Box>
 		)

@@ -15,6 +15,7 @@ export type Work = {
 	items: Item[]
 	fetchedAt: number
 	error?: string
+	isUnsupported?: boolean
 }
 export type Step = { text: string; status: "done" | "current" | "todo" }
 export type Summary =

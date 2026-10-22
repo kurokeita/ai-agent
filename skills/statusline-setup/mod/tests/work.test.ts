@@ -231,6 +231,23 @@ test("Refresh skips the model while the session has no messages", async ($, on) 
 	await ui.unmount()
 })
 
+test("a remote that is neither GitHub nor Azure DevOps hides PRs and work items", async ($, on) => {
+	fakeWorld(on, [], [message("hello")], (argv) =>
+		argv[0] === "git" && argv[1] === "remote"
+			? "git@gitlab.com:o/repo.git\n"
+			: undefined,
+	)
+	const ui = await $.ui.mount({ ...PANE, surface: "terminal" })
+	await ui.press({ key: "refresh" })
+	expect(
+		await ui.find({ type: "Text", text: /Ship the thing\./ }),
+	).toBeDefined()
+	for (const text of [/Pull requests/, /Work items/, /neither/, /^PRs /])
+		expect(await ui.find({ type: "Text", text })).toBeUndefined()
+	expect(await ui.find({ type: "Button", label: "Refresh" })).toBeDefined()
+	await ui.unmount()
+})
+
 function fakeSession(on: On, start: { id: string; turns: number }) {
 	const session = { ...start }
 	on("session.id", () => ({ value: session.id }))

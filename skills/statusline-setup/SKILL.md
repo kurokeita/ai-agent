@@ -883,6 +883,8 @@ What it shows, in a side pane:
 - **Pull requests**: the current branch's, those of branches this session committed to, and any PR of this repository linked in the conversation. Each shows its state, review, checks and comment count.
 - **Work items**: the PRs' linked issues or work items. For a branch without a PR, the item numbers in the branch name (a 3 to 9 digit segment, or a `gh issue develop` `<n>-` prefix) and in commits not yet on the default branch (`#<n>` on GitHub, `AB#<n>` on Azure DevOps).
 
+When `origin` is neither GitHub nor Azure DevOps, or there is no repo, the pane hides both sections and shows only the summary and steps.
+
 How it opens:
 
 - `/work` opens and focuses it. Up/Down or PgUp/PgDn scroll, `r` refreshes, Esc closes.
