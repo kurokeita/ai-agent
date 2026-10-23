@@ -1,5 +1,12 @@
 # @kurokeita/add-skill (AI Manager)
 
+[![build](https://img.shields.io/github/actions/workflow/status/kurokeita/ai-agent/release.yml?branch=main)](https://github.com/kurokeita/ai-agent/actions/workflows/release.yml)
+[![npm version](https://img.shields.io/npm/v/@kurokeita/add-skill)](https://www.npmjs.com/package/@kurokeita/add-skill)
+[![npm downloads](https://img.shields.io/npm/dt/@kurokeita/add-skill)](https://www.npmjs.com/package/@kurokeita/add-skill)
+[![license](https://img.shields.io/npm/l/@kurokeita/add-skill)](https://github.com/kurokeita/ai-agent/blob/main/LICENSE.md)
+[![semantic-release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
+[![code style: biome](https://img.shields.io/badge/code_style-biome-60a5fa.svg)](https://biomejs.dev)
+
 CLI to manage and install AI agent skills to various platforms.
 
 ## Features
