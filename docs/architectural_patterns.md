@@ -8,7 +8,7 @@ This document details the recurring architectural, design, and structural patter
 - **Location/Example**: [bin/cli.ts:L82-L121](../bin/cli.ts#L82-L121) (Command registration) and [src/commands/add.ts](../src/commands/add.ts) (Command execution logic).
 - **Implementation Details**:
   - `bin/cli.ts` configures command signatures and parameters using `commander`.
-  - The business logic is isolated in standalone handler functions (e.g., `add`, `list`, `remove`, `importItem`) in the `src/commands/` directory, keeping CLI routing clean and testable.
+  - The business logic is isolated in standalone handler functions (e.g., `add`, `list`, `remove`) in the `src/commands/` directory, keeping CLI routing clean and testable.
 
 ## 2. Interactive Prompts Loop
 

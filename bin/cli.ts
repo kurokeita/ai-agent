@@ -1,9 +1,8 @@
 #!/usr/bin/env node
-import { intro, isCancel, outro, select } from "@clack/prompts"
+import { intro, isCancel, outro, select, text } from "@clack/prompts"
 import { Command } from "commander"
 import pc from "picocolors"
 import { add } from "@/commands/add"
-import { importItem } from "@/commands/import"
 import { list } from "@/commands/list"
 import { remove } from "@/commands/remove"
 import type { Scope } from "@/utils/paths"
@@ -48,9 +47,9 @@ async function interactiveMain() {
 		const action = await select({
 			message: "What would you like to do?",
 			options: [
-				{ label: "Add Skills (Install)", value: "add" },
+				{ label: "Install Skills", value: "add" },
+				{ label: "Install from GitHub", value: "install-url" },
 				{ label: "List Skills", value: "list" },
-				{ label: "Import from GitHub", value: "import" },
 				{ label: "Remove Skills", value: "remove" },
 				{ label: "Exit", value: "exit" },
 			],
@@ -67,9 +66,20 @@ async function interactiveMain() {
 			case "list":
 				await list(undefined, { skipIntro: true })
 				break
-			case "import":
-				await importItem(undefined, undefined, { skipIntro: true })
+			case "install-url": {
+				const url = await text({
+					message: "Enter the GitHub URL:",
+					placeholder: "https://github.com/owner/repo/tree/main/path/to/skill",
+					validate: (value) => {
+						if (!value) return "URL is required."
+						if (!value.startsWith("https://github.com/"))
+							return "Must be a GitHub URL."
+					},
+				})
+				if (isCancel(url)) break
+				await add("skill", url, { skipIntro: true })
 				break
+			}
 			case "remove":
 				await remove(undefined, { skipIntro: true })
 				break
@@ -99,13 +109,6 @@ program
 	.action(async (type, url, opts) => {
 		const scope = parseScopeFlag(opts?.scope)
 		await add(type, url, { scope })
-	})
-
-program
-	.command("import [type] [url]")
-	.description("Import a skill from GitHub to the repo")
-	.action(async (type, url) => {
-		await importItem(type || "", url || "")
 	})
 
 program
