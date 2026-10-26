@@ -48,8 +48,8 @@ async function interactiveMain() {
 			message: "What would you like to do?",
 			options: [
 				{ label: "Add Skills (Install)", value: "add" },
-				{ label: "List Skills", value: "list" },
 				{ label: "Install from GitHub", value: "install-url" },
+				{ label: "List Skills", value: "list" },
 				{ label: "Remove Skills", value: "remove" },
 				{ label: "Exit", value: "exit" },
 			],
