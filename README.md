@@ -15,7 +15,7 @@ CLI to manage and install AI agent skills to various platforms.
 - **Local status**: Check which skills are installed locally.
 - **Add Skills**: Interactively add skills with live search/filtering support.
 - **Remove Skills**: Remove locally installed skills with live search/filtering support.
-- **Import**: Import skills directly from GitHub URLs.
+- **Install from GitHub**: Install skills directly from GitHub URLs.
 
 ## Usage
 
@@ -72,14 +72,6 @@ Install a skill directly from a GitHub URL.
 
 ```bash
 pnpx @kurokeita/add-skill add skill https://github.com/owner/repo/tree/main/skills/skill-name
-```
-
-### Import to Repository (For Maintainers)
-
-Import a skill from GitHub into this repository.
-
-```bash
-pnpm dev import skill https://github.com/owner/repo/tree/main/skills/skill-name
 ```
 
 ## How Installs Work
