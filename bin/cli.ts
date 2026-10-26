@@ -47,7 +47,7 @@ async function interactiveMain() {
 		const action = await select({
 			message: "What would you like to do?",
 			options: [
-				{ label: "Add Skills (Install)", value: "add" },
+				{ label: "Install Skills", value: "add" },
 				{ label: "Install from GitHub", value: "install-url" },
 				{ label: "List Skills", value: "list" },
 				{ label: "Remove Skills", value: "remove" },
